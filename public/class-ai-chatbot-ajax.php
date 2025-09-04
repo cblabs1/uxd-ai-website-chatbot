@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  */
-class AI_Chatbot_Admin {
+class AI_Chatbot_Ajax {
 
 	/**
 	 * Plugin name

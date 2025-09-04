@@ -1,373 +1,459 @@
 <?php
 /**
- * Admin Settings Class
+ * AI Chatbot Admin Settings Class
+ * 
+ * Handles all settings-related functionality for the AI Chatbot plugin
  *
  * @package AI_Website_Chatbot
  * @since 1.0.0
  */
 
 if (!defined('ABSPATH')) {
-    exit;
+    exit; // Exit if accessed directly
 }
 
 /**
- * Admin settings functionality.
+ * Class AI_Chatbot_Admin_Settings
  */
 class AI_Chatbot_Admin_Settings {
-
+    
     /**
-     * The plugin name.
-     *
-     * @var string
-     * @since 1.0.0
+     * Constructor - No parameters required
      */
-    private $plugin_name;
-
-    /**
-     * The plugin version.
-     *
-     * @var string
-     * @since 1.0.0
-     */
-    private $version;
-
-    /**
-     * Settings sections.
-     *
-     * @var array
-     * @since 1.0.0
-     */
-    private $sections;
-
-    /**
-     * Initialize the class.
-     *
-     * @param string $plugin_name Plugin name.
-     * @param string $version Plugin version.
-     * @since 1.0.0
-     */
-    public function __construct($plugin_name, $version) {
-        $this->plugin_name = $plugin_name;
-        $this->version = $version;
-        $this->sections = $this->get_settings_sections();
-
-        add_action('wp_ajax_ai_chatbot_test_connection', array($this, 'test_connection'));
-        add_action('wp_ajax_ai_chatbot_reset_stats', array($this, 'reset_usage_stats'));
+    public function __construct() {
+        // Initialize settings hooks
+        $this->init_hooks();
     }
-
+    
     /**
-     * Register settings.
-     *
-     * @since 1.0.0
+     * Initialize hooks
      */
-    public function register_settings() {
-        foreach ($this->sections as $section_id => $section) {
-            add_settings_section(
-                $section_id,
-                $section['title'],
-                array($this, 'section_callback'),
-                $this->plugin_name . '-settings'
-            );
-
-            foreach ($section['fields'] as $field_id => $field) {
-                register_setting(
-                    $this->plugin_name . '-settings',
-                    $field_id,
-                    array(
-                        'sanitize_callback' => array($this, 'sanitize_field'),
-                        'default' => $field['default'] ?? '',
-                    )
-                );
-
-                add_settings_field(
-                    $field_id,
-                    $field['label'],
-                    array($this, 'field_callback'),
-                    $this->plugin_name . '-settings',
-                    $section_id,
-                    array(
-                        'field_id' => $field_id,
-                        'field' => $field,
-                    )
-                );
-            }
+    private function init_hooks() {
+        // AJAX handlers for settings
+        add_action('wp_ajax_ai_chatbot_save_settings', array($this, 'ajax_save_settings'));
+        add_action('wp_ajax_ai_chatbot_reset_settings', array($this, 'ajax_reset_settings'));
+        add_action('wp_ajax_ai_chatbot_test_api_connection', array($this, 'ajax_test_api_connection'));
+        add_action('wp_ajax_ai_chatbot_sync_content', array($this, 'ajax_sync_content'));
+    }
+    
+    /**
+     * Render settings page
+     */
+    public function render_settings_page() {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'ai-website-chatbot'));
         }
+        
+        // Get current settings
+        $settings = $this->get_settings();
+        
+        // Handle form submission
+        if (isset($_POST['submit']) && check_admin_referer('ai_chatbot_settings_nonce')) {
+            $this->handle_settings_update();
+        }
+        
+        // Include settings template
+        include AI_CHATBOT_PLUGIN_DIR . 'admin/partials/admin-settings-display.php';
     }
-
+    
     /**
-     * Display settings page.
-     *
-     * @since 1.0.0
+     * Get plugin settings with defaults
      */
-    public function display_settings_page() {
-        include_once plugin_dir_path(__FILE__) . 'partials/admin-settings-display.php';
+    public function get_settings() {
+        $defaults = $this->get_default_settings();
+        $settings = get_option('ai_chatbot_settings', array());
+        
+        return wp_parse_args($settings, $defaults);
     }
-
+    
     /**
-     * Get settings sections.
-     *
-     * @return array Settings sections.
-     * @since 1.0.0
+     * Get default settings
      */
-    private function get_settings_sections() {
+    private function get_default_settings() {
         return array(
-            'general' => array(
-                'title' => __('General Settings', 'ai-website-chatbot'),
-                'fields' => array(
-                    'ai_chatbot_enabled' => array(
-                        'label' => __('Enable Chatbot', 'ai-website-chatbot'),
-                        'type' => 'checkbox',
-                        'description' => __('Enable or disable the chatbot', 'ai-website-chatbot'),
-                        'default' => '1',
-                    ),
-                    'ai_chatbot_provider' => array(
-                        'label' => __('AI Provider', 'ai-website-chatbot'),
-                        'type' => 'select',
-                        'options' => array(
-                            'openai' => 'OpenAI (ChatGPT)',
-                            'claude' => 'Anthropic Claude',
-                            'gemini' => 'Google Gemini',
-                        ),
-                        'description' => __('Choose your AI provider', 'ai-website-chatbot'),
-                        'default' => 'openai',
-                    ),
-                    'ai_chatbot_position' => array(
-                        'label' => __('Chatbot Position', 'ai-website-chatbot'),
-                        'type' => 'select',
-                        'options' => array(
-                            'bottom-right' => __('Bottom Right', 'ai-website-chatbot'),
-                            'bottom-left' => __('Bottom Left', 'ai-website-chatbot'),
-                            'top-right' => __('Top Right', 'ai-website-chatbot'),
-                            'top-left' => __('Top Left', 'ai-website-chatbot'),
-                        ),
-                        'default' => 'bottom-right',
-                    ),
-                    'ai_chatbot_welcome_message' => array(
-                        'label' => __('Welcome Message', 'ai-website-chatbot'),
-                        'type' => 'textarea',
-                        'description' => __('Initial message shown to users', 'ai-website-chatbot'),
-                        'default' => __('Hello! How can I help you today?', 'ai-website-chatbot'),
-                    ),
-                    'ai_chatbot_custom_prompt' => array(
-                        'label' => __('Custom System Prompt', 'ai-website-chatbot'),
-                        'type' => 'textarea',
-                        'description' => __('Custom instructions for the AI (leave empty for default)', 'ai-website-chatbot'),
-                        'default' => '',
-                    ),
-                ),
+            // General Settings
+            'enabled' => false,
+            'widget_position' => 'bottom-right',
+            'widget_color' => '#0073aa',
+            'welcome_message' => __('Hello! How can I help you today?', 'ai-website-chatbot'),
+            'offline_message' => __('Sorry, the chatbot is currently offline. Please try again later.', 'ai-website-chatbot'),
+            
+            // AI Provider Settings
+            'ai_provider' => 'openai',
+            'api_key' => '',
+            'model' => 'gpt-3.5-turbo',
+            'max_tokens' => 150,
+            'temperature' => 0.7,
+            'system_prompt' => __('You are a helpful assistant for this website. Provide accurate and helpful responses based on the website content.', 'ai-website-chatbot'),
+            
+            // Display Settings
+            'show_on_pages' => array('all'),
+            'hide_on_pages' => array(),
+            'widget_size' => 'medium',
+            'animation_style' => 'slide',
+            'show_typing_indicator' => true,
+            'show_timestamp' => true,
+            
+            // Rate Limiting
+            'rate_limiting' => array(
+                'enabled' => true,
+                'max_requests' => 10,
+                'time_window' => 3600, // 1 hour
+                'blocked_message' => __('You have reached the maximum number of requests. Please try again later.', 'ai-website-chatbot')
             ),
-            'appearance' => array(
-                'title' => __('Appearance Settings', 'ai-website-chatbot'),
-                'fields' => array(
-                    'ai_chatbot_theme' => array(
-                        'label' => __('Theme', 'ai-website-chatbot'),
-                        'type' => 'select',
-                        'options' => array(
-                            'modern' => __('Modern', 'ai-website-chatbot'),
-                            'classic' => __('Classic', 'ai-website-chatbot'),
-                            'minimal' => __('Minimal', 'ai-website-chatbot'),
-                        ),
-                        'default' => 'modern',
-                    ),
-                    'ai_chatbot_primary_color' => array(
-                        'label' => __('Primary Color', 'ai-website-chatbot'),
-                        'type' => 'color',
-                        'default' => '#007cba',
-                    ),
-                    'ai_chatbot_width' => array(
-                        'label' => __('Chat Width (px)', 'ai-website-chatbot'),
-                        'type' => 'number',
-                        'min' => 300,
-                        'max' => 800,
-                        'default' => 350,
-                    ),
-                    'ai_chatbot_height' => array(
-                        'label' => __('Chat Height (px)', 'ai-website-chatbot'),
-                        'type' => 'number',
-                        'min' => 400,
-                        'max' => 800,
-                        'default' => 500,
-                    ),
-                ),
+            
+            // Content Sync
+            'content_sync' => array(
+                'enabled' => false,
+                'post_types' => array('post', 'page'),
+                'sync_frequency' => 'daily',
+                'auto_sync' => true,
+                'include_excerpt' => true,
+                'include_content' => false
             ),
-            'privacy' => array(
-                'title' => __('Privacy & Data', 'ai-website-chatbot'),
-                'fields' => array(
-                    'ai_chatbot_store_conversations' => array(
-                        'label' => __('Store Conversations', 'ai-website-chatbot'),
-                        'type' => 'checkbox',
-                        'description' => __('Store conversation logs for analytics', 'ai-website-chatbot'),
-                        'default' => '1',
-                    ),
-                    'ai_chatbot_data_retention_days' => array(
-                        'label' => __('Data Retention (days)', 'ai-website-chatbot'),
-                        'type' => 'number',
-                        'min' => 1,
-                        'max' => 365,
-                        'description' => __('How long to keep conversation data', 'ai-website-chatbot'),
-                        'default' => 30,
-                    ),
-                    'ai_chatbot_collect_user_data' => array(
-                        'label' => __('Collect User Data', 'ai-website-chatbot'),
-                        'type' => 'checkbox',
-                        'description' => __('Collect user email/name if provided', 'ai-website-chatbot'),
-                        'default' => '0',
-                    ),
-                ),
+            
+            // GDPR Settings
+            'gdpr' => array(
+                'enabled' => false,
+                'data_retention_days' => 30,
+                'privacy_policy_url' => '',
+                'cookie_consent' => false,
+                'anonymize_data' => true
             ),
+            
+            // Advanced Settings
+            'debug_mode' => false,
+            'log_conversations' => true,
+            'cache_responses' => false,
+            'custom_css' => '',
+            'custom_js' => ''
         );
     }
-
+    
     /**
-     * Section callback.
-     *
-     * @param array $args Section arguments.
-     * @since 1.0.0
+     * Handle settings update
      */
-    public function section_callback($args) {
-        $section_descriptions = array(
-            'general' => __('Configure basic chatbot settings.', 'ai-website-chatbot'),
-            'appearance' => __('Customize the chatbot appearance.', 'ai-website-chatbot'),
-            'privacy' => __('Configure privacy and data handling.', 'ai-website-chatbot'),
-        );
-
-        if (isset($section_descriptions[$args['id']])) {
-            echo '<p>' . esc_html($section_descriptions[$args['id']]) . '</p>';
+    private function handle_settings_update() {
+        if (!isset($_POST['ai_chatbot_settings']) || !is_array($_POST['ai_chatbot_settings'])) {
+            add_settings_error('ai_chatbot_settings', 'invalid_data', __('Invalid settings data.', 'ai-website-chatbot'));
+            return;
+        }
+        
+        $new_settings = $_POST['ai_chatbot_settings'];
+        $sanitized_settings = $this->sanitize_settings($new_settings);
+        
+        // Save settings
+        $updated = update_option('ai_chatbot_settings', $sanitized_settings);
+        
+        if ($updated) {
+            add_settings_error('ai_chatbot_settings', 'settings_updated', __('Settings saved successfully!', 'ai-website-chatbot'), 'updated');
+            
+            // Trigger content sync if enabled and settings changed
+            if ($sanitized_settings['content_sync']['enabled']) {
+                $this->maybe_trigger_content_sync();
+            }
+        } else {
+            add_settings_error('ai_chatbot_settings', 'settings_error', __('Failed to save settings. Please try again.', 'ai-website-chatbot'));
         }
     }
-
+    
     /**
-     * Field callback.
-     *
-     * @param array $args Field arguments.
-     * @since 1.0.0
+     * Sanitize settings input
      */
-    public function field_callback($args) {
-        $field_id = $args['field_id'];
-        $field = $args['field'];
-        $value = get_option($field_id, $field['default'] ?? '');
-
-        switch ($field['type']) {
-            case 'text':
-            case 'email':
-            case 'password':
-                echo '<input type="' . esc_attr($field['type']) . '" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="' . esc_attr($value) . '" class="regular-text" />';
-                break;
-
-            case 'number':
-                echo '<input type="number" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="' . esc_attr($value) . '" class="small-text"';
-                if (isset($field['min'])) echo ' min="' . esc_attr($field['min']) . '"';
-                if (isset($field['max'])) echo ' max="' . esc_attr($field['max']) . '"';
-                if (isset($field['step'])) echo ' step="' . esc_attr($field['step']) . '"';
-                echo ' />';
-                break;
-
-            case 'color':
-                echo '<input type="color" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="' . esc_attr($value) . '" />';
-                break;
-
-            case 'checkbox':
-                echo '<input type="checkbox" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="1" ' . checked($value, '1', false) . ' />';
-                echo '<label for="' . esc_attr($field_id) . '">' . esc_html($field['label']) . '</label>';
-                break;
-
-            case 'select':
-                echo '<select id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '">';
-                foreach ($field['options'] as $option_value => $option_label) {
-                    echo '<option value="' . esc_attr($option_value) . '" ' . selected($value, $option_value, false) . '>' . esc_html($option_label) . '</option>';
-                }
-                echo '</select>';
-                break;
-
-            case 'textarea':
-                echo '<textarea id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" rows="5" cols="50" class="large-text">' . esc_textarea($value) . '</textarea>';
-                break;
+    private function sanitize_settings($input) {
+        $sanitized = array();
+        
+        // General Settings
+        $sanitized['enabled'] = !empty($input['enabled']);
+        $sanitized['widget_position'] = sanitize_text_field($input['widget_position'] ?? 'bottom-right');
+        $sanitized['widget_color'] = sanitize_hex_color($input['widget_color'] ?? '#0073aa');
+        $sanitized['welcome_message'] = sanitize_textarea_field($input['welcome_message'] ?? '');
+        $sanitized['offline_message'] = sanitize_textarea_field($input['offline_message'] ?? '');
+        
+        // AI Provider Settings
+        $sanitized['ai_provider'] = sanitize_text_field($input['ai_provider'] ?? 'openai');
+        $sanitized['api_key'] = sanitize_text_field($input['api_key'] ?? '');
+        $sanitized['model'] = sanitize_text_field($input['model'] ?? 'gpt-3.5-turbo');
+        $sanitized['max_tokens'] = absint($input['max_tokens'] ?? 150);
+        $sanitized['temperature'] = floatval($input['temperature'] ?? 0.7);
+        $sanitized['system_prompt'] = sanitize_textarea_field($input['system_prompt'] ?? '');
+        
+        // Display Settings
+        $sanitized['show_on_pages'] = is_array($input['show_on_pages']) ? array_map('sanitize_text_field', $input['show_on_pages']) : array('all');
+        $sanitized['hide_on_pages'] = is_array($input['hide_on_pages']) ? array_map('sanitize_text_field', $input['hide_on_pages']) : array();
+        $sanitized['widget_size'] = sanitize_text_field($input['widget_size'] ?? 'medium');
+        $sanitized['animation_style'] = sanitize_text_field($input['animation_style'] ?? 'slide');
+        $sanitized['show_typing_indicator'] = !empty($input['show_typing_indicator']);
+        $sanitized['show_timestamp'] = !empty($input['show_timestamp']);
+        
+        // Rate Limiting
+        if (isset($input['rate_limiting']) && is_array($input['rate_limiting'])) {
+            $sanitized['rate_limiting'] = array(
+                'enabled' => !empty($input['rate_limiting']['enabled']),
+                'max_requests' => absint($input['rate_limiting']['max_requests'] ?? 10),
+                'time_window' => absint($input['rate_limiting']['time_window'] ?? 3600),
+                'blocked_message' => sanitize_textarea_field($input['rate_limiting']['blocked_message'] ?? '')
+            );
         }
-
-        if (isset($field['description'])) {
-            echo '<p class="description">' . esc_html($field['description']) . '</p>';
+        
+        // Content Sync
+        if (isset($input['content_sync']) && is_array($input['content_sync'])) {
+            $sanitized['content_sync'] = array(
+                'enabled' => !empty($input['content_sync']['enabled']),
+                'post_types' => is_array($input['content_sync']['post_types']) ? array_map('sanitize_text_field', $input['content_sync']['post_types']) : array('post', 'page'),
+                'sync_frequency' => sanitize_text_field($input['content_sync']['sync_frequency'] ?? 'daily'),
+                'auto_sync' => !empty($input['content_sync']['auto_sync']),
+                'include_excerpt' => !empty($input['content_sync']['include_excerpt']),
+                'include_content' => !empty($input['content_sync']['include_content'])
+            );
         }
+        
+        // GDPR Settings
+        if (isset($input['gdpr']) && is_array($input['gdpr'])) {
+            $sanitized['gdpr'] = array(
+                'enabled' => !empty($input['gdpr']['enabled']),
+                'data_retention_days' => absint($input['gdpr']['data_retention_days'] ?? 30),
+                'privacy_policy_url' => esc_url_raw($input['gdpr']['privacy_policy_url'] ?? ''),
+                'cookie_consent' => !empty($input['gdpr']['cookie_consent']),
+                'anonymize_data' => !empty($input['gdpr']['anonymize_data'])
+            );
+        }
+        
+        // Advanced Settings
+        $sanitized['debug_mode'] = !empty($input['debug_mode']);
+        $sanitized['log_conversations'] = !empty($input['log_conversations']);
+        $sanitized['cache_responses'] = !empty($input['cache_responses']);
+        $sanitized['custom_css'] = wp_strip_all_tags($input['custom_css'] ?? '');
+        $sanitized['custom_js'] = wp_strip_all_tags($input['custom_js'] ?? '');
+        
+        return $sanitized;
     }
-
+    
     /**
-     * Sanitize field value.
-     *
-     * @param mixed $value Field value.
-     * @return mixed Sanitized value.
-     * @since 1.0.0
+     * AJAX: Save settings
      */
-    public function sanitize_field($value) {
-        if (is_array($value)) {
-            return array_map('sanitize_text_field', $value);
-        }
-        return sanitize_text_field($value);
-    }
-
-    /**
-     * Test API connection via AJAX.
-     *
-     * @since 1.0.0
-     */
-    public function test_connection() {
+    public function ajax_save_settings() {
         check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
-
+        
         if (!current_user_can('manage_options')) {
-            wp_die(__('Insufficient permissions', 'ai-website-chatbot'));
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
         }
-
+        
+        if (!isset($_POST['settings']) || !is_array($_POST['settings'])) {
+            wp_send_json_error(__('Invalid settings data', 'ai-website-chatbot'));
+        }
+        
+        $settings = $_POST['settings'];
+        $sanitized_settings = $this->sanitize_settings($settings);
+        
+        $updated = update_option('ai_chatbot_settings', $sanitized_settings);
+        
+        if ($updated) {
+            // Trigger content sync if needed
+            if ($sanitized_settings['content_sync']['enabled']) {
+                $this->maybe_trigger_content_sync();
+            }
+            
+            wp_send_json_success(__('Settings saved successfully!', 'ai-website-chatbot'));
+        } else {
+            wp_send_json_error(__('Failed to save settings', 'ai-website-chatbot'));
+        }
+    }
+    
+    /**
+     * AJAX: Reset settings to defaults
+     */
+    public function ajax_reset_settings() {
+        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+        }
+        
+        $defaults = $this->get_default_settings();
+        $updated = update_option('ai_chatbot_settings', $defaults);
+        
+        if ($updated) {
+            wp_send_json_success(__('Settings reset to defaults successfully!', 'ai-website-chatbot'));
+        } else {
+            wp_send_json_error(__('Failed to reset settings', 'ai-website-chatbot'));
+        }
+    }
+    
+    /**
+     * AJAX: Test API connection
+     */
+    public function ajax_test_api_connection() {
+        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+        }
+        
         $provider = sanitize_text_field($_POST['provider'] ?? '');
+        $api_key = sanitize_text_field($_POST['api_key'] ?? '');
+        
+        if (empty($provider) || empty($api_key)) {
+            wp_send_json_error(__('Provider and API key are required', 'ai-website-chatbot'));
+        }
+        
+        // Load the provider class
+        $provider_file = AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-' . $provider . '.php';
+        
+        if (!file_exists($provider_file)) {
+            wp_send_json_error(__('Provider not supported', 'ai-website-chatbot'));
+        }
+        
+        require_once $provider_file;
+        $provider_class = 'AI_Chatbot_' . ucfirst($provider);
+        
+        if (!class_exists($provider_class)) {
+            wp_send_json_error(__('Provider class not found', 'ai-website-chatbot'));
+        }
         
         try {
-            $provider_manager = new AI_Chatbot_Provider_Manager();
-            $provider_instance = $provider_manager->get_provider($provider);
-            
-            if (!$provider_instance) {
-                wp_send_json_error(__('Invalid provider', 'ai-website-chatbot'));
-            }
-
-            $result = $provider_instance->test_connection();
-            
-            if (is_wp_error($result)) {
-                wp_send_json_error($result->get_error_message());
-            }
-
-            wp_send_json_success(__('Connection successful!', 'ai-website-chatbot'));
-        } catch (Exception $e) {
-            wp_send_json_error($e->getMessage());
-        }
-    }
-
-    /**
-     * Reset usage statistics via AJAX.
-     *
-     * @since 1.0.0
-     */
-    public function reset_usage_stats() {
-        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_die(__('Insufficient permissions', 'ai-website-chatbot'));
-        }
-
-        $provider = sanitize_text_field($_POST['provider'] ?? '');
-        
-        try {
-            $provider_manager = new AI_Chatbot_Provider_Manager();
-            $provider_instance = $provider_manager->get_provider($provider);
-            
-            if (!$provider_instance) {
-                wp_send_json_error(__('Invalid provider', 'ai-website-chatbot'));
-            }
-
-            $result = $provider_instance->reset_usage_stats();
+            $provider_instance = new $provider_class();
+            $result = $provider_instance->test_connection($api_key);
             
             if ($result) {
-                wp_send_json_success(__('Usage statistics reset successfully!', 'ai-website-chatbot'));
+                wp_send_json_success(__('Connection successful!', 'ai-website-chatbot'));
             } else {
-                wp_send_json_error(__('Failed to reset statistics', 'ai-website-chatbot'));
+                wp_send_json_error(__('Connection failed. Please check your API key.', 'ai-website-chatbot'));
             }
         } catch (Exception $e) {
-            wp_send_json_error($e->getMessage());
+            wp_send_json_error(sprintf(__('Connection error: %s', 'ai-website-chatbot'), $e->getMessage()));
         }
+    }
+    
+    /**
+     * AJAX: Sync content
+     */
+    public function ajax_sync_content() {
+        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+        }
+        
+        // Load content sync class
+        if (!class_exists('AI_Chatbot_Content_Sync')) {
+            require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot-content-sync.php';
+        }
+        
+        $content_sync = new AI_Chatbot_Content_Sync();
+        $result = $content_sync->sync_content();
+        
+        if ($result) {
+            wp_send_json_success(__('Content synchronized successfully!', 'ai-website-chatbot'));
+        } else {
+            wp_send_json_error(__('Content synchronization failed', 'ai-website-chatbot'));
+        }
+    }
+    
+    /**
+     * Maybe trigger content sync after settings update
+     */
+    private function maybe_trigger_content_sync() {
+        $settings = $this->get_settings();
+        
+        if ($settings['content_sync']['enabled'] && $settings['content_sync']['auto_sync']) {
+            // Schedule content sync if not already scheduled
+            if (!wp_next_scheduled('ai_chatbot_sync_content')) {
+                wp_schedule_event(time(), $settings['content_sync']['sync_frequency'], 'ai_chatbot_sync_content');
+            }
+        } else {
+            // Remove scheduled sync if disabled
+            wp_clear_scheduled_hook('ai_chatbot_sync_content');
+        }
+    }
+    
+    /**
+     * Get available AI providers
+     */
+    public function get_available_providers() {
+        return array(
+            'openai' => array(
+                'name' => 'OpenAI',
+                'description' => __('GPT-3.5 and GPT-4 models from OpenAI', 'ai-website-chatbot'),
+                'models' => array(
+                    'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
+                    'gpt-4' => 'GPT-4',
+                    'gpt-4-turbo' => 'GPT-4 Turbo'
+                )
+            ),
+            'claude' => array(
+                'name' => 'Anthropic Claude',
+                'description' => __('Claude models from Anthropic', 'ai-website-chatbot'),
+                'models' => array(
+                    'claude-3-haiku' => 'Claude 3 Haiku',
+                    'claude-3-sonnet' => 'Claude 3 Sonnet',
+                    'claude-3-opus' => 'Claude 3 Opus'
+                )
+            ),
+            'gemini' => array(
+                'name' => 'Google Gemini',
+                'description' => __('Gemini models from Google', 'ai-website-chatbot'),
+                'models' => array(
+                    'gemini-pro' => 'Gemini Pro',
+                    'gemini-pro-vision' => 'Gemini Pro Vision'
+                )
+            ),
+            'custom' => array(
+                'name' => 'Custom API',
+                'description' => __('Custom AI API endpoint', 'ai-website-chatbot'),
+                'models' => array()
+            )
+        );
+    }
+    
+    /**
+     * Get available post types for content sync
+     */
+    public function get_available_post_types() {
+        $post_types = get_post_types(array('public' => true), 'objects');
+        $available = array();
+        
+        foreach ($post_types as $post_type) {
+            $available[$post_type->name] = $post_type->label;
+        }
+        
+        return $available;
+    }
+    
+    /**
+     * Get widget positions
+     */
+    public function get_widget_positions() {
+        return array(
+            'bottom-right' => __('Bottom Right', 'ai-website-chatbot'),
+            'bottom-left' => __('Bottom Left', 'ai-website-chatbot'),
+            'top-right' => __('Top Right', 'ai-website-chatbot'),
+            'top-left' => __('Top Left', 'ai-website-chatbot'),
+            'center' => __('Center', 'ai-website-chatbot')
+        );
+    }
+    
+    /**
+     * Get widget sizes
+     */
+    public function get_widget_sizes() {
+        return array(
+            'small' => __('Small', 'ai-website-chatbot'),
+            'medium' => __('Medium', 'ai-website-chatbot'),
+            'large' => __('Large', 'ai-website-chatbot')
+        );
+    }
+    
+    /**
+     * Get animation styles
+     */
+    public function get_animation_styles() {
+        return array(
+            'slide' => __('Slide', 'ai-website-chatbot'),
+            'fade' => __('Fade', 'ai-website-chatbot'),
+            'bounce' => __('Bounce', 'ai-website-chatbot'),
+            'none' => __('None', 'ai-website-chatbot')
+        );
     }
 }

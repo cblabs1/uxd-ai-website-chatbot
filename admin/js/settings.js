@@ -1,6 +1,6 @@
 /**
- * AI Chatbot Settings JavaScript
- *
+ * AI Chatbot Admin Settings JavaScript
+ * 
  * @package AI_Website_Chatbot
  * @since 1.0.0
  */
@@ -8,209 +8,475 @@
 (function($) {
     'use strict';
 
-    $(document).ready(function() {
-        initColorPickers();
-        initFormValidation();
-        initPreview();
+    var AIChatbotSettings = {
         
-        // Real-time preview updates
-        $('#ai_chatbot_primary_color, #ai_chatbot_width, #ai_chatbot_height, #ai_chatbot_position').on('change input', function() {
-            updatePreview();
-        });
-
-        // Provider-specific settings toggle
-        $('#ai_chatbot_provider').on('change', function() {
-            showProviderSettings($(this).val());
-        });
-
-        // Initialize with current provider
-        showProviderSettings($('#ai_chatbot_provider').val());
-    });
-
-    // Initialize color pickers
-    function initColorPickers() {
-        if ($.fn.wpColorPicker) {
-            $('.color-picker').wpColorPicker({
-                change: function() {
-                    updatePreview();
-                }
-            });
-        }
-    }
-
-    // Show settings for selected provider
-    function showProviderSettings(provider) {
-        $('.provider-settings').hide();
-        $('.provider-settings[data-provider="' + provider + '"]').show();
+        /**
+         * Initialize
+         */
+        init: function() {
+            this.bindEvents();
+            this.initConditionalFields();
+            this.initProviderSettings();
+        },
         
-        // Load provider-specific help text
-        loadProviderHelp(provider);
-    }
-
-    // Load provider help information
-    function loadProviderHelp(provider) {
-        const helpTexts = {
-            'openai': {
-                'api_key': 'Get your API key from https://platform.openai.com/api-keys',
-                'model': 'GPT-4 provides better responses but costs more than GPT-3.5-turbo',
-                'temperature': 'Lower values make responses more focused, higher values more creative'
-            },
-            'claude': {
-                'api_key': 'Get your API key from https://console.anthropic.com/',
-                'model': 'Claude 3 Opus is most capable, Haiku is fastest and cheapest',
-                'temperature': 'Controls randomness in responses (0-1 range for Claude)'
-            },
-            'gemini': {
-                'api_key': 'Get your API key from https://makersuite.google.com/app/apikey',
-                'model': 'Gemini Pro supports text, Pro Vision supports images too',
-                'temperature': 'Controls creativity in responses (0-1 range for Gemini)'
+        /**
+         * Bind events
+         */
+        bindEvents: function() {
+            // AI Provider change
+            $(document).on('change', '#ai_provider', this.handleProviderChange);
+            
+            // Enable/disable chatbot
+            $(document).on('change', '#chatbot_enabled', this.handleChatbotToggle);
+            
+            // Rate limiting toggle
+            $(document).on('change', '#rate_limiting_enabled', this.handleRateLimitingToggle);
+            
+            // Content sync toggle
+            $(document).on('change', '#content_sync_enabled', this.handleContentSyncToggle);
+            
+            // GDPR toggle
+            $(document).on('change', '#gdpr_enabled', this.handleGdprToggle);
+            
+            // Widget position preview
+            $(document).on('change', '#widget_position', this.updateWidgetPreview);
+            $(document).on('change', '#widget_color', this.updateWidgetPreview);
+            $(document).on('change', '#widget_size', this.updateWidgetPreview);
+            
+            // Import/Export settings
+            $(document).on('click', '.export-settings', this.exportSettings);
+            $(document).on('change', '.import-settings-file', this.importSettings);
+            
+            // Sync content manually
+            $(document).on('click', '.sync-content-now', this.syncContentNow);
+            
+            // Clear cache
+            $(document).on('click', '.clear-cache', this.clearCache);
+        },
+        
+        /**
+         * Handle AI provider change
+         */
+        handleProviderChange: function() {
+            var provider = $(this).val();
+            
+            // Hide all provider-specific settings
+            $('.provider-settings').hide();
+            
+            // Show settings for selected provider
+            $('.provider-settings-' + provider).show();
+            
+            // Update model options
+            AIChatbotSettings.updateModelOptions(provider);
+            
+            // Update help text
+            AIChatbotSettings.updateProviderHelpText(provider);
+        },
+        
+        /**
+         * Update model options based on provider
+         */
+        updateModelOptions: function(provider) {
+            var $modelSelect = $('#ai_model');
+            var models = {
+                'openai': {
+                    'gpt-3.5-turbo': 'GPT-3.5 Turbo',
+                    'gpt-4': 'GPT-4',
+                    'gpt-4-turbo': 'GPT-4 Turbo'
+                },
+                'claude': {
+                    'claude-3-haiku': 'Claude 3 Haiku',
+                    'claude-3-sonnet': 'Claude 3 Sonnet',
+                    'claude-3-opus': 'Claude 3 Opus'
+                },
+                'gemini': {
+                    'gemini-pro': 'Gemini Pro',
+                    'gemini-pro-vision': 'Gemini Pro Vision'
+                },
+                'custom': {}
+            };
+            
+            $modelSelect.empty();
+            
+            if (models[provider]) {
+                $.each(models[provider], function(value, text) {
+                    $modelSelect.append('<option value="' + value + '">' + text + '</option>');
+                });
             }
-        };
-
-        const texts = helpTexts[provider];
-        if (texts) {
-            Object.keys(texts).forEach(function(field) {
-                const helpElement = $('[data-help="' + field + '"]');
-                if (helpElement.length) {
-                    helpElement.text(texts[field]);
+            
+            if (provider === 'custom') {
+                $modelSelect.append('<option value="custom">Custom Model</option>');
+            }
+        },
+        
+        /**
+         * Update provider help text
+         */
+        updateProviderHelpText: function(provider) {
+            var helpTexts = {
+                'openai': 'Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Dashboard</a>',
+                'claude': 'Get your API key from <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>',
+                'gemini': 'Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>',
+                'custom': 'Enter your custom API endpoint URL and authentication details'
+            };
+            
+            $('.provider-help-text').html(helpTexts[provider] || '');
+        },
+        
+        /**
+         * Handle chatbot toggle
+         */
+        handleChatbotToggle: function() {
+            var isEnabled = $(this).is(':checked');
+            
+            if (isEnabled) {
+                $('.chatbot-dependent').removeClass('disabled');
+                $('#chatbot-status').removeClass('status-disabled').addClass('status-enabled').text('Enabled');
+            } else {
+                $('.chatbot-dependent').addClass('disabled');
+                $('#chatbot-status').removeClass('status-enabled').addClass('status-disabled').text('Disabled');
+            }
+            
+            AIChatbotSettings.updateWidgetPreview();
+        },
+        
+        /**
+         * Handle rate limiting toggle
+         */
+        handleRateLimitingToggle: function() {
+            var isEnabled = $(this).is(':checked');
+            
+            if (isEnabled) {
+                $('.rate-limiting-settings').slideDown();
+            } else {
+                $('.rate-limiting-settings').slideUp();
+            }
+        },
+        
+        /**
+         * Handle content sync toggle
+         */
+        handleContentSyncToggle: function() {
+            var isEnabled = $(this).is(':checked');
+            
+            if (isEnabled) {
+                $('.content-sync-settings').slideDown();
+            } else {
+                $('.content-sync-settings').slideUp();
+            }
+        },
+        
+        /**
+         * Handle GDPR toggle
+         */
+        handleGdprToggle: function() {
+            var isEnabled = $(this).is(':checked');
+            
+            if (isEnabled) {
+                $('.gdpr-settings').slideDown();
+            } else {
+                $('.gdpr-settings').slideUp();
+            }
+        },
+        
+        /**
+         * Update widget preview
+         */
+        updateWidgetPreview: function() {
+            var position = $('#widget_position').val();
+            var color = $('#widget_color').val();
+            var size = $('#widget_size').val();
+            var enabled = $('#chatbot_enabled').is(':checked');
+            
+            var $preview = $('.widget-preview');
+            
+            if (!$preview.length) {
+                return;
+            }
+            
+            // Update position
+            $preview.removeClass('pos-bottom-right pos-bottom-left pos-top-right pos-top-left pos-center')
+                    .addClass('pos-' + position);
+            
+            // Update color
+            $preview.find('.widget-button').css('background-color', color);
+            
+            // Update size
+            $preview.removeClass('size-small size-medium size-large').addClass('size-' + size);
+            
+            // Update enabled state
+            if (enabled) {
+                $preview.removeClass('disabled');
+            } else {
+                $preview.addClass('disabled');
+            }
+        },
+        
+        /**
+         * Initialize conditional fields
+         */
+        initConditionalFields: function() {
+            // Trigger initial state
+            $('#ai_provider').trigger('change');
+            $('#chatbot_enabled').trigger('change');
+            $('#rate_limiting_enabled').trigger('change');
+            $('#content_sync_enabled').trigger('change');
+            $('#gdpr_enabled').trigger('change');
+            
+            // Initialize widget preview
+            this.updateWidgetPreview();
+        },
+        
+        /**
+         * Initialize provider-specific settings
+         */
+        initProviderSettings: function() {
+            // Temperature slider
+            $('#temperature').on('input', function() {
+                $('.temperature-value').text($(this).val());
+            });
+            
+            // Max tokens slider
+            $('#max_tokens').on('input', function() {
+                $('.max-tokens-value').text($(this).val());
+            });
+            
+            // Data retention slider
+            $('#data_retention_days').on('input', function() {
+                $('.retention-days-value').text($(this).val());
+            });
+        },
+        
+        /**
+         * Export settings
+         */
+        exportSettings: function(e) {
+            e.preventDefault();
+            
+            var $button = $(this);
+            $button.prop('disabled', true).text('Exporting...');
+            
+            $.ajax({
+                url: aiChatbotAdmin.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_export_settings',
+                    nonce: aiChatbotAdmin.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Create download
+                        var blob = new Blob([JSON.stringify(response.data, null, 2)], {
+                            type: 'application/json'
+                        });
+                        var url = window.URL.createObjectURL(blob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'ai-chatbot-settings-' + new Date().toISOString().slice(0, 10) + '.json';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        
+                        AIChatbotAdmin.showNotification('Settings exported successfully!', 'success');
+                    } else {
+                        AIChatbotAdmin.showNotification(response.data, 'error');
+                    }
+                },
+                error: function() {
+                    AIChatbotAdmin.showNotification('Export failed', 'error');
+                },
+                complete: function() {
+                    $button.prop('disabled', false).text('Export Settings');
                 }
             });
-        }
-    }
-
-    // Form validation
-    function initFormValidation() {
-        $('form').on('submit', function(e) {
-            let isValid = true;
+        },
+        
+        /**
+         * Import settings
+         */
+        importSettings: function() {
+            var file = this.files[0];
             
-            // Validate required fields
-            $('.required').each(function() {
-                if (!$(this).val().trim()) {
-                    isValid = false;
-                    $(this).addClass('error');
-                    showFieldError($(this), 'This field is required');
-                } else {
-                    $(this).removeClass('error');
-                    hideFieldError($(this));
+            if (!file) {
+                return;
+            }
+            
+            if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+                AIChatbotAdmin.showNotification('Please select a valid JSON file', 'error');
+                return;
+            }
+            
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var settings = JSON.parse(e.target.result);
+                    
+                    if (!confirm('Are you sure you want to import these settings? This will overwrite your current configuration.')) {
+                        return;
+                    }
+                    
+                    $.ajax({
+                        url: aiChatbotAdmin.ajaxUrl,
+                        type: 'POST',
+                        data: {
+                            action: 'ai_chatbot_import_settings',
+                            nonce: aiChatbotAdmin.nonce,
+                            settings: settings
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                AIChatbotAdmin.showNotification('Settings imported successfully!', 'success');
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 2000);
+                            } else {
+                                AIChatbotAdmin.showNotification(response.data, 'error');
+                            }
+                        },
+                        error: function() {
+                            AIChatbotAdmin.showNotification('Import failed', 'error');
+                        }
+                    });
+                } catch (error) {
+                    AIChatbotAdmin.showNotification('Invalid JSON file', 'error');
+                }
+            };
+            reader.readAsText(file);
+        },
+        
+        /**
+         * Sync content now
+         */
+        syncContentNow: function(e) {
+            e.preventDefault();
+            
+            var $button = $(this);
+            $button.prop('disabled', true).text('Syncing...');
+            
+            $.ajax({
+                url: aiChatbotAdmin.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_sync_content',
+                    nonce: aiChatbotAdmin.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        AIChatbotAdmin.showNotification(response.data, 'success');
+                        $('.last-sync-time').text('Just now');
+                    } else {
+                        AIChatbotAdmin.showNotification(response.data, 'error');
+                    }
+                },
+                error: function() {
+                    AIChatbotAdmin.showNotification('Sync failed', 'error');
+                },
+                complete: function() {
+                    $button.prop('disabled', false).text('Sync Now');
                 }
             });
-
-            // Validate API key formats
-            const provider = $('#ai_chatbot_provider').val();
-            const apiKeyField = $('#ai_chatbot_' + provider + '_api_key');
+        },
+        
+        /**
+         * Clear cache
+         */
+        clearCache: function(e) {
+            e.preventDefault();
             
-            if (apiKeyField.length && apiKeyField.val()) {
-                if (!validateApiKey(provider, apiKeyField.val())) {
-                    isValid = false;
-                    apiKeyField.addClass('error');
-                    showFieldError(apiKeyField, 'Invalid API key format');
-                } else {
-                    apiKeyField.removeClass('error');
-                    hideFieldError(apiKeyField);
+            var $button = $(this);
+            $button.prop('disabled', true).text('Clearing...');
+            
+            $.ajax({
+                url: aiChatbotAdmin.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_clear_cache',
+                    nonce: aiChatbotAdmin.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        AIChatbotAdmin.showNotification('Cache cleared successfully!', 'success');
+                    } else {
+                        AIChatbotAdmin.showNotification(response.data, 'error');
+                    }
+                },
+                error: function() {
+                    AIChatbotAdmin.showNotification('Failed to clear cache', 'error');
+                },
+                complete: function() {
+                    $button.prop('disabled', false).text('Clear Cache');
                 }
+            });
+        },
+        
+        /**
+         * Validate settings before save
+         */
+        validateSettings: function() {
+            var errors = [];
+            
+            // Check if API key is provided
+            var provider = $('#ai_provider').val();
+            var apiKey = $('#api_key').val();
+            
+            if (!apiKey && provider !== 'custom') {
+                errors.push('API key is required for ' + provider);
             }
-
-            // Validate numeric ranges
-            $('.numeric-range').each(function() {
-                const min = parseFloat($(this).attr('min'));
-                const max = parseFloat($(this).attr('max'));
-                const value = parseFloat($(this).val());
+            
+            // Check temperature range
+            var temperature = parseFloat($('#temperature').val());
+            if (temperature < 0 || temperature > 2) {
+                errors.push('Temperature must be between 0 and 2');
+            }
+            
+            // Check max tokens
+            var maxTokens = parseInt($('#max_tokens').val());
+            if (maxTokens < 1 || maxTokens > 4000) {
+                errors.push('Max tokens must be between 1 and 4000');
+            }
+            
+            // Check rate limiting values if enabled
+            if ($('#rate_limiting_enabled').is(':checked')) {
+                var maxRequests = parseInt($('#max_requests').val());
+                var timeWindow = parseInt($('#time_window').val());
                 
-                if (value < min || value > max) {
-                    isValid = false;
-                    $(this).addClass('error');
-                    showFieldError($(this), 'Value must be between ' + min + ' and ' + max);
-                } else {
-                    $(this).removeClass('error');
-                    hideFieldError($(this));
+                if (maxRequests < 1) {
+                    errors.push('Max requests must be at least 1');
                 }
-            });
-
-            if (!isValid) {
-                e.preventDefault();
-                window.AIChatbotAdmin.showNotification('Please fix the errors before saving', 'error');
+                
+                if (timeWindow < 60) {
+                    errors.push('Time window must be at least 60 seconds');
+                }
             }
-        });
-    }
-
-    // Validate API key format
-    function validateApiKey(provider, key) {
-        const patterns = {
-            'openai': /^sk-[a-zA-Z0-9]{48,}$/,
-            'claude': /^sk-ant-api03-[a-zA-Z0-9_-]{95,}$/,
-            'gemini': /^[a-zA-Z0-9_-]{39}$/
-        };
-
-        return patterns[provider] ? patterns[provider].test(key) : true;
-    }
-
-    // Show field error
-    function showFieldError(field, message) {
-        hideFieldError(field); // Remove existing error first
-        
-        const errorDiv = $('<div class="field-error">' + message + '</div>');
-        field.after(errorDiv);
-    }
-
-    // Hide field error
-    function hideFieldError(field) {
-        field.next('.field-error').remove();
-    }
-
-    // Initialize preview functionality
-    function initPreview() {
-        // Create preview iframe if it doesn't exist
-        if ($('#chatbot-preview').length === 0) {
-            $('.preview-section').append('<div id="chatbot-preview"><div class="preview-chatbot"><div class="preview-header">AI Chatbot Preview</div><div class="preview-messages"><div class="preview-message bot">Hello! How can I help you today?</div></div></div></div>');
+            
+            if (errors.length > 0) {
+                AIChatbotAdmin.showNotification('Please fix the following errors:<br>' + errors.join('<br>'), 'error', 8000);
+                return false;
+            }
+            
+            return true;
         }
+    };
+    
+    /**
+     * Document ready
+     */
+    $(document).ready(function() {
+        AIChatbotSettings.init();
         
-        updatePreview();
-    }
-
-    // Update preview with current settings
-    function updatePreview() {
-        const preview = $('#chatbot-preview .preview-chatbot');
-        const primaryColor = $('#ai_chatbot_primary_color').val();
-        const width = $('#ai_chatbot_width').val() + 'px';
-        const height = $('#ai_chatbot_height').val() + 'px';
-        const position = $('#ai_chatbot_position').val();
-        
-        // Update styles
-        preview.css({
-            'background-color': primaryColor,
-            'width': width,
-            'height': height
-        });
-        
-        // Update position class
-        $('#chatbot-preview').removeClass('bottom-right bottom-left top-right top-left').addClass(position);
-    }
-
-    // Auto-save draft functionality
-    let autoSaveTimeout;
-    $('input, select, textarea').on('input change', function() {
-        clearTimeout(autoSaveTimeout);
-        autoSaveTimeout = setTimeout(function() {
-            saveDraft();
-        }, 2000);
-    });
-
-    // Save draft settings
-    function saveDraft() {
-        const formData = $('form').serialize();
-        
-        $.ajax({
-            url: ai_chatbot_admin.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'ai_chatbot_save_draft',
-                form_data: formData,
-                nonce: ai_chatbot_admin.nonce
-            },
-            success: function() {
-                $('#draft-saved').show().delay(2000).fadeOut();
+        // Override form submission to add validation
+        $('.ai-chatbot-settings-form').on('submit', function(e) {
+            if (!AIChatbotSettings.validateSettings()) {
+                e.preventDefault();
+                return false;
             }
         });
-    }
-
+    });
+    
+    /**
+     * Make AIChatbotSettings globally available
+     */
+    window.AIChatbotSettings = AIChatbotSettings;
+    
 })(jQuery);

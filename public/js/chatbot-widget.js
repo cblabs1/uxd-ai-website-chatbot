@@ -8,226 +8,599 @@
 (function($) {
     'use strict';
 
-    // Widget-specific functionality
-    window.AIChatbotWidget = {
-        init: function() {
-            this.initWidgetInstances();
-            this.bindWidgetEvents();
-        },
-
-        initWidgetInstances: function() {
-            $('.ai-chatbot-widget-content').each(function() {
-                var $widget = $(this);
-                var config = $widget.data('chatbot-config') || {};
-                
-                var instance = new WidgetInstance($widget, config);
-                instance.init();
-                
-                $widget.data('chatbot-instance', instance);
-            });
-        },
-
-        bindWidgetEvents: function() {
-            // Global widget events can be bound here
+    /**
+     * AI Chatbot Widget Class
+     */
+    class AIChatbotWidget {
+        constructor() {
+            this.widget = null;
+            this.container = null;
+            this.messages = null;
+            this.input = null;
+            this.isOpen = false;
+            this.isMinimized = false;
+            this.conversationId = this.generateConversationId();
+            this.init();
         }
-    };
 
-    // Widget Instance Class
-    function WidgetInstance($container, config) {
-        this.$container = $container;
-        this.config = $.extend({
-            ajaxUrl: '',
-            nonce: '',
-            sessionId: 'widget_' + Math.random().toString(36).substr(2, 9),
-            theme: 'default'
-        }, config);
-        
-        this.isInitialized = false;
-        this.messageCount = 0;
-    }
-
-    WidgetInstance.prototype = {
-        init: function() {
-            if (this.isInitialized) {
-                return;
-            }
-
+        /**
+         * Initialize widget
+         */
+        init() {
             this.bindEvents();
-            this.setupWidget();
-            this.loadInitialData();
-            
-            this.isInitialized = true;
-        },
+            this.setupAutoResize();
+            this.loadConversationHistory();
+        }
 
-        bindEvents: function() {
-            var self = this;
+        /**
+         * Bind events
+         */
+        bindEvents() {
+            const self = this;
 
-            // Form submission
-            this.$container.find('.ai-chatbot-form').on('submit', function(e) {
+            // Toggle chatbot
+            $(document).on('click', '#ai-chatbot-toggle', function() {
+                self.toggle();
+            });
+
+            // Close chatbot
+            $(document).on('click', '#ai-chatbot-close', function() {
+                self.close();
+            });
+
+            // Minimize chatbot
+            $(document).on('click', '#ai-chatbot-minimize', function() {
+                self.minimize();
+            });
+
+            // Handle form submission
+            $(document).on('submit', '#ai-chatbot-input-form, #ai-chatbot-inline-input-form', function(e) {
                 e.preventDefault();
-                self.sendMessage();
-            });
-
-            // Input changes
-            this.$container.find('.ai-chatbot-input').on('input', function() {
-                self.onInputChange($(this));
-            });
-
-            // Enter key handling
-            this.$container.find('.ai-chatbot-input').on('keypress', function(e) {
-                if (e.which === 13 && !e.shiftKey) {
-                    e.preventDefault();
-                    self.sendMessage();
+                const form = $(this);
+                const input = form.find('.ai-chatbot-input');
+                const message = input.val().trim();
+                
+                if (message) {
+                    self.sendMessage(message, input);
                 }
             });
-        },
 
-        setupWidget: function() {
-            // Apply theme
-            this.$container.addClass('theme-' + this.config.theme);
-            
-            // Set initial state
-            this.updateMessageCount(0);
-            
-            // Show initial status
-            this.updateStatus(true);
-        },
+            // Handle input changes
+            $(document).on('input', '.ai-chatbot-input', function() {
+                self.handleInputChange($(this));
+            });
 
-        loadInitialData: function() {
-            // Load any initial data like suggestions
-            this.loadSuggestions();
-        },
+            // Handle Enter key
+            $(document).on('keydown', '.ai-chatbot-input', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    $(this).closest('form').submit();
+                }
+            });
 
-        sendMessage: function() {
-            var $input = this.$container.find('.ai-chatbot-input');
-            var message = $input.val().trim();
+            // Handle click outside to close (optional)
+            $(document).on('click', function(e) {
+                if (self.isOpen && !$(e.target).closest('#ai-chatbot-widget').length) {
+                    // Uncomment to close on outside click
+                    // self.close();
+                }
+            });
+        }
 
-            if (!message) {
-                return;
+        /**
+         * Toggle chatbot widget
+         */
+        toggle() {
+            if (this.isOpen) {
+                this.close();
+            } else {
+                this.open();
             }
+        }
 
+        /**
+         * Open chatbot widget
+         */
+        open() {
+            this.widget = $('#ai-chatbot-widget');
+            this.container = $('#ai-chatbot-container');
+            this.messages = $('#ai-chatbot-messages');
+            this.input = $('#ai-chatbot-input');
+
+            this.widget.addClass('ai-chatbot-open');
+            this.container.slideDown(300);
+            this.isOpen = true;
+            this.isMinimized = false;
+
+            // Focus input after animation
+            setTimeout(() => {
+                this.input.focus();
+            }, 350);
+
+            // Scroll to bottom
+            this.scrollToBottom();
+        }
+
+        /**
+         * Close chatbot widget
+         */
+        close() {
+            if (this.container) {
+                this.container.slideUp(300, () => {
+                    this.widget.removeClass('ai-chatbot-open ai-chatbot-minimized');
+                });
+            }
+            this.isOpen = false;
+            this.isMinimized = false;
+        }
+
+        /**
+         * Minimize chatbot widget
+         */
+        minimize() {
+            if (this.container) {
+                this.widget.addClass('ai-chatbot-minimized');
+                this.container.slideUp(300);
+            }
+            this.isMinimized = true;
+        }
+
+        /**
+         * Send message to AI
+         */
+        sendMessage(message, inputElement) {
+            // Add user message to chat
             this.addMessage(message, 'user');
-            $input.val('');
+            
+            // Clear input
+            inputElement.val('');
+            this.handleInputChange(inputElement);
+            
+            // Show typing indicator
             this.showTyping();
-
-            var self = this;
-
+            
+            // Send AJAX request
             $.ajax({
-                url: this.config.ajaxUrl,
+                url: ai_chatbot_ajax.ajax_url,
                 type: 'POST',
                 data: {
-                    action: 'ai_chatbot_message',
+                    action: 'ai_chatbot_send_message',
+                    nonce: ai_chatbot_ajax.nonce,
                     message: message,
-                    session_id: this.config.sessionId,
-                    nonce: this.config.nonce
+                    conversation_id: this.conversationId
                 },
-                success: function(response) {
-                    self.hideTyping();
+                success: (response) => {
+                    this.hideTyping();
                     
                     if (response.success) {
-                        self.addMessage(response.data.response, 'bot');
+                        this.addMessage(response.data.response, 'bot');
                     } else {
-                        self.showError(response.data.message);
+                        this.addMessage(response.data || ai_chatbot_ajax.strings.error, 'bot', 'error');
                     }
                 },
-                error: function() {
-                    self.hideTyping();
-                    self.showError('Network error occurred');
+                error: () => {
+                    this.hideTyping();
+                    this.addMessage(ai_chatbot_ajax.strings.error, 'bot', 'error');
                 }
             });
-        },
+        }
 
-        addMessage: function(message, type) {
-            var $messages = this.$container.find('.ai-chatbot-messages');
-            var time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        /**
+         * Add message to chat
+         */
+        addMessage(text, sender, type = 'normal') {
+            const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const messageClass = `ai-chatbot-message ai-chatbot-message-${sender}`;
+            const errorClass = type === 'error' ? ' ai-chatbot-message-error' : '';
             
-            var messageHtml = '<div class="ai-chatbot-message ' + type + '-message">';
+            const messageHtml = `
+                <div class="${messageClass}${errorClass}">
+                    <div class="ai-chatbot-message-content">
+                        <div class="ai-chatbot-message-text">${this.escapeHtml(text)}</div>
+                        <div class="ai-chatbot-message-time">${timestamp}</div>
+                    </div>
+                </div>
+            `;
             
-            if (type === 'bot') {
-                messageHtml += '<div class="message-avatar">🤖</div>';
+            if (this.messages) {
+                this.messages.append(messageHtml);
+                this.scrollToBottom();
             }
-            
-            messageHtml += '<div class="message-content">' + this.escapeHtml(message) + '</div>';
-            messageHtml += '<div class="message-time">' + time + '</div>';
-            messageHtml += '</div>';
-            
-            $messages.append(messageHtml);
+        }
+
+        /**
+         * Show typing indicator
+         */
+        showTyping() {
+            $('#ai-chatbot-typing').show();
             this.scrollToBottom();
-            
-            this.messageCount++;
-            this.updateMessageCount(this.messageCount);
-        },
+        }
 
-        showTyping: function() {
-            var $typing = this.$container.find('.ai-chatbot-typing-indicator');
-            $typing.show();
-            this.scrollToBottom();
-        },
+        /**
+         * Hide typing indicator
+         */
+        hideTyping() {
+            $('#ai-chatbot-typing').hide();
+        }
 
-        hideTyping: function() {
-            var $typing = this.$container.find('.ai-chatbot-typing-indicator');
-            $typing.hide();
-        },
-
-        showError: function(message) {
-            var $messages = this.$container.find('.ai-chatbot-messages');
-            var errorHtml = '<div class="ai-chatbot-message error-message">' +
-                           '<div class="message-content error">' + this.escapeHtml(message) + '</div>' +
-                           '</div>';
-            
-            $messages.append(errorHtml);
-            this.scrollToBottom();
-        },
-
-        onInputChange: function($input) {
-            var message = $input.val().trim();
-            var $sendBtn = this.$container.find('.ai-chatbot-send-btn');
+        /**
+         * Handle input change
+         */
+        handleInputChange(input) {
+            const message = input.val().trim();
+            const sendButton = input.closest('.ai-chatbot-input-container').find('.ai-chatbot-send-button');
             
             if (message) {
-                $sendBtn.prop('disabled', false);
+                sendButton.prop('disabled', false);
+                input.removeClass('ai-chatbot-input-empty');
             } else {
-                $sendBtn.prop('disabled', true);
+                sendButton.prop('disabled', true);
+                input.addClass('ai-chatbot-input-empty');
             }
-        },
+        }
 
-        scrollToBottom: function() {
-            var $messages = this.$container.find('.ai-chatbot-messages');
-            $messages.scrollTop($messages[0].scrollHeight);
-        },
+        /**
+         * Setup auto-resize for textarea
+         */
+        setupAutoResize() {
+            $(document).on('input', '.ai-chatbot-input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+            });
+        }
 
-        updateStatus: function(online) {
-            var $indicator = this.$container.find('.status-indicator');
+        /**
+         * Scroll messages to bottom
+         */
+        scrollToBottom() {
+            if (this.messages) {
+                setTimeout(() => {
+                    this.messages.scrollTop(this.messages[0].scrollHeight);
+                }, 100);
+            }
+        }
+
+        /**
+         * Generate unique conversation ID
+         */
+        generateConversationId() {
+            return 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        /**
+         * Load conversation history
+         */
+        loadConversationHistory() {
+            // Implementation for loading previous conversations
+        }
+
+        /**
+         * Escape HTML to prevent XSS
+         */
+        escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    }
+
+    /**
+     * AI Chatbot Utils
+     */
+    window.AIChatbotUtils = {
+        /**
+         * Format message text (handle line breaks, links, etc.)
+         */
+        formatMessage: function(text) {
+            // Convert line breaks
+            text = text.replace(/\n/g, '<br>');
             
-            if (online) {
-                $indicator.addClass('online').removeClass('offline');
-            } else {
-                $indicator.addClass('offline').removeClass('online');
-            }
+            // Convert URLs to links (basic implementation)
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            text = text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+            
+            return text;
         },
 
-        updateMessageCount: function(count) {
-            this.$container.find('.messages-count').text(count + ' messages');
+        /**
+         * Get user timezone
+         */
+        getUserTimezone: function() {
+            return Intl.DateTimeFormat().resolvedOptions().timeZone;
         },
 
-        loadSuggestions: function() {
-            // Implementation for loading suggested responses
-        },
-
-        escapeHtml: function(text) {
-            var map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        /**
+         * Check if user is on mobile
+         */
+        isMobile: function() {
+            return window.innerWidth <= 768;
         }
     };
 
-    // Initialize when DOM is ready
+    /**
+     * Initialize when document is ready
+     */
     $(document).ready(function() {
-        AIChatbotWidget.init();
+        // Only initialize if chatbot widget exists
+        if ($('#ai-chatbot-widget').length) {
+            new AIChatbotWidget();
+        }
+
+        // Handle inline chatbots
+        $('.ai-chatbot-inline').each(function() {
+            // Initialize inline chatbot functionality
+            // Similar to widget but without toggle functionality
+        });
+    });
+
+})(jQuery);
+
+/* File 2: public/js/chatbot-utils.js */
+
+(function($) {
+    'use strict';
+
+    /**
+     * AI Chatbot Utility Functions
+     */
+    window.AIChatbotUtils = window.AIChatbotUtils || {};
+
+    /**
+     * Storage utilities
+     */
+    AIChatbotUtils.storage = {
+        /**
+         * Set item in localStorage with error handling
+         */
+        setItem: function(key, value) {
+            try {
+                localStorage.setItem('ai_chatbot_' + key, JSON.stringify(value));
+                return true;
+            } catch (e) {
+                console.warn('Failed to save to localStorage:', e);
+                return false;
+            }
+        },
+
+        /**
+         * Get item from localStorage with error handling
+         */
+        getItem: function(key) {
+            try {
+                const item = localStorage.getItem('ai_chatbot_' + key);
+                return item ? JSON.parse(item) : null;
+            } catch (e) {
+                console.warn('Failed to read from localStorage:', e);
+                return null;
+            }
+        },
+
+        /**
+         * Remove item from localStorage
+         */
+        removeItem: function(key) {
+            try {
+                localStorage.removeItem('ai_chatbot_' + key);
+                return true;
+            } catch (e) {
+                console.warn('Failed to remove from localStorage:', e);
+                return false;
+            }
+        }
+    };
+
+    /**
+     * Animation utilities
+     */
+    AIChatbotUtils.animation = {
+        /**
+         * Fade in element
+         */
+        fadeIn: function(element, duration = 300) {
+            $(element).fadeIn(duration);
+        },
+
+        /**
+         * Fade out element
+         */
+        fadeOut: function(element, duration = 300) {
+            $(element).fadeOut(duration);
+        },
+
+        /**
+         * Slide down element
+         */
+        slideDown: function(element, duration = 300) {
+            $(element).slideDown(duration);
+        },
+
+        /**
+         * Slide up element
+         */
+        slideUp: function(element, duration = 300) {
+            $(element).slideUp(duration);
+        }
+    };
+
+    /**
+     * Validation utilities
+     */
+    AIChatbotUtils.validation = {
+        /**
+         * Validate message
+         */
+        validateMessage: function(message) {
+            if (!message || typeof message !== 'string') {
+                return false;
+            }
+            
+            message = message.trim();
+            
+            if (message.length === 0) {
+                return false;
+            }
+            
+            if (message.length > 1000) {
+                return false;
+            }
+            
+            return true;
+        },
+
+        /**
+         * Sanitize input
+         */
+        sanitizeInput: function(input) {
+            return input.replace(/[<>]/g, '');
+        }
+    };
+
+    /**
+     * Rate limiting utilities
+     */
+    AIChatbotUtils.rateLimit = {
+        /**
+         * Check if rate limit is exceeded
+         */
+        checkLimit: function() {
+            const now = Date.now();
+            const requests = this.getRequests();
+            
+            // Remove old requests (older than 1 minute)
+            const validRequests = requests.filter(time => now - time < 60000);
+            
+            // Update storage
+            this.setRequests(validRequests);
+            
+            // Check if limit exceeded (max 10 requests per minute)
+            return validRequests.length >= 10;
+        },
+
+        /**
+         * Add request timestamp
+         */
+        addRequest: function() {
+            const requests = this.getRequests();
+            requests.push(Date.now());
+            this.setRequests(requests);
+        },
+
+        /**
+         * Get request timestamps
+         */
+        getRequests: function() {
+            return AIChatbotUtils.storage.getItem('rate_limit_requests') || [];
+        },
+
+        /**
+         * Set request timestamps
+         */
+        setRequests: function(requests) {
+            AIChatbotUtils.storage.setItem('rate_limit_requests', requests);
+        }
+    };
+
+    /**
+     * Device detection utilities
+     */
+    AIChatbotUtils.device = {
+        /**
+         * Check if mobile device
+         */
+        isMobile: function() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        },
+
+        /**
+         * Check if tablet device
+         */
+        isTablet: function() {
+            return /iPad/i.test(navigator.userAgent) || 
+                   (this.isMobile() && window.screen.width > 768);
+        },
+
+        /**
+         * Check if desktop device
+         */
+        isDesktop: function() {
+            return !this.isMobile() && !this.isTablet();
+        },
+
+        /**
+         * Get screen size category
+         */
+        getScreenSize: function() {
+            const width = window.innerWidth;
+            
+            if (width < 768) {
+                return 'mobile';
+            } else if (width < 1024) {
+                return 'tablet';
+            } else {
+                return 'desktop';
+            }
+        }
+    };
+
+    /**
+     * Accessibility utilities
+     */
+    AIChatbotUtils.accessibility = {
+        /**
+         * Announce message to screen readers
+         */
+        announce: function(message) {
+            const announcement = $('<div>')
+                .attr('aria-live', 'polite')
+                .attr('aria-atomic', 'true')
+                .addClass('sr-only')
+                .text(message);
+            
+            $('body').append(announcement);
+            
+            setTimeout(() => {
+                announcement.remove();
+            }, 1000);
+        },
+
+        /**
+         * Focus element with error handling
+         */
+        focus: function(element) {
+            try {
+                $(element).focus();
+            } catch (e) {
+                console.warn('Failed to focus element:', e);
+            }
+        }
+    };
+
+    /**
+     * Initialize utilities when document is ready
+     */
+    $(document).ready(function() {
+        // Add global error handler for AJAX
+        $(document).ajaxError(function(event, xhr, settings, error) {
+            console.error('AJAX Error:', error);
+            
+            // Show user-friendly error message
+            if (xhr.status === 0) {
+                console.warn('Network error - check internet connection');
+            } else if (xhr.status === 500) {
+                console.warn('Server error - please try again later');
+            }
+        });
+
+        // Add keyboard navigation support
+        $(document).on('keydown', function(e) {
+            // ESC key to close chatbot
+            if (e.key === 'Escape') {
+                $('#ai-chatbot-close').click();
+            }
+        });
     });
 
 })(jQuery);

@@ -1,6 +1,6 @@
 /**
- * AI Chatbot Analytics JavaScript
- *
+ * AI Chatbot Admin Analytics JavaScript
+ * 
  * @package AI_Website_Chatbot
  * @since 1.0.0
  */
@@ -8,42 +8,73 @@
 (function($) {
     'use strict';
 
-    let charts = {};
-    let currentPeriod = '7days';
-
-    $(document).ready(function() {
-        initCharts();
-        loadAnalyticsData(currentPeriod);
+    var AIChatbotAnalytics = {
         
-        // Period selector
-        $('#analytics-period').on('change', function() {
-            currentPeriod = $(this).val();
-            loadAnalyticsData(currentPeriod);
-        });
-
-        // Export functionality
-        $('#export-analytics').on('click', function() {
-            exportAnalytics();
-        });
-
-        // Tab switching
-        $('.tab-button').on('click', function() {
-            const tab = $(this).data('tab');
-            switchTab(tab);
-        });
-
-        // Auto-refresh every 5 minutes
-        setInterval(function() {
-            loadAnalyticsData(currentPeriod);
-        }, 300000);
-    });
-
-    // Initialize Chart.js charts
-    function initCharts() {
-        // Volume chart (line chart)
-        const volumeCtx = document.getElementById('volume-chart');
-        if (volumeCtx) {
-            charts.volume = new Chart(volumeCtx, {
+        charts: {},
+        
+        /**
+         * Initialize
+         */
+        init: function() {
+            this.bindEvents();
+            this.initCharts();
+            this.initDateRangePicker();
+            this.loadAnalyticsData();
+        },
+        
+        /**
+         * Bind events
+         */
+        bindEvents: function() {
+            // Date range change
+            $(document).on('change', '#analytics-date-range', this.handleDateRangeChange);
+            
+            // Export analytics
+            $(document).on('click', '.export-analytics', this.exportAnalytics);
+            
+            // Refresh data
+            $(document).on('click', '.refresh-analytics', this.refreshAnalytics);
+            
+            // Filter changes
+            $(document).on('change', '.analytics-filter', this.handleFilterChange);
+            
+            // Chart type toggle
+            $(document).on('click', '.chart-type-toggle', this.toggleChartType);
+            
+            // Real-time updates toggle
+            $(document).on('change', '#realtime-updates', this.toggleRealtimeUpdates);
+        },
+        
+        /**
+         * Initialize charts
+         */
+        initCharts: function() {
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js not loaded');
+                return;
+            }
+            
+            // Set default Chart.js options
+            Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            Chart.defaults.color = '#666';
+            
+            this.initConversationTrendsChart();
+            this.initResponseTimeChart();
+            this.initSatisfactionChart();
+            this.initTopicsChart();
+            this.initHourlyDistributionChart();
+        },
+        
+        /**
+         * Initialize conversation trends chart
+         */
+        initConversationTrendsChart: function() {
+            var $canvas = $('#conversation-trends-chart');
+            if (!$canvas.length) return;
+            
+            var ctx = $canvas[0].getContext('2d');
+            
+            this.charts.conversationTrends = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: [],
@@ -52,306 +83,570 @@
                         data: [],
                         borderColor: '#0073aa',
                         backgroundColor: 'rgba(0, 115, 170, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Conversations'
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    return 'Date: ' + context[0].label;
+                                },
+                                label: function(context) {
+                                    return 'Conversations: ' + context.parsed.y;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        },
+        
+        /**
+         * Initialize response time chart
+         */
+        initResponseTimeChart: function() {
+            var $canvas = $('#response-time-chart');
+            if (!$canvas.length) return;
+            
+            var ctx = $canvas[0].getContext('2d');
+            
+            this.charts.responseTime = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Response Time (ms)',
+                        data: [],
+                        backgroundColor: 'rgba(40, 167, 69, 0.8)',
+                        borderColor: '#28a745',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Response Time (ms)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        },
+        
+        /**
+         * Initialize satisfaction chart
+         */
+        initSatisfactionChart: function() {
+            var $canvas = $('#satisfaction-chart');
+            if (!$canvas.length) return;
+            
+            var ctx = $canvas[0].getContext('2d');
+            
+            this.charts.satisfaction = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['5 Stars', '4 Stars', '3 Stars', '2 Stars', '1 Star'],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#28a745',
+                            '#6f42c1',
+                            '#fd7e14',
+                            '#ffc107',
+                            '#dc3545'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    var total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    var percentage = ((context.parsed * 100) / total).toFixed(1);
+                                    return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        },
+        
+        /**
+         * Initialize topics chart
+         */
+        initTopicsChart: function() {
+            var $canvas = $('#topics-chart');
+            if (!$canvas.length) return;
+            
+            var ctx = $canvas[0].getContext('2d');
+            
+            this.charts.topics = new Chart(ctx, {
+                type: 'horizontalBar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Mentions',
+                        data: [],
+                        backgroundColor: 'rgba(108, 117, 125, 0.8)',
+                        borderColor: '#6c757d',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Mentions'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        },
+        
+        /**
+         * Initialize hourly distribution chart
+         */
+        initHourlyDistributionChart: function() {
+            var $canvas = $('#hourly-distribution-chart');
+            if (!$canvas.length) return;
+            
+            var ctx = $canvas[0].getContext('2d');
+            
+            this.charts.hourlyDistribution = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 
+                            '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23'],
+                    datasets: [{
+                        label: 'Conversations by Hour',
+                        data: [],
+                        borderColor: '#17a2b8',
+                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                        borderWidth: 2,
                         fill: true
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Hour of Day'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Conversations'
+                            }
+                        }
+                    },
                     plugins: {
                         legend: {
                             display: false
                         }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
                     }
                 }
             });
-        }
-
-        // Topics chart (doughnut chart)
-        const topicsCtx = document.getElementById('topics-chart');
-        if (topicsCtx) {
-            charts.topics = new Chart(topicsCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        data: [],
-                        backgroundColor: [
-                            '#0073aa', '#00a0d2', '#0085ba',
-                            '#005177', '#003f5c', '#2c3e50'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
-        }
-
-        // Satisfaction chart (bar chart)
-        const satisfactionCtx = document.getElementById('satisfaction-chart');
-        if (satisfactionCtx) {
-            charts.satisfaction = new Chart(satisfactionCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
-                    datasets: [{
-                        label: 'Ratings',
-                        data: [],
-                        backgroundColor: [
-                            '#e74c3c', '#f39c12', '#f1c40f', '#2ecc71', '#27ae60'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-
-        // Response time chart (histogram)
-        const responseTimeCtx = document.getElementById('response-time-chart');
-        if (responseTimeCtx) {
-            charts.responseTime = new Chart(responseTimeCtx, {
-                type: 'bar',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Responses',
-                        data: [],
-                        backgroundColor: '#0073aa'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-    }
-
-    // Load analytics data from server
-    function loadAnalyticsData(period) {
-        $('#analytics-loading').show();
+        },
         
-        $.ajax({
-            url: ai_chatbot_admin.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'ai_chatbot_get_analytics_data',
-                period: period,
-                nonce: ai_chatbot_admin.nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    updateAnalytics(response.data);
-                } else {
-                    window.AIChatbotAdmin.showNotification('Failed to load analytics data', 'error');
-                }
-            },
-            error: function() {
-                window.AIChatbotAdmin.showNotification('Failed to load analytics data', 'error');
-            },
-            complete: function() {
-                $('#analytics-loading').hide();
-            }
-        });
-    }
-
-    // Update analytics display with new data
-    function updateAnalytics(data) {
-        // Update summary cards
-        updateSummaryCards(data);
-        
-        // Update charts
-        updateCharts(data);
-        
-        // Update tables
-        updateTables(data);
-    }
-
-    // Update summary cards
-    function updateSummaryCards(data) {
-        // Calculate totals
-        const totalConversations = data.volume.reduce((sum, item) => sum + parseInt(item.count), 0);
-        const avgResponseTime = data.response_times.average + 'ms';
-        const satisfactionRate = calculateSatisfactionRate(data.satisfaction) + '%';
-        const totalCost = '$' + (data.usage.total_cost || 0).toFixed(4);
-
-        $('#total-conversations .card-number').text(window.AIChatbotAdmin.formatNumber(totalConversations));
-        $('#avg-response-time .card-number').text(avgResponseTime);
-        $('#satisfaction-rate .card-number').text(satisfactionRate);
-        $('#total-cost .card-number').text(totalCost);
-    }
-
-    // Calculate satisfaction rate from ratings
-    function calculateSatisfactionRate(satisfactionData) {
-        if (!satisfactionData || satisfactionData.length === 0) return 0;
-        
-        const totalRatings = satisfactionData.reduce((sum, item) => sum + item.count, 0);
-        const positiveRatings = satisfactionData.filter(item => item.rating >= 4)
-                                                .reduce((sum, item) => sum + item.count, 0);
-        
-        return totalRatings > 0 ? Math.round((positiveRatings / totalRatings) * 100) : 0;
-    }
-
-    // Update all charts
-    function updateCharts(data) {
-        // Volume chart
-        if (charts.volume && data.volume) {
-            charts.volume.data.labels = data.volume.map(item => item.date);
-            charts.volume.data.datasets[0].data = data.volume.map(item => item.count);
-            charts.volume.update();
-        }
-
-        // Topics chart
-        if (charts.topics && data.topics) {
-            charts.topics.data.labels = data.topics.map(item => item.topic);
-            charts.topics.data.datasets[0].data = data.topics.map(item => item.count);
-            charts.topics.update();
-        }
-
-        // Satisfaction chart
-        if (charts.satisfaction && data.satisfaction) {
-            charts.satisfaction.data.datasets[0].data = data.satisfaction.map(item => item.count);
-            charts.satisfaction.update();
-        }
-
-        // Response time chart
-        if (charts.responseTime && data.response_times.distribution) {
-            charts.responseTime.data.labels = data.response_times.distribution.map(item => item.range);
-            charts.responseTime.data.datasets[0].data = data.response_times.distribution.map(item => item.count);
-            charts.responseTime.update();
-        }
-
-        // Update response time stats
-        if (data.response_times) {
-            $('#avg-time').text(data.response_times.average + 'ms');
-            $('#median-time').text(data.response_times.median + 'ms');
-            $('#p95-time').text(data.response_times.p95 + 'ms');
-        }
-    }
-
-    // Update data tables
-    function updateTables(data) {
-        // Volume table
-        const volumeTableBody = $('#volume-table-body');
-        volumeTableBody.empty();
-        
-        if (data.volume && data.volume.length > 0) {
-            data.volume.forEach(function(item, index) {
-                const prevCount = index > 0 ? data.volume[index - 1].count : item.count;
-                const change = ((item.count - prevCount) / prevCount * 100).toFixed(1);
-                const changeClass = change >= 0 ? 'positive' : 'negative';
-                
-                volumeTableBody.append(`
-                    <tr>
-                        <td>${item.date}</td>
-                        <td>${item.count}</td>
-                        <td class="${changeClass}">${change}%</td>
-                    </tr>
-                `);
-            });
-        } else {
-            volumeTableBody.append('<tr><td colspan="3">No data available</td></tr>');
-        }
-
-        // Topics table
-        const topicsTableBody = $('#topics-table-body');
-        topicsTableBody.empty();
-        
-        if (data.topics && data.topics.length > 0) {
-            const totalTopicCount = data.topics.reduce((sum, item) => sum + item.count, 0);
+        /**
+         * Load analytics data
+         */
+        loadAnalyticsData: function(dateRange) {
+            dateRange = dateRange || '30';
             
-            data.topics.forEach(function(item) {
-                const percentage = ((item.count / totalTopicCount) * 100).toFixed(1);
-                
-                topicsTableBody.append(`
-                    <tr>
-                        <td>${item.topic}</td>
-                        <td>${item.count}</td>
-                        <td>${percentage}%</td>
-                    </tr>
-                `);
+            $('.analytics-loading').show();
+            $('.analytics-content').addClass('loading');
+            
+            $.ajax({
+                url: aiChatbotAdmin.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_get_analytics_data',
+                    nonce: aiChatbotAdmin.nonce,
+                    date_range: dateRange
+                },
+                success: function(response) {
+                    if (response.success) {
+                        AIChatbotAnalytics.updateAnalyticsDisplay(response.data);
+                    } else {
+                        AIChatbotAdmin.showNotification('Failed to load analytics data', 'error');
+                    }
+                },
+                error: function() {
+                    AIChatbotAdmin.showNotification('Failed to load analytics data', 'error');
+                },
+                complete: function() {
+                    $('.analytics-loading').hide();
+                    $('.analytics-content').removeClass('loading');
+                }
             });
-        } else {
-            topicsTableBody.append('<tr><td colspan="3">No data available</td></tr>');
+        },
+        
+        /**
+         * Update analytics display
+         */
+        updateAnalyticsDisplay: function(data) {
+            // Update statistics cards
+            $('.stat-total-conversations').text(this.formatNumber(data.total_conversations || 0));
+            $('.stat-conversations-today').text(this.formatNumber(data.conversations_today || 0));
+            $('.stat-avg-response-time').text((data.avg_response_time || 0) + 'ms');
+            $('.stat-user-satisfaction').text((data.user_satisfaction || 0) + '/5');
+            
+            // Update charts
+            this.updateConversationTrendsChart(data.daily_trends || []);
+            this.updateResponseTimeChart(data.response_times || []);
+            this.updateSatisfactionChart(data.satisfaction_distribution || []);
+            this.updateTopicsChart(data.top_topics || []);
+            this.updateHourlyDistributionChart(data.hourly_distribution || []);
+            
+            // Update last updated time
+            $('.last-updated-time').text('Last updated: ' + new Date().toLocaleString());
+        },
+        
+        /**
+         * Update conversation trends chart
+         */
+        updateConversationTrendsChart: function(data) {
+            if (!this.charts.conversationTrends) return;
+            
+            var labels = data.map(function(item) {
+                return new Date(item.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+            });
+            var values = data.map(function(item) {
+                return parseInt(item.count);
+            });
+            
+            this.charts.conversationTrends.data.labels = labels;
+            this.charts.conversationTrends.data.datasets[0].data = values;
+            this.charts.conversationTrends.update();
+        },
+        
+        /**
+         * Update response time chart
+         */
+        updateResponseTimeChart: function(data) {
+            if (!this.charts.responseTime) return;
+            
+            var labels = data.map(function(item) {
+                return new Date(item.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+            });
+            var values = data.map(function(item) {
+                return parseFloat(item.avg_response_time);
+            });
+            
+            this.charts.responseTime.data.labels = labels;
+            this.charts.responseTime.data.datasets[0].data = values;
+            this.charts.responseTime.update();
+        },
+        
+        /**
+         * Update satisfaction chart
+         */
+        updateSatisfactionChart: function(data) {
+            if (!this.charts.satisfaction) return;
+            
+            var values = [
+                data['5'] || 0,
+                data['4'] || 0,
+                data['3'] || 0,
+                data['2'] || 0,
+                data['1'] || 0
+            ];
+            
+            this.charts.satisfaction.data.datasets[0].data = values;
+            this.charts.satisfaction.update();
+        },
+        
+        /**
+         * Update topics chart
+         */
+        updateTopicsChart: function(data) {
+            if (!this.charts.topics) return;
+            
+            var labels = data.map(function(item) {
+                return item.topic;
+            });
+            var values = data.map(function(item) {
+                return parseInt(item.count);
+            });
+            
+            this.charts.topics.data.labels = labels;
+            this.charts.topics.data.datasets[0].data = values;
+            this.charts.topics.update();
+        },
+        
+        /**
+         * Update hourly distribution chart
+         */
+        updateHourlyDistributionChart: function(data) {
+            if (!this.charts.hourlyDistribution) return;
+            
+            // Initialize with zeros for all 24 hours
+            var hourlyData = new Array(24).fill(0);
+            
+            // Fill in actual data
+            data.forEach(function(item) {
+                var hour = parseInt(item.hour);
+                if (hour >= 0 && hour <= 23) {
+                    hourlyData[hour] = parseInt(item.count);
+                }
+            });
+            
+            this.charts.hourlyDistribution.data.datasets[0].data = hourlyData;
+            this.charts.hourlyDistribution.update();
+        },
+        
+        /**
+         * Handle date range change
+         */
+        handleDateRangeChange: function() {
+            var dateRange = $(this).val();
+            AIChatbotAnalytics.loadAnalyticsData(dateRange);
+        },
+        
+        /**
+         * Handle filter change
+         */
+        handleFilterChange: function() {
+            var filter = $(this).val();
+            var dateRange = $('#analytics-date-range').val();
+            
+            AIChatbotAnalytics.loadAnalyticsData(dateRange, filter);
+        },
+        
+        /**
+         * Export analytics
+         */
+        exportAnalytics: function(e) {
+            e.preventDefault();
+            
+            var format = $(this).data('format') || 'csv';
+            var dateRange = $('#analytics-date-range').val();
+            var $button = $(this);
+            
+            $button.prop('disabled', true).text('Exporting...');
+            
+            $.ajax({
+                url: aiChatbotAdmin.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_export_analytics',
+                    nonce: aiChatbotAdmin.nonce,
+                    format: format,
+                    date_range: dateRange
+                },
+                xhrFields: {
+                    responseType: 'blob'
+                },
+                success: function(data, textStatus, xhr) {
+                    // Create download
+                    var filename = 'ai-chatbot-analytics-' + dateRange + 'days.' + format;
+                    var blob = new Blob([data]);
+                    var url = window.URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    AIChatbotAdmin.showNotification('Analytics exported successfully!', 'success');
+                },
+                error: function() {
+                    AIChatbotAdmin.showNotification('Export failed', 'error');
+                },
+                complete: function() {
+                    $button.prop('disabled', false).text('Export');
+                }
+            });
+        },
+        
+        /**
+         * Refresh analytics
+         */
+        refreshAnalytics: function(e) {
+            e.preventDefault();
+            
+            var dateRange = $('#analytics-date-range').val();
+            AIChatbotAnalytics.loadAnalyticsData(dateRange);
+        },
+        
+        /**
+         * Toggle chart type
+         */
+        toggleChartType: function(e) {
+            e.preventDefault();
+            
+            var chartName = $(this).data('chart');
+            var newType = $(this).data('type');
+            
+            if (AIChatbotAnalytics.charts[chartName]) {
+                AIChatbotAnalytics.charts[chartName].config.type = newType;
+                AIChatbotAnalytics.charts[chartName].update();
+            }
+        },
+        
+        /**
+         * Toggle realtime updates
+         */
+        toggleRealtimeUpdates: function() {
+            var enabled = $(this).is(':checked');
+            
+            if (enabled) {
+                AIChatbotAnalytics.startRealtimeUpdates();
+            } else {
+                AIChatbotAnalytics.stopRealtimeUpdates();
+            }
+        },
+        
+        /**
+         * Start realtime updates
+         */
+        startRealtimeUpdates: function() {
+            if (this.realtimeInterval) {
+                clearInterval(this.realtimeInterval);
+            }
+            
+            this.realtimeInterval = setInterval(function() {
+                var dateRange = $('#analytics-date-range').val();
+                AIChatbotAnalytics.loadAnalyticsData(dateRange);
+            }, 30000); // Update every 30 seconds
+            
+            AIChatbotAdmin.showNotification('Real-time updates enabled', 'success', 2000);
+        },
+        
+        /**
+         * Stop realtime updates
+         */
+        stopRealtimeUpdates: function() {
+            if (this.realtimeInterval) {
+                clearInterval(this.realtimeInterval);
+                this.realtimeInterval = null;
+            }
+            
+            AIChatbotAdmin.showNotification('Real-time updates disabled', 'info', 2000);
+        },
+        
+        /**
+         * Initialize date range picker
+         */
+        initDateRangePicker: function() {
+            // Simple date range implementation
+            $('#custom-date-range').on('change', function() {
+                var customRange = $(this).val();
+                if (customRange) {
+                    $('#analytics-date-range').val('custom').trigger('change');
+                }
+            });
+        },
+        
+        /**
+         * Format number with commas
+         */
+        formatNumber: function(num) {
+            if (typeof num !== 'number') {
+                num = parseInt(num) || 0;
+            }
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        },
+        
+        /**
+         * Destroy charts (cleanup)
+         */
+        destroyCharts: function() {
+            Object.keys(this.charts).forEach(function(key) {
+                if (AIChatbotAnalytics.charts[key]) {
+                    AIChatbotAnalytics.charts[key].destroy();
+                }
+            });
+            this.charts = {};
         }
-
-        // Usage table
-        const usageTableBody = $('#usage-table-body');
-        usageTableBody.empty();
-        
-        if (data.usage) {
-            usageTableBody.append(`
-                <tr><td>Total Requests</td><td>${data.usage.total_requests || 0}</td></tr>
-                <tr><td>Total Tokens</td><td>${window.AIChatbotAdmin.formatNumber(data.usage.total_tokens || 0)}</td></tr>
-                <tr><td>Total Cost</td><td>$${(data.usage.total_cost || 0).toFixed(4)}</td></tr>
-                <tr><td>Last Request</td><td>${data.usage.last_request || 'Never'}</td></tr>
-            `);
-        } else {
-            usageTableBody.append('<tr><td colspan="2">No usage data available</td></tr>');
-        }
-    }
-
-    // Switch between data table tabs
-    function switchTab(tab) {
-        $('.tab-button').removeClass('active');
-        $('.tab-button[data-tab="' + tab + '"]').addClass('active');
-        
-        $('.tab-content').removeClass('active');
-        $('#' + tab + '-table').addClass('active');
-    }
-
-    // Export analytics data
-    function exportAnalytics() {
-        const exportUrl = ai_chatbot_admin.ajax_url + 
-            '?action=ai_chatbot_export_analytics' +
-            '&period=' + currentPeriod +
-            '&format=csv' +
-            '&nonce=' + ai_chatbot_admin.nonce;
-        
-        // Create temporary download link
-        const link = document.createElement('a');
-        link.href = exportUrl;
-        link.download = 'chatbot-analytics-' + currentPeriod + '.csv';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        window.AIChatbotAdmin.showNotification('Analytics data exported successfully', 'success');
-    }
-
+    };
+    
+    /**
+     * Document ready
+     */
+    $(document).ready(function() {
+        AIChatbotAnalytics.init();
+    });
+    
+    /**
+     * Window beforeunload - cleanup
+     */
+    $(window).on('beforeunload', function() {
+        AIChatbotAnalytics.stopRealtimeUpdates();
+        AIChatbotAnalytics.destroyCharts();
+    });
+    
+    /**
+     * Make AIChatbotAnalytics globally available
+     */
+    window.AIChatbotAnalytics = AIChatbotAnalytics;
+    
 })(jQuery);
