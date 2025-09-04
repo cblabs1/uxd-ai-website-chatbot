@@ -49,37 +49,6 @@
     text-decoration: none;
 }
 
-/* Chart Container */
-.ai-chatbot-chart-container {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-    height: 400px;
-    position: relative;
-}
-
-.ai-chatbot-chart-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.ai-chatbot-chart-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 300px;
-    color: #64748b;
-    font-size: 16px;
-    border: 2px dashed #e2e8f0;
-    border-radius: 6px;
-    background: #f8fafc;
-}
-
 /* Analytics Tables */
 .ai-chatbot-analytics-table {
     width: 100%;
@@ -164,10 +133,6 @@
     
     .ai-chatbot-analytics-filters {
         justify-content: space-between;
-    }
-    
-    .ai-chatbot-chart-container {
-        height: 300px;
     }
     
     .ai-chatbot-analytics-table {

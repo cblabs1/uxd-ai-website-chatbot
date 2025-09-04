@@ -391,5 +391,27 @@ class AI_Chatbot_Shortcodes {
                 'all'
             );
         }
+
+        // Enqueue main CSS if not already loaded
+        if (!wp_style_is('ai-chatbot-frontend-css', 'enqueued')) {
+            wp_enqueue_style(
+                'ai-chatbot-frontend-css',
+                AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-frontend.css',
+                array(),
+                $this->version,
+                'all'
+            );
+        }
+
+        // Enqueue themes CSS if not already loaded
+        if (!wp_style_is('ai-chatbot-themes-css', 'enqueued')) {
+            wp_enqueue_style(
+                'ai-chatbot-themes-css',
+                AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-themes.css',
+                array('ai-chatbot-frontend-css'),
+                $this->version,
+                'all'
+            );
+        }
     }
 }

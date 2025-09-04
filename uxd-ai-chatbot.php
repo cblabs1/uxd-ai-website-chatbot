@@ -3,7 +3,7 @@
  * Plugin Name: AI Website Chatbot
  * Plugin URI: https://wordpress.org/plugins/ai-website-chatbot
  * Description: An intelligent chatbot that learns from your website content and integrates with multiple AI platforms. GDPR compliant with privacy controls.
- * Version: 3.1.0
+ * Version: 4.1.0
  * Requires at least: 5.0
  * Requires PHP: 7.4
  * Author: Your Name
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'AI_CHATBOT_VERSION', '3.1.0' );
+define( 'AI_CHATBOT_VERSION', '4.1.0' );
 define( 'AI_CHATBOT_PLUGIN_FILE', __FILE__ );
 define( 'AI_CHATBOT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AI_CHATBOT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -34,23 +34,31 @@ define( 'AI_CHATBOT_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
  * Check requirements and load the plugin
  */
 function ai_chatbot_load_plugin() {
-	// Check WordPress version
-	if ( version_compare( get_bloginfo( 'version' ), '5.0', '<' ) ) {
-		add_action( 'admin_notices', 'ai_chatbot_wordpress_version_notice' );
-		return;
-	}
+    // Check WordPress version
+    if ( version_compare( get_bloginfo( 'version' ), '5.0', '<' ) ) {
+        add_action( 'admin_notices', 'ai_chatbot_wordpress_version_notice' );
+        return;
+    }
 
-	// Check PHP version
-	if ( version_compare( PHP_VERSION, '7.4', '<' ) ) {
-		add_action( 'admin_notices', 'ai_chatbot_php_version_notice' );
-		return;
-	}
+    // Check PHP version
+    if ( version_compare( PHP_VERSION, '7.4', '<' ) ) {
+        add_action( 'admin_notices', 'ai_chatbot_php_version_notice' );
+        return;
+    }
 
-	// Load the main plugin class
-	require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot.php';
+    add_action('init', function() {
+        load_plugin_textdomain(
+            'ai-website-chatbot',
+            false,
+            dirname( plugin_basename( __FILE__ ) ) . '/languages/'
+        );
+    }, 1);
 
-	// Initialize the plugin
-	AI_Chatbot::get_instance();
+    // Load the main plugin class on init
+    add_action('init', function() {
+        require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot.php';
+        AI_Chatbot::get_instance();
+    }, 5);
 }
 
 /**

@@ -182,7 +182,7 @@ class AI_Chatbot {
         // AJAX hooks will be defined in the Ajax class constructor
 
         // Initialize shortcodes
-        $plugin_shortcodes = new AI_Chatbot_Shortcodes();
+        $plugin_shortcodes = new AI_Chatbot_Shortcodes($this->plugin_name, $this->version);
         // Shortcode hooks will be defined in the Shortcodes class constructor
 
         // Initialize widgets
@@ -191,7 +191,7 @@ class AI_Chatbot {
 
         // Initialize Gutenberg blocks if supported
         if (function_exists('register_block_type')) {
-            $plugin_gutenberg = new AI_Chatbot_Gutenberg();
+            $plugin_gutenberg = new AI_Chatbot_Gutenberg($this->plugin_name, $this->version);
             // Gutenberg hooks will be defined in the Gutenberg class constructor
         }
     }

@@ -1,0 +1,634 @@
+/**
+ * AI Website Chatbot - Charts Styles
+ * 
+ * @package AI_Website_Chatbot
+ * @since 1.0.0
+ */
+
+
+.ai-chatbot-chart-container {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.ai-chatbot-chart-wrapper {
+    position: relative;
+    height: 400px;
+    width: 100%;
+}
+
+.ai-chatbot-chart-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.ai-chatbot-chart-subtitle {
+    font-size: 14px;
+    color: #64748b;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+/* Chart Loading States */
+.ai-chatbot-chart-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.ai-chatbot-chart-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f4f6;
+    border-top: 3px solid #6366f1;
+    border-radius: 50%;
+    animation: ai-chatbot-spin 1s linear infinite;
+}
+
+@keyframes ai-chatbot-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.ai-chatbot-chart-loading-text {
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* Chart Controls */
+.ai-chatbot-chart-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.ai-chatbot-chart-filters {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.ai-chatbot-chart-period-select {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.ai-chatbot-chart-type-toggle {
+    display: flex;
+    background: #f8fafc;
+    border-radius: 6px;
+    padding: 2px;
+    border: 1px solid #e2e8f0;
+}
+
+.ai-chatbot-chart-type-btn {
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.ai-chatbot-chart-type-btn.active {
+    background: white;
+    color: #1e293b;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.ai-chatbot-chart-type-btn:hover:not(.active) {
+    color: #475569;
+}
+
+/* Chart Grid Layout */
+.ai-chatbot-charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.ai-chatbot-chart-full-width {
+    grid-column: 1 / -1;
+}
+
+/* Chart Statistics */
+.ai-chatbot-chart-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.ai-chatbot-chart-stat {
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.ai-chatbot-chart-stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 5px;
+}
+
+.ai-chatbot-chart-stat-label {
+    font-size: 13px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ai-chatbot-chart-stat-change {
+    font-size: 12px;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+
+.ai-chatbot-chart-stat-change.positive {
+    color: #059669;
+}
+
+.ai-chatbot-chart-stat-change.negative {
+    color: #dc2626;
+}
+
+.ai-chatbot-chart-stat-change.neutral {
+    color: #64748b;
+}
+
+/* Chart Legend Customization */
+.ai-chatbot-chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.ai-chatbot-chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.ai-chatbot-chart-legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+/* Chart Tooltips (Custom) */
+.ai-chatbot-chart-tooltip {
+    background: rgba(15, 23, 42, 0.95);
+    color: white;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(4px);
+}
+
+.ai-chatbot-chart-tooltip-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.ai-chatbot-chart-tooltip-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+}
+
+.ai-chatbot-chart-tooltip-item:last-child {
+    margin-bottom: 0;
+}
+
+.ai-chatbot-chart-tooltip-color {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+/* Empty State */
+.ai-chatbot-chart-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: #64748b;
+    text-align: center;
+}
+
+.ai-chatbot-chart-empty-icon {
+    width: 64px;
+    height: 64px;
+    opacity: 0.5;
+    margin-bottom: 15px;
+}
+
+.ai-chatbot-chart-empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #374151;
+}
+
+.ai-chatbot-chart-empty-text {
+    font-size: 14px;
+    color: #64748b;
+}
+
+/* Chart Error State */
+.ai-chatbot-chart-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: #dc2626;
+    text-align: center;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+}
+
+.ai-chatbot-chart-error-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 15px;
+}
+
+.ai-chatbot-chart-error-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.ai-chatbot-chart-error-text {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+/* Chart Export Options */
+.ai-chatbot-chart-export {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+}
+
+.ai-chatbot-chart-export-btn {
+    padding: 6px 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #64748b;
+    transition: all 0.2s ease;
+}
+
+.ai-chatbot-chart-export-btn:hover {
+    background: #f8fafc;
+    color: #1e293b;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .ai-chatbot-charts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .ai-chatbot-chart-wrapper {
+        height: 350px;
+    }
+}
+
+@media (max-width: 768px) {
+    .ai-chatbot-chart-container {
+        padding: 15px;
+    }
+    
+    .ai-chatbot-chart-wrapper {
+        height: 300px;
+    }
+    
+    .ai-chatbot-chart-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .ai-chatbot-chart-filters {
+        justify-content: center;
+    }
+    
+    .ai-chatbot-chart-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .ai-chatbot-chart-legend {
+        justify-content: flex-start;
+    }
+    
+    .ai-chatbot-chart-export {
+        position: static;
+        margin-bottom: 15px;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .ai-chatbot-chart-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .ai-chatbot-chart-wrapper {
+        height: 250px;
+    }
+    
+    .ai-chatbot-chart-title {
+        font-size: 16px;
+    }
+    
+    .ai-chatbot-chart-stat-value {
+        font-size: 20px;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .ai-chatbot-chart-container {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    
+    .ai-chatbot-chart-title {
+        color: #f1f5f9;
+    }
+    
+    .ai-chatbot-chart-subtitle {
+        color: #94a3b8;
+    }
+    
+    .ai-chatbot-chart-stat {
+        background: #334155;
+    }
+    
+    .ai-chatbot-chart-stat-value {
+        color: #f1f5f9;
+    }
+    
+    .ai-chatbot-chart-stat-label {
+        color: #94a3b8;
+    }
+    
+    .ai-chatbot-chart-period-select {
+        background: #334155;
+        border-color: #475569;
+        color: #f1f5f9;
+    }
+    
+    .ai-chatbot-chart-type-toggle {
+        background: #334155;
+        border-color: #475569;
+    }
+    
+    .ai-chatbot-chart-type-btn {
+        color: #94a3b8;
+    }
+    
+    .ai-chatbot-chart-type-btn.active {
+        background: #1e293b;
+        color: #f1f5f9;
+    }
+    
+    .ai-chatbot-chart-export-btn {
+        background: #334155;
+        border-color: #475569;
+        color: #94a3b8;
+    }
+    
+    .ai-chatbot-chart-export-btn:hover {
+        background: #475569;
+        color: #f1f5f9;
+    }
+    
+    .ai-chatbot-chart-empty-title {
+        color: #e2e8f0;
+    }
+    
+    .ai-chatbot-chart-empty-text {
+        color: #94a3b8;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .ai-chatbot-chart-controls,
+    .ai-chatbot-chart-export {
+        display: none;
+    }
+    
+    .ai-chatbot-chart-container {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+    
+    .ai-chatbot-chart-wrapper {
+        height: 300px;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .ai-chatbot-chart-container {
+        border-width: 2px;
+        border-color: #000;
+    }
+    
+    .ai-chatbot-chart-type-btn {
+        border: 1px solid #000;
+    }
+    
+    .ai-chatbot-chart-type-btn.active {
+        background: #000;
+        color: #fff;
+    }
+    
+    .ai-chatbot-chart-export-btn {
+        border: 1px solid #000;
+        color: #000;
+    }
+}
+
+/* Accessibility Focus Styles */
+.ai-chatbot-chart-type-btn:focus,
+.ai-chatbot-chart-export-btn:focus,
+.ai-chatbot-chart-period-select:focus {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+/* Animation Classes */
+.ai-chatbot-chart-fade-in {
+    animation: ai-chatbot-fade-in 0.5s ease-out;
+}
+
+@keyframes ai-chatbot-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Chart Data Table (Fallback) */
+.ai-chatbot-chart-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 13px;
+}
+
+.ai-chatbot-chart-table th {
+    background: #f8fafc;
+    padding: 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.ai-chatbot-chart-table td {
+    padding: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #6b7280;
+}
+
+.ai-chatbot-chart-table tr:hover {
+    background: #f8fafc;
+}
+
+/* Chart Legends */
+.ai-chatbot-custom-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.ai-chatbot-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.ai-chatbot-legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Progress Rings for Donut Charts */
+.ai-chatbot-progress-ring {
+    transform: rotate(-90deg);
+}
+
+.ai-chatbot-progress-ring-circle {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.5s ease;
+}
+
+.ai-chatbot-progress-ring-background {
+    stroke: #e2e8f0;
+}
+
+.ai-chatbot-progress-ring-progress {
+    stroke: #6366f1;
+}
+
+/* Chart Annotations */
+.ai-chatbot-chart-annotation {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Real-time Indicator */
+.ai-chatbot-realtime-indicator {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #059669;
+}
+
+.ai-chatbot-realtime-dot {
+    width: 8px;
+    height: 8px;
+    background: #059669;
+    border-radius: 50%;
+    animation: ai-chatbot-pulse 2s infinite;
+}
+
+@keyframes ai-chatbot-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
