@@ -427,7 +427,7 @@ class AI_Chatbot_Admin_Settings {
     public function ajax_save_settings() {
         // Debug logging
         error_log('AI Chatbot: ajax_save_settings called');
-        error_log('AI Chatbot: POST data: ' . print_r($_POST, true));
+        error_log('AI Chatbot: POST data keys: ' . implode(', ', array_keys($_POST)));
         
         // Verify nonce
         if (!check_ajax_referer('ai_chatbot_admin_nonce', 'nonce', false)) {
@@ -451,104 +451,44 @@ class AI_Chatbot_Admin_Settings {
         // Parse the serialized form data
         parse_str($_POST['settings'], $form_data);
         
-        error_log('AI Chatbot: Processed form data: ' . print_r($form_data, true));
+        error_log('AI Chatbot: Parsed form data: ' . print_r($form_data, true));
         
-        $settings_to_save = array();
-        
-        // FIXED: Handle the nested ai_chatbot_settings array structure
+        // CORRECT: Save the entire ai_chatbot_settings array as one option
         if (isset($form_data['ai_chatbot_settings']) && is_array($form_data['ai_chatbot_settings'])) {
-            $settings_array = $form_data['ai_chatbot_settings'];
             
-            // Process flat settings (non-nested)
-            foreach ($settings_array as $key => $value) {
-                // Skip nested arrays for now, handle them separately
-                if (!is_array($value)) {
-                    $full_key = 'ai_chatbot_' . $key;
-                    $settings_to_save[$full_key] = $this->sanitize_setting_value($full_key, $value);
-                    error_log("AI Chatbot: Processing flat setting: $full_key = $value");
-                }
-            }
+            $new_settings = $form_data['ai_chatbot_settings'];
             
-            // Handle nested arrays (rate_limiting, content_sync, gdpr, etc.)
-            foreach ($settings_array as $key => $value) {
-                if (is_array($value)) {
-                    error_log("AI Chatbot: Processing nested array: $key");
-                    
-                    switch ($key) {
-                        case 'rate_limiting':
-                            $settings_to_save['ai_chatbot_rate_limit_enabled'] = !empty($value['enabled']) ? 1 : 0;
-                            $settings_to_save['ai_chatbot_rate_limit_max_requests'] = intval($value['max_requests'] ?? 10);
-                            $settings_to_save['ai_chatbot_rate_limit_time_window'] = intval($value['time_window'] ?? 3600);
-                            break;
-                            
-                        case 'content_sync':
-                            $settings_to_save['ai_chatbot_content_sync_post_types'] = is_array($value['post_types']) ? $value['post_types'] : array();
-                            $settings_to_save['ai_chatbot_content_sync_frequency'] = sanitize_text_field($value['sync_frequency'] ?? 'daily');
-                            break;
-                            
-                        case 'gdpr':
-                            $settings_to_save['ai_chatbot_gdpr_data_retention_days'] = intval($value['data_retention_days'] ?? 30);
-                            $settings_to_save['ai_chatbot_gdpr_privacy_policy_url'] = esc_url_raw($value['privacy_policy_url'] ?? '');
-                            $settings_to_save['ai_chatbot_gdpr_anonymize_data'] = !empty($value['anonymize_data']) ? 1 : 0;
-                            break;
-                            
-                        case 'show_on_pages':
-                            $settings_to_save['ai_chatbot_show_on_pages'] = is_array($value) ? $value : array($value);
-                            break;
-                            
-                        default:
-                            // Handle any other nested arrays
-                            $settings_to_save['ai_chatbot_' . $key] = $value;
-                            break;
-                    }
-                }
-            }
-        } else {
-            // Fallback: Process flat structure if nested structure not found
-            foreach ($form_data as $key => $value) {
-                if (strpos($key, 'ai_chatbot_') === 0) {
-                    $settings_to_save[$key] = $this->sanitize_setting_value($key, $value);
-                }
-            }
-        }
-        
-        error_log('AI Chatbot: Final settings to save: ' . print_r($settings_to_save, true));
-
-        if (empty($settings_to_save)) {
-            error_log('AI Chatbot: No valid settings found after processing');
-            wp_send_json_error(__('No valid settings found to save', 'ai-website-chatbot'));
-            return;
-        }
-
-        // Save settings
-        $saved_count = 0;
-        $failed_settings = array();
-        $option_name = 'ai_chatbot_settings';
-        
-        $result = update_option($option_name, $settings_to_save);
-        if ($result) {
-            $saved_count++;
-            error_log("AI Chatbot: Successfully saved: $setting_name");
-        } else {
-            // Check if the value is the same as current value
-            $current_value = get_option($option_name);
-            if ($current_value === $setting_value) {
-                $saved_count++; // Count as successful since value is already correct
-                error_log("AI Chatbot: Value unchanged for: $setting_name");
+            // Get current settings to merge with new ones
+            $current_settings = get_option('ai_chatbot_settings', array());
+            
+            // Merge current settings with new settings
+            $updated_settings = array_merge($current_settings, $new_settings);
+            
+            error_log('AI Chatbot: Current settings: ' . print_r($current_settings, true));
+            error_log('AI Chatbot: New settings: ' . print_r($new_settings, true));
+            error_log('AI Chatbot: Merged settings: ' . print_r($updated_settings, true));
+            
+            // Save the complete settings array as one option
+            $save_result = update_option('ai_chatbot_settings', $updated_settings);
+            
+            if ($save_result) {
+                error_log('AI Chatbot: Settings saved successfully');
+                wp_send_json_success(sprintf(__('%d settings saved successfully!', 'ai-website-chatbot'), count($new_settings)));
             } else {
-                $failed_settings[] = $setting_name;
-                error_log("AI Chatbot: Failed to save: $setting_name");
+                // Check if settings are the same (update_option returns false if no change)
+                $current_check = get_option('ai_chatbot_settings', array());
+                if ($current_check === $updated_settings) {
+                    error_log('AI Chatbot: Settings unchanged, but counting as success');
+                    wp_send_json_success(__('Settings are up to date!', 'ai-website-chatbot'));
+                } else {
+                    error_log('AI Chatbot: Failed to save settings');
+                    wp_send_json_error(__('Failed to save settings', 'ai-website-chatbot'));
+                }
             }
-        }
-
-        if ($saved_count > 0) {
-            $message = sprintf(__('%d settings saved successfully!', 'ai-website-chatbot'), $saved_count);
-            if (!empty($failed_settings)) {
-                $message .= ' ' . sprintf(__('(%d settings failed to save)', 'ai-website-chatbot'), count($failed_settings));
-            }
-            wp_send_json_success($message);
+            
         } else {
-            wp_send_json_error(__('No settings were updated. Failed settings: ', 'ai-website-chatbot') . implode(', ', $failed_settings));
+            error_log('AI Chatbot: No ai_chatbot_settings array found in form data');
+            wp_send_json_error(__('Invalid settings data structure', 'ai-website-chatbot'));
         }
     }
     

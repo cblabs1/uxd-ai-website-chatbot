@@ -162,6 +162,7 @@ class AI_Chatbot {
         $this->loader->add_action('wp_dashboard_setup', $plugin_admin_dashboard, 'add_dashboard_widgets');
 
         // Initialize admin analytics
+		$plugin_training = new AI_Chatbot_Admin_Training();
         $plugin_admin_analytics = new AI_Chatbot_Admin_Analytics();
         $this->loader->add_action('admin_init', $plugin_admin_analytics, 'init');
 

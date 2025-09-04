@@ -51,7 +51,7 @@ class AI_Chatbot_Frontend {
 				'ai-chatbot-frontend-css',
 				AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-frontend.css',
 				array(),
-				$this->version,
+				AI_CHATBOT_VERSION,
 				'all'
 			);
 		}
@@ -62,7 +62,7 @@ class AI_Chatbot_Frontend {
 				'ai-chatbot-themes-css',
 				AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-themes.css',
 				array('ai-chatbot-frontend-css'),
-				$this->version,
+				AI_CHATBOT_VERSION,
 				'all'
 			);
 		}
@@ -79,7 +79,7 @@ class AI_Chatbot_Frontend {
         // Enqueue widget JavaScript
         wp_enqueue_script(
             'ai-chatbot-widget-js',
-            AI_CHATBOT_PLUGIN_URL . 'assets/public/js/chatbot-widget.js',
+            AI_CHATBOT_PLUGIN_URL . 'assets/js/public/chatbot-widget.js',
             array('jquery', 'ai-chatbot-frontend-js'),
             AI_CHATBOT_VERSION,
             true
@@ -107,7 +107,7 @@ class AI_Chatbot_Frontend {
      */
     private function is_chatbot_enabled() {
         $settings = get_option('ai_chatbot_settings', array());
-        return isset($settings['enabled']) && $settings['enabled'] === 'yes';
+    	return !empty($settings['enabled']) && ($settings['enabled'] === true || $settings['enabled'] === 1 || $settings['enabled'] === '1');
     }
 
     /**
@@ -119,6 +119,6 @@ class AI_Chatbot_Frontend {
         }
 
         // Get widget template
-        include AI_CHATBOT_PLUGIN_PATH . 'public/partials/chatbot-widget.php';
+        include AI_CHATBOT_PLUGIN_DIR . 'public/partials/chatbot-widget.php';
     }
 }

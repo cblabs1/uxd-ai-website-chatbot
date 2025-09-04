@@ -184,10 +184,30 @@ class AI_Chatbot_Activator {
 			KEY created_at (created_at)
 		) $charset_collate;";
 
+		// Training data table
+		$training_data_table = $wpdb->prefix . 'ai_chatbot_training_data';
+		$sql_training_data = "CREATE TABLE $training_data_table (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			question longtext NOT NULL,
+			answer longtext NOT NULL,
+			intent varchar(255) DEFAULT '',
+			tags text DEFAULT '',
+			status varchar(20) DEFAULT 'active',
+			user_id bigint(20) unsigned DEFAULT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY status (status),
+			KEY intent (intent),
+			KEY user_id (user_id),
+			KEY created_at (created_at)
+		) $charset_collate;";
+
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql_conversations );
 		dbDelta( $sql_content );
 		dbDelta( $sql_training );
+		dbDelta( $sql_training_data );
 
 		// Store database version for future upgrades
 		add_option( 'ai_chatbot_db_version', '1.0.0' );

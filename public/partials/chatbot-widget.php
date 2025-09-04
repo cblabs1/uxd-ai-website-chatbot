@@ -11,11 +11,16 @@ if (!defined('ABSPATH')) {
 }
 
 $settings = get_option('ai_chatbot_settings', array());
-$theme = isset($settings['theme']) ? $settings['theme'] : 'default';
-$position = isset($settings['position']) ? $settings['position'] : 'bottom-right';
+$widget_position = isset($settings['widget_position']) ? $settings['widget_position'] : 'bottom-right';
+$widget_color = isset($settings['widget_color']) ? $settings['widget_color'] : '#0073aa';
+$welcome_message = isset($settings['welcome_message']) ? $settings['welcome_message'] : __('Hello! How can I help you today?', 'ai-website-chatbot');
+$theme = 'dark';
 ?>
 
-<div id="ai-chatbot-widget" class="ai-chatbot-widget ai-chatbot-theme-<?php echo esc_attr($theme); ?> ai-chatbot-position-<?php echo esc_attr($position); ?>" data-position="<?php echo esc_attr($position); ?>">
+<div id="ai-chatbot-widget" 
+    class="ai-chatbot-widget ai-chatbot-theme-<?php echo esc_attr($theme); ?> ai-chatbot-position-<?php echo esc_attr($widget_position); ?>" 
+    data-position="<?php echo esc_attr($widget_position); ?>"
+    style="--ai-chatbot-primary: <?php echo esc_attr($widget_color); ?>;">
     <!-- Chatbot Toggle Button -->
     <div class="ai-chatbot-toggle" id="ai-chatbot-toggle">
         <div class="ai-chatbot-toggle-icon">
@@ -115,104 +120,6 @@ $position = isset($settings['position']) ? $settings['position'] : 'bottom-right
                     <?php _e('Powered by', 'ai-website-chatbot'); ?> <strong><?php echo esc_html(get_bloginfo('name')); ?></strong>
                 </span>
             </div>
-        </div>
-    </div>
-</div>
-
-## File 2: public/partials/chatbot-popup.php
-<?php
-/**
- * Chatbot Popup Template
- *
- * @package AI_Website_Chatbot
- * @since 1.0.0
- */
-
-if (!defined('ABSPATH')) {
-    exit; // Exit if accessed directly.
-}
-
-$width = isset($atts['width']) ? $atts['width'] : '350';
-$height = isset($atts['height']) ? $atts['height'] : '500';
-$theme = isset($atts['theme']) ? $atts['theme'] : 'default';
-$position = isset($atts['position']) ? $atts['position'] : 'bottom-right';
-?>
-
-<div class="ai-chatbot-popup ai-chatbot-theme-<?php echo esc_attr($theme); ?>" 
-     data-width="<?php echo esc_attr($width); ?>" 
-     data-height="<?php echo esc_attr($height); ?>"
-     data-position="<?php echo esc_attr($position); ?>">
-    
-    <?php include AI_CHATBOT_PLUGIN_PATH . 'public/partials/chatbot-widget.php'; ?>
-    
-</div>
-
-## File 3: public/partials/chatbot-inline.php
-<?php
-/**
- * Chatbot Inline Template
- *
- * @package AI_Website_Chatbot
- * @since 1.0.0
- */
-
-if (!defined('ABSPATH')) {
-    exit; // Exit if accessed directly.
-}
-
-$width = isset($atts['width']) ? $atts['width'] : '100%';
-$height = isset($atts['height']) ? $atts['height'] : '400px';
-$theme = isset($atts['theme']) ? $atts['theme'] : 'default';
-?>
-
-<div class="ai-chatbot-inline ai-chatbot-theme-<?php echo esc_attr($theme); ?>" 
-     style="width: <?php echo esc_attr($width); ?>; height: <?php echo esc_attr($height); ?>;">
-    
-    <div class="ai-chatbot-inline-container">
-        <!-- Messages Area -->
-        <div class="ai-chatbot-messages" id="ai-chatbot-inline-messages">
-            <div class="ai-chatbot-message ai-chatbot-message-bot">
-                <div class="ai-chatbot-message-content">
-                    <div class="ai-chatbot-message-text">
-                        <?php _e('Hello! How can I help you today?', 'ai-website-chatbot'); ?>
-                    </div>
-                    <div class="ai-chatbot-message-time">
-                        <?php echo date('H:i'); ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Typing Indicator -->
-        <div class="ai-chatbot-typing" id="ai-chatbot-inline-typing" style="display: none;">
-            <div class="ai-chatbot-typing-content">
-                <div class="ai-chatbot-typing-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-                <span class="ai-chatbot-typing-text"><?php _e('AI is typing...', 'ai-website-chatbot'); ?></span>
-            </div>
-        </div>
-
-        <!-- Input Area -->
-        <div class="ai-chatbot-input-area">
-            <form class="ai-chatbot-input-form" id="ai-chatbot-inline-input-form">
-                <div class="ai-chatbot-input-container">
-                    <textarea 
-                        class="ai-chatbot-input" 
-                        id="ai-chatbot-inline-input" 
-                        placeholder="<?php esc_attr_e('Type your message...', 'ai-website-chatbot'); ?>"
-                        rows="1"
-                        maxlength="1000"
-                    ></textarea>
-                    <button type="submit" class="ai-chatbot-send-button" id="ai-chatbot-inline-send-button" disabled>
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M18 10L2 18L5 10L2 2L18 10Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>

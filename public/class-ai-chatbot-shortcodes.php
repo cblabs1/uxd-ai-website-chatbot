@@ -81,6 +81,10 @@ class AI_Chatbot_Shortcodes {
 
         // Sanitize attributes
         $atts = array_map('sanitize_text_field', $atts);
+
+        $settings = get_option('ai_chatbot_settings', array());
+        $is_enabled = !empty($settings['enabled']) && ($settings['enabled'] === true || $settings['enabled'] === 1 || $settings['enabled'] === '1');
+
         
         // Check if chatbot is enabled
         if (!get_option('ai_chatbot_enabled', false)) {

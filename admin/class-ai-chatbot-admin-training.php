@@ -28,12 +28,15 @@ class AI_Chatbot_Admin_Training {
      * Initialize hooks
      */
     private function init_hooks() {
-        // AJAX handlers
+        // AJAX handlers 
         add_action('wp_ajax_ai_chatbot_add_training_data', array($this, 'ajax_add_training_data'));
+        add_action('wp_ajax_ai_chatbot_get_training_data', array($this, 'ajax_get_training_data'));
         add_action('wp_ajax_ai_chatbot_delete_training_data', array($this, 'ajax_delete_training_data'));
         add_action('wp_ajax_ai_chatbot_import_training_data', array($this, 'ajax_import_training_data'));
         add_action('wp_ajax_ai_chatbot_export_training_data', array($this, 'ajax_export_training_data'));
         add_action('wp_ajax_ai_chatbot_train_model', array($this, 'ajax_train_model'));
+        add_action('init', array($this, 'ensure_training_table_exists'));
+        
     }
     
     /**
@@ -106,23 +109,65 @@ class AI_Chatbot_Admin_Training {
      */
     public function add_training_data($question, $answer, $intent = '', $tags = array()) {
         global $wpdb;
-        
+    
         $table_name = $wpdb->prefix . 'ai_chatbot_training_data';
         
-        $result = $wpdb->insert(
-            $table_name,
-            array(
-                'question' => sanitize_textarea_field($question),
-                'answer' => sanitize_textarea_field($answer),
-                'intent' => sanitize_text_field($intent),
-                'tags' => maybe_serialize($tags),
-                'status' => 'active',
-                'created_at' => current_time('mysql')
-            ),
-            array('%s', '%s', '%s', '%s', '%s', '%s')
+        // Check if table exists first
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+            // Table doesn't exist, create it
+            $this->create_training_data_table();
+        }
+        
+        // Prepare data
+        $data = array(
+            'question' => wp_kses_post($question),
+            'answer' => wp_kses_post($answer),
+            'intent' => sanitize_text_field($intent),
+            'tags' => maybe_serialize($tags),
+            'status' => 'active',
+            'user_id' => get_current_user_id(),
+            'created_at' => current_time('mysql')
         );
         
-        return $result !== false;
+        $formats = array('%s', '%s', '%s', '%s', '%s', '%d', '%s');
+        
+        // Insert data
+        $result = $wpdb->insert($table_name, $data, $formats);
+        
+        if ($result === false) {
+            // Log the error for debugging
+            error_log('AI Chatbot Training Data Insert Error: ' . $wpdb->last_error);
+            return false;
+        }
+        
+        return $wpdb->insert_id;
+    }
+
+    private function create_training_data_table() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'ai_chatbot_training_data';
+        $charset_collate = $wpdb->get_charset_collate();
+        
+        $sql = "CREATE TABLE $table_name (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            question longtext NOT NULL,
+            answer longtext NOT NULL,
+            intent varchar(255) DEFAULT '',
+            tags text DEFAULT '',
+            status varchar(20) DEFAULT 'active',
+            user_id bigint(20) unsigned DEFAULT NULL,
+            created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY status (status),
+            KEY intent (intent),
+            KEY user_id (user_id),
+            KEY created_at (created_at)
+        ) $charset_collate;";
+        
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
     }
     
     /**
@@ -253,27 +298,78 @@ class AI_Chatbot_Admin_Training {
      * AJAX: Add training data
      */
     public function ajax_add_training_data() {
-        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+        if (!check_ajax_referer('ai_chatbot_admin_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Security check failed', 'ai-website-chatbot'));
+            return;
         }
         
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+            return;
+        }
+        
+        // Get and validate input data
         $question = sanitize_textarea_field($_POST['question'] ?? '');
         $answer = sanitize_textarea_field($_POST['answer'] ?? '');
         $intent = sanitize_text_field($_POST['intent'] ?? '');
-        $tags = isset($_POST['tags']) ? array_map('sanitize_text_field', $_POST['tags']) : array();
         
-        if (empty($question) || empty($answer)) {
-            wp_send_json_error(__('Question and answer are required', 'ai-website-chatbot'));
+        // Handle tags - they might come as JSON string
+        $tags = array();
+        if (isset($_POST['tags'])) {
+            if (is_string($_POST['tags'])) {
+                // Try to decode JSON
+                $decoded_tags = json_decode(stripslashes($_POST['tags']), true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded_tags)) {
+                    $tags = array_map('sanitize_text_field', $decoded_tags);
+                } else {
+                    // Handle as comma-separated string
+                    $tags = array_map('sanitize_text_field', explode(',', $_POST['tags']));
+                }
+            } elseif (is_array($_POST['tags'])) {
+                $tags = array_map('sanitize_text_field', $_POST['tags']);
+            }
         }
         
-        $result = $this->add_training_data($question, $answer, $intent, $tags);
+        // Validate required fields
+        if (empty($question)) {
+            wp_send_json_error(__('Question is required', 'ai-website-chatbot'));
+            return;
+        }
+        
+        if (empty($answer)) {
+            wp_send_json_error(__('Answer is required', 'ai-website-chatbot'));
+            return;
+        }
+        
+        // Validate minimum lengths
+        if (strlen($question) < 10) {
+            wp_send_json_error(__('Question must be at least 10 characters long', 'ai-website-chatbot'));
+            return;
+        }
+        
+        if (strlen($answer) < 10) {
+            wp_send_json_error(__('Answer must be at least 10 characters long', 'ai-website-chatbot'));
+            return;
+        }
+        
+        // Check if this is an update
+        $training_id = isset($_POST['training_id']) ? intval($_POST['training_id']) : 0;
+        
+        if ($training_id > 0) {
+            // Update existing training data
+            $result = $this->update_training_data($training_id, $question, $answer, $intent, $tags);
+            $message = $result ? __('Training data updated successfully!', 'ai-website-chatbot') : __('Failed to update training data', 'ai-website-chatbot');
+        } else {
+            // Add new training data
+            $result = $this->add_training_data($question, $answer, $intent, $tags);
+            $message = $result ? __('Training data added successfully!', 'ai-website-chatbot') : __('Failed to add training data', 'ai-website-chatbot');
+        }
         
         if ($result) {
-            wp_send_json_success(__('Training data added successfully!', 'ai-website-chatbot'));
+            wp_send_json_success($message);
         } else {
-            wp_send_json_error(__('Failed to add training data', 'ai-website-chatbot'));
+            wp_send_json_error($message);
         }
     }
     

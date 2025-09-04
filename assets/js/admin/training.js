@@ -94,31 +94,57 @@
                 url: aiChatbotAdmin.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action: 'ai_chatbot_get_training_data',
+                    action: 'ai_chatbot_add_training_data',
                     nonce: aiChatbotAdmin.nonce,
-                    training_id: trainingId
+                    question: $('#training-question').val(),
+                    answer: $('#training-answer').val(),
+                    intent: $('#training-intent').val(),
+                    tags: JSON.stringify(tags),
+                    training_id: $('#training-data-form').find('input[name="training_id"]').val() || 0
+                },
+                beforeSend: function() {
+                    $submitButton.prop('disabled', true).text('Saving...');
                 },
                 success: function(response) {
                     if (response.success) {
-                        var data = response.data;
-                        
-                        $('#training-question').val(data.question);
-                        $('#training-answer').val(data.answer);
-                        $('#training-intent').val(data.intent);
-                        $('#training-data-form').find('input[name="training_id"]').val(data.id);
-                        
-                        // Handle tags
+                        // Clear form
+                        $('#training-data-form')[0].reset();
                         $('.tag-container').empty();
-                        if (data.tags && data.tags.length > 0) {
-                            data.tags.forEach(function(tag) {
-                                AIChatbotTraining.addTagToForm(tag);
-                            });
+                        $('#training-data-form').find('input[name="training_id"]').val('');
+                        
+                        // Hide form
+                        $('.training-form-container').slideUp();
+                        $('.add-training-data').prop('disabled', false);
+                        
+                        // Show success message
+                        if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
+                            AIChatbotAdmin.showNotification(response.data, 'success');
+                        } else {
+                            alert(response.data);
                         }
                         
-                        $('.training-form-container').slideDown();
-                        $('.add-training-data').prop('disabled', true);
-                        $('#training-question').focus();
+                        // Reload page to show new data
+                        location.reload();
+                    } else {
+                        if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
+                            AIChatbotAdmin.showNotification(response.data, 'error');
+                        } else {
+                            alert('Error: ' + response.data);
+                        }
                     }
+                },
+                error: function(xhr, status, error) {
+                    console.error('AJAX Error:', status, error);
+                    console.error('Response:', xhr.responseText);
+                    
+                    if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
+                        AIChatbotAdmin.showNotification('Failed to save training data: ' + error, 'error');
+                    } else {
+                        alert('Failed to save training data: ' + error);
+                    }
+                },
+                complete: function() {
+                    $submitButton.prop('disabled', false).text('Save Training Data');
                 }
             });
         },
