@@ -122,16 +122,27 @@ class AI_Chatbot_Activator {
 			session_id varchar(255) NOT NULL,
 			user_message longtext NOT NULL,
 			bot_response longtext NOT NULL,
+			ai_response longtext DEFAULT NULL,
+			user_name varchar(255) DEFAULT '',
 			user_ip varchar(100) DEFAULT '',
 			page_url varchar(2048) DEFAULT '',
 			user_agent varchar(500) DEFAULT '',
+			status varchar(20) DEFAULT 'completed',
+			intent varchar(255) DEFAULT NULL,
 			rating tinyint(1) DEFAULT NULL,
+			response_time decimal(8,3) DEFAULT NULL,
+			tokens_used int(10) unsigned DEFAULT NULL,
+			provider varchar(50) DEFAULT NULL,
+			model varchar(100) DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			KEY session_id (session_id),
 			KEY created_at (created_at),
-			KEY rating (rating)
+			KEY rating (rating),
+			KEY status (status),
+			KEY intent (intent),
+			KEY provider (provider)
 		) $charset_collate;";
 
 		// Website content index table
@@ -256,6 +267,77 @@ class AI_Chatbot_Activator {
 		$index_file = $chatbot_dir . '/index.php';
 		if ( ! file_exists( $index_file ) ) {
 			file_put_contents( $index_file, '<?php // Silence is golden.' );
+		}
+	}
+
+	/**
+	 * Database schema update to includes/class-ai-chatbot-activator.php
+	 * Fix for the missing database columns
+	 */
+	public static function update_database_schema() {
+		global $wpdb;
+
+		$current_db_version = get_option('ai_chatbot_db_version', '1.0.0');
+		
+		if (version_compare($current_db_version, '1.1.0', '<')) {
+			$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+			
+			// Check if table exists first
+			if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+				// Table doesn't exist, create it with correct schema
+				self::create_database_tables();
+				return;
+			}
+
+			// Add missing columns one by one
+			$columns_to_add = array(
+				'ai_response' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN ai_response longtext DEFAULT NULL',
+					'check' => 'ai_response'
+				),
+				'user_name' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN user_name varchar(255) DEFAULT ""',
+					'check' => 'user_name'
+				),
+				'status' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN status varchar(20) DEFAULT "completed"',
+					'check' => 'status'
+				),
+				'intent' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN intent varchar(255) DEFAULT NULL',
+					'check' => 'intent'
+				),
+				'response_time' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN response_time decimal(8,3) DEFAULT NULL',
+					'check' => 'response_time'
+				),
+				'tokens_used' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN tokens_used int(10) unsigned DEFAULT NULL',
+					'check' => 'tokens_used'
+				),
+				'provider' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN provider varchar(50) DEFAULT NULL',
+					'check' => 'provider'
+				),
+				'model' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN model varchar(100) DEFAULT NULL',
+					'check' => 'model'
+				)
+			);
+
+			foreach ($columns_to_add as $column => $config) {
+				// Check if column exists
+				$column_exists = $wpdb->get_results("SHOW COLUMNS FROM $table_name LIKE '{$config['check']}'");
+				if (empty($column_exists)) {
+					$result = $wpdb->query($config['sql']);
+					if ($result === false) {
+						error_log("AI Chatbot: Failed to add column $column to $table_name");
+					}
+				}
+			}
+
+			// Update database version
+			update_option('ai_chatbot_db_version', '1.1.0');
 		}
 	}
 

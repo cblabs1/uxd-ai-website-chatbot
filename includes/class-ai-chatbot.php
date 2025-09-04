@@ -63,6 +63,12 @@ class AI_Chatbot {
     public function init() {
         $this->define_admin_hooks();
         $this->define_public_hooks();
+
+		if (is_admin()) {
+			require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot-activator.php';
+			AI_Chatbot_Activator::update_database_schema();
+		}
+		
     }
 
     /**

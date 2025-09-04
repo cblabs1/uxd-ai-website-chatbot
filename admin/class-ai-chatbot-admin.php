@@ -193,7 +193,7 @@ class AI_Chatbot_Admin {
         // Localize script
         wp_localize_script('ai-chatbot-admin-js', 'aiChatbotAdmin', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('ai_chatbot_admin_nonce'),
+            'nonce' => wp_create_nonce('ai_chatbot_admin_nonce'), // CONSISTENT NONCE NAME
             'strings' => array(
                 'saved' => __('Settings saved successfully!', 'ai-website-chatbot'),
                 'error' => __('An error occurred. Please try again.', 'ai-website-chatbot'),
@@ -201,7 +201,8 @@ class AI_Chatbot_Admin {
                 'connected' => __('Connection successful!', 'ai-website-chatbot'),
                 'connection_failed' => __('Connection failed. Please check your settings.', 'ai-website-chatbot'),
                 'confirm_delete' => __('Are you sure you want to delete this item?', 'ai-website-chatbot'),
-                'loading' => __('Loading...', 'ai-website-chatbot')
+                'loading' => __('Loading...', 'ai-website-chatbot'),
+                'saving' => __('Saving...', 'ai-website-chatbot')
             )
         ));
         

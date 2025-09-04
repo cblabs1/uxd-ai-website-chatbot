@@ -57,7 +57,6 @@ class AI_Chatbot_Admin_Analytics {
         
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
         $current_date = current_time('Y-m-d');
-        $thirty_days_ago = date('Y-m-d', strtotime('-30 days'));
         
         // Check if table exists
         if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
@@ -66,78 +65,28 @@ class AI_Chatbot_Admin_Analytics {
         
         $data = array();
         
-        // Total conversations
-        $data['total_conversations'] = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+        // Basic stats that should always work
+        $data['total_conversations'] = intval($wpdb->get_var("SELECT COUNT(*) FROM $table_name") ?: 0);
+        $data['conversations_today'] = intval($wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE DATE(created_at) = %s", $current_date)) ?: 0);
+        $data['conversations_this_month'] = intval($wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE DATE(created_at) >= %s", date('Y-m-01'))) ?: 0);
         
-        // Conversations today
-        $data['conversations_today'] = $wpdb->get_var(
-            $wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE DATE(created_at) = %s", $current_date)
-        );
+        // Check if response_time column exists before querying
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM $table_name LIKE 'response_time'");
+        if (!empty($column_exists)) {
+            $avg_response_time = $wpdb->get_var("SELECT AVG(response_time) FROM $table_name WHERE response_time > 0");
+            $data['avg_response_time'] = round($avg_response_time ?: 0);
+        } else {
+            $data['avg_response_time'] = 0;
+        }
         
-        // Conversations this month
-        $data['conversations_this_month'] = $wpdb->get_var(
-            $wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE DATE(created_at) >= %s", date('Y-m-01'))
-        );
-        
-        // Average response time
-        $avg_response_time = $wpdb->get_var("SELECT AVG(response_time) FROM $table_name WHERE response_time > 0");
-        $data['avg_response_time'] = round($avg_response_time ?: 0);
-        
-        // User satisfaction (based on ratings)
-        $satisfaction = $wpdb->get_var("SELECT AVG(rating) FROM $table_name WHERE rating > 0");
-        $data['user_satisfaction'] = round($satisfaction ?: 0, 1);
-        
-        // Most active hours
-        $data['active_hours'] = $wpdb->get_results("
-            SELECT HOUR(created_at) as hour, COUNT(*) as count 
-            FROM $table_name 
-            WHERE DATE(created_at) >= '$thirty_days_ago'
-            GROUP BY HOUR(created_at) 
-            ORDER BY count DESC 
-            LIMIT 5
-        ");
-        
-        // Daily conversation trends (last 30 days)
-        $data['daily_trends'] = $wpdb->get_results($wpdb->prepare("
-            SELECT DATE(created_at) as date, COUNT(*) as count 
-            FROM $table_name 
-            WHERE DATE(created_at) >= %s 
-            GROUP BY DATE(created_at) 
-            ORDER BY date ASC
-        ", $thirty_days_ago));
-        
-        // Top conversation topics/intents
-        $data['top_topics'] = $wpdb->get_results("
-            SELECT intent, COUNT(*) as count 
-            FROM $table_name 
-            WHERE intent IS NOT NULL AND intent != '' 
-            AND DATE(created_at) >= '$thirty_days_ago'
-            GROUP BY intent 
-            ORDER BY count DESC 
-            LIMIT 10
-        ");
-        
-        // Conversation status distribution
-        $data['status_distribution'] = $wpdb->get_results("
-            SELECT status, COUNT(*) as count 
-            FROM $table_name 
-            WHERE DATE(created_at) >= '$thirty_days_ago'
-            GROUP BY status
-        ");
-        
-        // User engagement metrics
-        $data['engagement_metrics'] = array(
-            'total_messages' => $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}ai_chatbot_messages WHERE DATE(created_at) >= '$thirty_days_ago'"),
-            'avg_messages_per_conversation' => $wpdb->get_var("
-                SELECT AVG(message_count) FROM (
-                    SELECT conversation_id, COUNT(*) as message_count 
-                    FROM {$wpdb->prefix}ai_chatbot_messages 
-                    WHERE DATE(created_at) >= '$thirty_days_ago'
-                    GROUP BY conversation_id
-                ) as subquery
-            "),
-            'bounce_rate' => $this->calculate_bounce_rate($thirty_days_ago)
-        );
+        // User satisfaction (check rating column exists)
+        $rating_column_exists = $wpdb->get_results("SHOW COLUMNS FROM $table_name LIKE 'rating'");
+        if (!empty($rating_column_exists)) {
+            $satisfaction = $wpdb->get_var("SELECT AVG(rating) FROM $table_name WHERE rating > 0");
+            $data['user_satisfaction'] = round($satisfaction ?: 0, 1);
+        } else {
+            $data['user_satisfaction'] = 0;
+        }
         
         return $data;
     }

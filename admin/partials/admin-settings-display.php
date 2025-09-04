@@ -34,7 +34,7 @@ $animation_styles = $this->get_animation_styles();
     </div>
     
     <form method="post" action="" class="ai-chatbot-settings-form">
-        <?php wp_nonce_field('ai_chatbot_settings_nonce'); ?>
+        <?php wp_nonce_field('ai_chatbot_admin_nonce', 'nonce');  ?>
         
         <!-- General Settings Tab -->
         <div id="general-settings" class="tab-content">
