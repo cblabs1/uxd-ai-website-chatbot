@@ -290,7 +290,7 @@ class AI_Chatbot_Widget extends WP_Widget {
     private function enqueue_widget_assets() {
         wp_enqueue_script(
             'ai-chatbot-widget',
-            AI_CHATBOT_ASSETS_URL . 'js/public/chatbot-widget.js',
+            AI_CHATBOT_PLUGIN_URL . 'assets/js/public/chatbot-widget.js',
             array('jquery'),
             AI_CHATBOT_VERSION,
             true
@@ -298,7 +298,7 @@ class AI_Chatbot_Widget extends WP_Widget {
 
         wp_enqueue_style(
             'ai-chatbot-widget',
-            AI_CHATBOT_ASSETS_URL . 'css/public/chatbot-widget.css',
+            AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-widget.css',
             array(),
             AI_CHATBOT_VERSION,
             'all'

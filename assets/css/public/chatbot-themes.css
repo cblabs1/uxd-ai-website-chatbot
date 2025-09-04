@@ -1,0 +1,153 @@
+/**
+ * AI Website Chatbot - Chatbot Theme Styles
+ * 
+ * @package AI_Website_Chatbot
+ * @since 1.0.0
+ */
+
+/* Dark Theme */
+.ai-chatbot-theme-dark {
+    --ai-chatbot-primary: #374151;
+    --ai-chatbot-primary-hover: #1f2937;
+    --ai-chatbot-secondary: #111827;
+    --ai-chatbot-text: #f9fafb;
+    --ai-chatbot-text-light: #9ca3af;
+    --ai-chatbot-border: #374151;
+}
+
+.ai-chatbot-theme-dark .ai-chatbot-container {
+    background: #1f2937;
+    color: var(--ai-chatbot-text);
+}
+
+.ai-chatbot-theme-dark .ai-chatbot-input {
+    background: #111827;
+    color: var(--ai-chatbot-text);
+    border-color: var(--ai-chatbot-border);
+}
+
+.ai-chatbot-theme-dark .ai-chatbot-message-bot .ai-chatbot-message-text {
+    background: #374151;
+    color: var(--ai-chatbot-text);
+}
+
+/* Modern Theme */
+.ai-chatbot-theme-modern {
+    --ai-chatbot-primary: #8b5cf6;
+    --ai-chatbot-primary-hover: #7c3aed;
+    --ai-chatbot-secondary: #faf5ff;
+    --ai-chatbot-text: #1f2937;
+    --ai-chatbot-text-light: #6b7280;
+    --ai-chatbot-border: #e5e7eb;
+    --ai-chatbot-radius: 16px;
+    --ai-chatbot-radius-lg: 20px;
+}
+
+.ai-chatbot-theme-modern .ai-chatbot-toggle {
+    border-radius: 25px;
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+}
+
+.ai-chatbot-theme-modern .ai-chatbot-container {
+    border-radius: var(--ai-chatbot-radius-lg);
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+/* Minimal Theme */
+.ai-chatbot-theme-minimal {
+    --ai-chatbot-primary: #000000;
+    --ai-chatbot-primary-hover: #333333;
+    --ai-chatbot-secondary: #ffffff;
+    --ai-chatbot-text: #000000;
+    --ai-chatbot-text-light: #666666;
+    --ai-chatbot-border: #e5e5e5;
+    --ai-chatbot-radius: 0px;
+    --ai-chatbot-radius-lg: 0px;
+    --ai-chatbot-shadow: none;
+    --ai-chatbot-shadow-lg: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.ai-chatbot-theme-minimal .ai-chatbot-toggle {
+    border-radius: 0;
+    background: var(--ai-chatbot-primary);
+}
+
+.ai-chatbot-theme-minimal .ai-chatbot-container {
+    border-radius: 0;
+    border: 2px solid var(--ai-chatbot-border);
+}
+
+/* Colorful Theme */
+.ai-chatbot-theme-colorful {
+    --ai-chatbot-primary: #f59e0b;
+    --ai-chatbot-primary-hover: #d97706;
+    --ai-chatbot-secondary: #fef3c7;
+    --ai-chatbot-text: #1f2937;
+    --ai-chatbot-text-light: #6b7280;
+    --ai-chatbot-border: #fcd34d;
+}
+
+.ai-chatbot-theme-colorful .ai-chatbot-toggle {
+    background: linear-gradient(45deg, #f59e0b, #ef4444, #8b5cf6, #06b6d4);
+    background-size: 400% 400%;
+    animation: ai-chatbot-colorful-gradient 4s ease infinite;
+}
+
+@keyframes ai-chatbot-colorful-gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.ai-chatbot-theme-colorful .ai-chatbot-message-user .ai-chatbot-message-text {
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+
+.ai-chatbot-theme-colorful .ai-chatbot-message-bot .ai-chatbot-message-text {
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+    color: white;
+}
+
+/* Corporate Theme */
+.ai-chatbot-theme-corporate {
+    --ai-chatbot-primary: #1e40af;
+    --ai-chatbot-primary-hover: #1d4ed8;
+    --ai-chatbot-secondary: #eff6ff;
+    --ai-chatbot-text: #1e293b;
+    --ai-chatbot-text-light: #64748b;
+    --ai-chatbot-border: #cbd5e1;
+    --ai-chatbot-radius: 4px;
+    --ai-chatbot-radius-lg: 8px;
+}
+
+.ai-chatbot-theme-corporate .ai-chatbot-toggle {
+    background: var(--ai-chatbot-primary);
+    border-radius: var(--ai-chatbot-radius);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ai-chatbot-theme-corporate .ai-chatbot-container {
+    border-radius: var(--ai-chatbot-radius-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.ai-chatbot-theme-corporate .ai-chatbot-header {
+    background: linear-gradient(135deg, #1e40af, #1d4ed8);
+}
+
+/* Responsive Theme Adjustments */
+@media (max-width: 768px) {
+    .ai-chatbot-theme-modern .ai-chatbot-container,
+    .ai-chatbot-theme-corporate .ai-chatbot-container {
+        border-radius: 12px;
+    }
+    
+    .ai-chatbot-theme-minimal .ai-chatbot-container {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+}

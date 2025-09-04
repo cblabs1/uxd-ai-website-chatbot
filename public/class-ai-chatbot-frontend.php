@@ -57,7 +57,7 @@ class AI_Chatbot_Frontend {
         // Enqueue widget JavaScript
         wp_enqueue_script(
             'ai-chatbot-widget-js',
-            AI_CHATBOT_PLUGIN_URL . 'public/js/chatbot-widget.js',
+            AI_CHATBOT_PLUGIN_URL . 'assets/public/js/chatbot-widget.js',
             array('jquery', 'ai-chatbot-frontend-js'),
             AI_CHATBOT_VERSION,
             true

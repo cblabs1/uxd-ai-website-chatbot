@@ -1,0 +1,181 @@
+/**
+ * AI Website Chatbot - Admin Analytics Styles
+ * 
+ * @package AI_Website_Chatbot
+ * @since 1.0.0
+ */
+
+/* Analytics Dashboard Styles */
+.ai-chatbot-analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.ai-chatbot-analytics-filters {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.ai-chatbot-date-filter {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+}
+
+.ai-chatbot-export-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #6366f1;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.ai-chatbot-export-button:hover {
+    background: #5855eb;
+    color: white;
+    text-decoration: none;
+}
+
+/* Chart Container */
+.ai-chatbot-chart-container {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    height: 400px;
+    position: relative;
+}
+
+.ai-chatbot-chart-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.ai-chatbot-chart-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: #64748b;
+    font-size: 16px;
+    border: 2px dashed #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+
+/* Analytics Tables */
+.ai-chatbot-analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ai-chatbot-analytics-table th {
+    background: #f8fafc;
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #1e293b;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.ai-chatbot-analytics-table td {
+    padding: 15px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #64748b;
+}
+
+.ai-chatbot-analytics-table tr:last-child td {
+    border-bottom: none;
+}
+
+.ai-chatbot-analytics-table tr:hover {
+    background: #f8fafc;
+}
+
+/* Progress Bars */
+.ai-chatbot-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.ai-chatbot-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    transition: width 0.3s ease;
+    border-radius: 4px;
+}
+
+/* No Data State */
+.ai-chatbot-no-data {
+    text-align: center;
+    padding: 60px 20px;
+    color: #64748b;
+}
+
+.ai-chatbot-no-data-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.ai-chatbot-no-data h3 {
+    margin: 0 0 10px 0;
+    color: #1e293b;
+    font-size: 20px;
+}
+
+.ai-chatbot-no-data p {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+/* Responsive Analytics */
+@media (max-width: 768px) {
+    .ai-chatbot-analytics-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .ai-chatbot-analytics-filters {
+        justify-content: space-between;
+    }
+    
+    .ai-chatbot-chart-container {
+        height: 300px;
+    }
+    
+    .ai-chatbot-analytics-table {
+        font-size: 14px;
+    }
+    
+    .ai-chatbot-analytics-table th,
+    .ai-chatbot-analytics-table td {
+        padding: 10px 8px;
+    }
+}

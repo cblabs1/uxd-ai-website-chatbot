@@ -375,7 +375,7 @@ class AI_Chatbot_Shortcodes {
         if (!wp_script_is($this->plugin_name . '-frontend', 'enqueued')) {
             wp_enqueue_script(
                 $this->plugin_name . '-frontend',
-                AI_CHATBOT_ASSETS_URL . 'js/public/chatbot-frontend.js',
+                AI_CHATBOT_PLUGIN_URL . 'assets/js/public/chatbot-frontend.js',
                 array('jquery'),
                 $this->version,
                 true
@@ -385,7 +385,7 @@ class AI_Chatbot_Shortcodes {
         if (!wp_style_is($this->plugin_name, 'enqueued')) {
             wp_enqueue_style(
                 $this->plugin_name,
-                AI_CHATBOT_ASSETS_URL . 'css/public/chatbot-frontend.css',
+                AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-frontend.css',
                 array(),
                 $this->version,
                 'all'

@@ -52,7 +52,15 @@ class AI_Chatbot {
         $this->version = AI_CHATBOT_VERSION;
         
         $this->load_dependencies();
-        $this->set_locale();
+
+		add_action('init', array($this, 'set_locale'), 0);
+        add_action('init', array($this, 'init'), 10);
+    }
+
+	/**
+     * Initialize the plugin after locale is set
+     */
+    public function init() {
         $this->define_admin_hooks();
         $this->define_public_hooks();
     }
@@ -170,7 +178,7 @@ class AI_Chatbot {
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_scripts');
 
         // Initialize AJAX handlers
-        $plugin_ajax = new AI_Chatbot_Ajax();
+        $plugin_ajax = new AI_Chatbot_Ajax($this->plugin_name, $this->version);
         // AJAX hooks will be defined in the Ajax class constructor
 
         // Initialize shortcodes

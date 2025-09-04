@@ -69,7 +69,7 @@ class AI_Chatbot_Ajax {
 
 		wp_enqueue_style(
 			$this->plugin_name . '-admin',
-			AI_CHATBOT_ASSETS_URL . 'css/admin/admin-main.css',
+			AI_CHATBOT_PLUGIN_URL . 'assets/css/admin/admin-main.css',
 			array(),
 			$this->version,
 			'all'
@@ -79,7 +79,7 @@ class AI_Chatbot_Ajax {
 		if ( strpos( $hook_suffix, 'ai-chatbot-analytics' ) !== false ) {
 			wp_enqueue_style(
 				$this->plugin_name . '-charts',
-				AI_CHATBOT_ASSETS_URL . 'css/admin/charts.css',
+				AI_CHATBOT_PLUGIN_URL . 'assets/css/admin/charts.css',
 				array(),
 				$this->version
 			);
@@ -99,7 +99,7 @@ class AI_Chatbot_Ajax {
 
 		wp_enqueue_script(
 			$this->plugin_name . '-admin',
-			AI_CHATBOT_ASSETS_URL . 'js/admin/admin-main.js',
+			AI_CHATBOT_PLUGIN_URL . 'assets/js/admin/admin-main.js',
 			array( 'jquery', 'wp-color-picker' ),
 			$this->version,
 			true

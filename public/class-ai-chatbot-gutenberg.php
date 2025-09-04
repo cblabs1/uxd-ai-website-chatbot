@@ -101,7 +101,7 @@ class AI_Chatbot_Gutenberg {
         // Enqueue block editor script
         wp_enqueue_script(
             'ai-chatbot-blocks',
-            AI_CHATBOT_ASSETS_URL . 'js/public/blocks.js',
+            AI_CHATBOT_PLUGIN_URL . 'assets/js/public/blocks.js',
             array(
                 'wp-blocks',
                 'wp-i18n',
@@ -117,7 +117,7 @@ class AI_Chatbot_Gutenberg {
         // Enqueue block editor styles
         wp_enqueue_style(
             'ai-chatbot-blocks-editor',
-            AI_CHATBOT_ASSETS_URL . 'css/public/blocks-editor.css',
+            AI_CHATBOT_PLUGIN_URL . 'assets/css/public/blocks-editor.css',
             array('wp-edit-blocks'),
             $this->version
         );
@@ -125,7 +125,7 @@ class AI_Chatbot_Gutenberg {
         // Enqueue block styles for frontend and editor
         wp_enqueue_style(
             'ai-chatbot-blocks',
-            AI_CHATBOT_ASSETS_URL . 'css/public/blocks.css',
+            AI_CHATBOT_PLUGIN_URL . 'assets/css/public/blocks.css',
             array(),
             $this->version
         );
