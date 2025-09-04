@@ -16,43 +16,68 @@
         init: function() {
             this.bindEvents();
             this.initFormValidation();
+            this.initDragAndDrop();
+            this.updateResultsCount();
         },
         
         /**
          * Bind events
          */
         bindEvents: function() {
+            console.log('AIChatbotTraining: Binding events...');
+    
+            // Remove any existing bindings first
+            $(document).off('.aichatbot-training');
+            
             // Add training data
-            $(document).on('click', '.add-training-data', this.showAddForm);
-            $(document).on('submit', '#training-data-form', this.submitTrainingData);
-            $(document).on('click', '.cancel-add', this.hideAddForm);
+            $(document).on('click.aichatbot-training', '.add-training-data', this.showAddForm.bind(this));
+            $(document).on('submit.aichatbot-training', '#training-data-form', this.submitTrainingData.bind(this));
+            $(document).on('click.aichatbot-training', '.cancel-add', this.hideAddForm.bind(this));
             
             // Edit training data
-            $(document).on('click', '.edit-training-data', this.showEditForm);
-            $(document).on('click', '.cancel-edit', this.hideEditForm);
+            $(document).on('click.aichatbot-training', '.edit-training-data', this.showEditForm.bind(this));
+            $(document).on('click.aichatbot-training', '.cancel-edit', this.hideEditForm.bind(this));
             
             // Delete training data
-            $(document).on('click', '.delete-training-data', this.deleteTrainingData);
+            $(document).on('click.aichatbot-training', '.delete-training-data', this.deleteTrainingData.bind(this));
             
-            // Import/Export
-            $(document).on('click', '.import-training-data', this.showImportModal);
-            $(document).on('click', '.export-training-data', this.exportTrainingData);
-            $(document).on('change', '#training-import-file', this.handleFileUpload);
-            $(document).on('click', '.process-import', this.processImport);
+            // Import/Export - Fix the file upload binding
+            $(document).on('click.aichatbot-training', '.import-training-data', this.showImportModal.bind(this));
+            $(document).on('click.aichatbot-training', '.export-training-data', this.exportTrainingData.bind(this));
+            $(document).on('change.aichatbot-training', '#training-import-file', this.handleFileUpload.bind(this));
+            $(document).on('click.aichatbot-training', '.process-import', this.processImport.bind(this));
+            
+            // Modal close events
+            $(document).on('click.aichatbot-training', '[data-modal-close]', function() {
+                AIChatbotTraining.closeModal();
+            });
+            
+            // Click on dropzone to trigger file input
+            $(document).on('click.aichatbot-training', '.upload-dropzone', function() {
+                $('#training-import-file').click();
+            });
             
             // Train model
-            $(document).on('click', '.train-model', this.trainModel);
+            $(document).on('click.aichatbot-training', '.train-model', this.trainModel.bind(this));
             
             // Filter and search
-            $(document).on('change', '#training-filter', this.filterTrainingData);
-            $(document).on('input', '#training-search', this.debounce(this.searchTrainingData, 300));
+            $(document).on('change.aichatbot-training', '#training-filter', this.filterTrainingData.bind(this));
+            $(document).on('input.aichatbot-training', '#training-search', this.debounce(this.searchTrainingData.bind(this), 300));
             
             // Tag management
-            $(document).on('click', '.add-tag', this.addTag);
-            $(document).on('click', '.remove-tag', this.removeTag);
+            $(document).on('click.aichatbot-training', '.add-tag', this.addTag.bind(this));
+            $(document).on('click.aichatbot-training', '.remove-tag', this.removeTag.bind(this));
             
             // Intent suggestions
-            $(document).on('input', '#training-intent', this.suggestIntents);
+            $(document).on('input.aichatbot-training', '#training-intent', this.suggestIntents.bind(this));
+            
+            console.log('AIChatbotTraining: All events bound');
+        },
+
+        closeModal: function() {
+            console.log('AIChatbotTraining: Closing modal');
+            $('.modal').removeClass('active');
+            $('body').removeClass('modal-open');
         },
         
         /**
@@ -85,47 +110,44 @@
          */
         showEditForm: function(e) {
             e.preventDefault();
+            console.log('AIChatbotTraining: Edit training data clicked');
             
             var $button = $(this);
             var trainingId = $button.data('id');
             
-            // Get training data via AJAX
+            console.log('Editing training ID:', trainingId);
+            
             $.ajax({
                 url: aiChatbotAdmin.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action: 'ai_chatbot_add_training_data',
+                    action: 'ai_chatbot_get_training_data',
                     nonce: aiChatbotAdmin.nonce,
-                    question: $('#training-question').val(),
-                    answer: $('#training-answer').val(),
-                    intent: $('#training-intent').val(),
-                    tags: JSON.stringify(tags),
-                    training_id: $('#training-data-form').find('input[name="training_id"]').val() || 0
-                },
-                beforeSend: function() {
-                    $submitButton.prop('disabled', true).text('Saving...');
+                    training_id: trainingId
                 },
                 success: function(response) {
+                    console.log('Get training data response:', response);
                     if (response.success) {
-                        // Clear form
-                        $('#training-data-form')[0].reset();
+                        var data = response.data;
+                        
+                        $('#training-question').val(data.question);
+                        $('#training-answer').val(data.answer);
+                        $('#training-intent').val(data.intent || '');
+                        $('#training-data-form').find('input[name="training_id"]').val(data.id);
+                        
+                        // Handle tags
                         $('.tag-container').empty();
-                        $('#training-data-form').find('input[name="training_id"]').val('');
-                        
-                        // Hide form
-                        $('.training-form-container').slideUp();
-                        $('.add-training-data').prop('disabled', false);
-                        
-                        // Show success message
-                        if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
-                            AIChatbotAdmin.showNotification(response.data, 'success');
-                        } else {
-                            alert(response.data);
+                        if (data.tags && data.tags.length > 0) {
+                            data.tags.forEach(function(tag) {
+                                AIChatbotTraining.addTagToForm(tag);
+                            });
                         }
                         
-                        // Reload page to show new data
-                        location.reload();
+                        $('.training-form-container').slideDown();
+                        $('.add-training-data').prop('disabled', true);
+                        $('#training-question').focus();
                     } else {
+                        console.error('Failed to get training data:', response.data);
                         if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
                             AIChatbotAdmin.showNotification(response.data, 'error');
                         } else {
@@ -134,17 +156,8 @@
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('AJAX Error:', status, error);
+                    console.error('Get training data error:', error);
                     console.error('Response:', xhr.responseText);
-                    
-                    if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
-                        AIChatbotAdmin.showNotification('Failed to save training data: ' + error, 'error');
-                    } else {
-                        alert('Failed to save training data: ' + error);
-                    }
-                },
-                complete: function() {
-                    $submitButton.prop('disabled', false).text('Save Training Data');
                 }
             });
         },
@@ -248,15 +261,6 @@
             });
         },
         
-        /**
-         * Show import modal
-         */
-        showImportModal: function(e) {
-            e.preventDefault();
-            
-            $('#import-training-modal').addClass('active');
-            $('body').addClass('modal-open');
-        },
         
         /**
          * Export training data
@@ -309,50 +313,113 @@
                 }
             });
         },
+
+        /**
+         * Show import modal
+         */
+        showImportModal: function(e) {
+            e.preventDefault();
+            console.log('AIChatbotTraining: Show import modal clicked');
+            
+            $('#import-training-modal').addClass('active');
+            $('body').addClass('modal-open');
+            
+            // Reset form
+            $('#training-import-file').val('');
+            $('.file-info').hide();
+            $('.process-import').prop('disabled', true);
+            
+            // Ensure drag and drop is initialized for the modal
+            this.initDragAndDrop();
+        },
         
         /**
-         * Handle file upload
+         * Handle file upload with proper validation
          */
-        handleFileUpload: function() {
-            var file = this.files[0];
-            if (!file) return;
+        handleFileUpload: function(e) {
+            console.log('AIChatbotTraining: File upload changed');
+            console.log('Event target:', e.target);
+            console.log('Files:', e.target.files);
             
-            var allowedTypes = ['text/csv', 'application/json'];
-            var allowedExtensions = ['.csv', '.json'];
-            
-            var fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-            
-            if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-                AIChatbotAdmin.showNotification('Please select a CSV or JSON file', 'error');
-                $(this).val('');
+            var file = e.target.files[0];
+            if (!file) {
+                console.log('No file selected');
+                $('.file-info').hide();
+                $('.process-import').prop('disabled', true);
                 return;
             }
             
+            console.log('File selected:', file.name, file.type, file.size);
+            
+            // File size validation (10MB max)
+            var maxSize = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxSize) {
+                console.log('File too large:', file.size);
+                AIChatbotAdmin.showNotification('File size must be less than 10MB', 'error');
+                $(e.target).val('');
+                $('.file-info').hide();
+                $('.process-import').prop('disabled', true);
+                return;
+            }
+            
+            // File type validation
+            var allowedTypes = ['text/csv', 'application/json', 'text/plain', ''];
+            var allowedExtensions = ['csv', 'json'];
+            var fileName = file.name.toLowerCase();
+            var fileExtension = fileName.split('.').pop();
+            
+            console.log('File type:', file.type, 'Extension:', fileExtension);
+            
+            // Check both MIME type and extension
+            var isValidType = allowedTypes.includes(file.type);
+            var isValidExtension = allowedExtensions.includes(fileExtension);
+            
+            if (!isValidType && !isValidExtension) {
+                console.log('Invalid file type');
+                AIChatbotAdmin.showNotification('Please select a valid CSV or JSON file', 'error');
+                $(e.target).val('');
+                $('.file-info').hide();
+                $('.process-import').prop('disabled', true);
+                return;
+            }
+            
+            // Show file info and enable import button
+            console.log('File validation passed, showing file info');
             $('.file-info').show();
             $('.file-name').text(file.name);
             $('.file-size').text(AIChatbotTraining.formatFileSize(file.size));
             $('.process-import').prop('disabled', false);
         },
-        
+
         /**
-         * Process import
+         * Process file import with better error handling
          */
         processImport: function(e) {
             e.preventDefault();
+            console.log('AIChatbotTraining: Process import clicked');
             
-            var file = $('#training-import-file')[0].files[0];
+            var fileInput = $('#training-import-file')[0];
+            var file = fileInput.files[0];
+            
             if (!file) {
-                AIChatbotAdmin.showNotification('Please select a file first', 'error');
+                if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
+                    AIChatbotAdmin.showNotification('Please select a file first', 'error');
+                } else {
+                    alert('Please select a file first');
+                }
                 return;
             }
             
             var $button = $(this);
             $button.prop('disabled', true).text('Importing...');
             
+            // Create FormData object
             var formData = new FormData();
             formData.append('training_file', file);
             formData.append('action', 'ai_chatbot_import_training_data');
             formData.append('nonce', aiChatbotAdmin.nonce);
+            
+            console.log('Starting import for file:', file.name);
             
             $.ajax({
                 url: aiChatbotAdmin.ajaxUrl,
@@ -360,25 +427,131 @@
                 data: formData,
                 processData: false,
                 contentType: false,
+                timeout: 60000, // 60 second timeout
                 success: function(response) {
+                    console.log('Import response:', response);
+                    
                     if (response.success) {
-                        AIChatbotAdmin.showNotification(response.data, 'success');
+                        if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
+                            AIChatbotAdmin.showNotification(response.data, 'success');
+                        } else {
+                            alert('Success: ' + response.data);
+                        }
                         $('#import-training-modal').removeClass('active');
                         $('body').removeClass('modal-open');
+                        
+                        // Reset form
+                        $('#training-import-file').val('');
+                        $('.file-info').hide();
+                        
+                        // Refresh the page after a short delay
                         setTimeout(function() {
                             location.reload();
                         }, 2000);
                     } else {
-                        AIChatbotAdmin.showNotification(response.data, 'error');
+                        var errorMsg = response.data || 'Import failed';
+                        if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
+                            AIChatbotAdmin.showNotification(errorMsg, 'error');
+                        } else {
+                            alert('Error: ' + errorMsg);
+                        }
                     }
                 },
-                error: function() {
-                    AIChatbotAdmin.showNotification('Import failed', 'error');
+                error: function(xhr, status, error) {
+                    console.error('Import error:', status, error);
+                    console.error('Response:', xhr.responseText);
+                    
+                    var errorMessage = 'Import failed';
+                    if (xhr.responseText) {
+                        try {
+                            var errorResponse = JSON.parse(xhr.responseText);
+                            errorMessage = errorResponse.data || errorMessage;
+                        } catch (e) {
+                            errorMessage = 'Import failed: ' + error;
+                        }
+                    }
+                    
+                    if (typeof AIChatbotAdmin !== 'undefined' && AIChatbotAdmin.showNotification) {
+                        AIChatbotAdmin.showNotification(errorMessage, 'error');
+                    } else {
+                        alert('Error: ' + errorMessage);
+                    }
                 },
                 complete: function() {
                     $button.prop('disabled', false).text('Import');
                 }
             });
+        },
+        
+        /**
+         * Initialize drag and drop functionality
+         */
+        initDragAndDrop: function() {
+            var $dropzone = $('.upload-dropzone');
+            var $fileInput = $('#training-import-file');
+            
+            console.log('Initializing drag and drop...');
+            console.log('Dropzone elements found:', $dropzone.length);
+            console.log('File input elements found:', $fileInput.length);
+            
+            if ($dropzone.length === 0) {
+                console.log('No dropzone found, skipping drag and drop initialization');
+                return;
+            }
+            
+            // Remove any existing drag event handlers
+            $dropzone.off('dragenter dragover dragleave drop click');
+            $(document).off('dragenter.dragdrop dragover.dragdrop drop.dragdrop');
+            
+            // Prevent default drag behaviors on document
+            $(document).on('dragenter.dragdrop dragover.dragdrop drop.dragdrop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+            
+            // Dropzone hover effects
+            $dropzone.on('dragenter dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Drag enter/over dropzone');
+                $(this).addClass('drag-hover');
+            });
+            
+            $dropzone.on('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Only remove hover if we're leaving the dropzone itself
+                if (!$.contains(this, e.relatedTarget)) {
+                    console.log('Drag leave dropzone');
+                    $(this).removeClass('drag-hover');
+                }
+            });
+            
+            // Handle file drop
+            $dropzone.on('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('File dropped on dropzone');
+                $(this).removeClass('drag-hover');
+                
+                var files = e.originalEvent.dataTransfer.files;
+                console.log('Dropped files:', files.length);
+                
+                if (files.length > 0) {
+                    // Manually set the files to the input and trigger change
+                    $fileInput[0].files = files;
+                    $fileInput.trigger('change');
+                }
+            });
+            
+            // Handle click on dropzone
+            $dropzone.on('click', function(e) {
+                e.preventDefault();
+                console.log('Dropzone clicked, opening file dialog');
+                $fileInput.click();
+            });
+            
+            console.log('Drag and drop initialization complete');
         },
         
         /**

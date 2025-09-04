@@ -166,6 +166,18 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 				'max_tokens' => 8192,
 				'cost_per_1k' => 0.5,
 			),
+			'gemini-2.0-flash' => array(
+				'name' => 'Gemini 2.0 Flash',
+				'description' => __( 'Fast and efficient for simple tasks', 'ai-website-chatbot' ),
+				'max_tokens' => 8192,
+				'cost_per_1k' => 0.1,
+			),
+			'gemini-1.5-flash-8b' => array(
+				'name' => 'Gemini 1.5 Flash-8B',
+				'description' => __( 'Fast and efficient for simple tasks', 'ai-website-chatbot' ),
+				'max_tokens' => 8192,
+				'cost_per_1k' => 0.1,
+			),
 			'gemini-1.5-flash' => array(
 				'name' => 'Gemini 1.5 Flash',
 				'description' => __( 'Fast and efficient for simple tasks', 'ai-website-chatbot' ),

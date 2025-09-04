@@ -178,21 +178,24 @@ class AI_Chatbot_Admin_Training {
         
         $table_name = $wpdb->prefix . 'ai_chatbot_training_data';
         
-        $result = $wpdb->update(
-            $table_name,
-            array(
-                'question' => sanitize_textarea_field($question),
-                'answer' => sanitize_textarea_field($answer),
-                'intent' => sanitize_text_field($intent),
-                'tags' => maybe_serialize($tags),
-                'updated_at' => current_time('mysql')
-            ),
-            array('id' => intval($id)),
-            array('%s', '%s', '%s', '%s', '%s'),
-            array('%d')
+        
+        // Prepare data for update
+        $data = array(
+            'question' => $question,
+            'answer' => $answer,
+            'intent' => $intent,
+            'tags' => maybe_serialize($tags),
+            'updated_at' => current_time('mysql')
         );
         
+        $where = array('id' => $id);
+        $format = array('%s', '%s', '%s', '%s', '%s');
+        $where_format = array('%d');
+        
+        $result = $wpdb->update($table_name, $data, $where, $format, $where_format);
+        
         return $result !== false;
+
     }
     
     /**
@@ -372,6 +375,56 @@ class AI_Chatbot_Admin_Training {
             wp_send_json_error($message);
         }
     }
+
+    /**
+     * AJAX: Get training data for editing
+     */
+    public function ajax_get_training_data() {
+        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+        }
+        
+        $training_id = isset($_POST['training_id']) ? intval($_POST['training_id']) : 0;
+        
+        if ($training_id <= 0) {
+            wp_send_json_error(__('Invalid training data ID', 'ai-website-chatbot'));
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_chatbot_training_data';
+        
+        // Get training data by ID
+        $training_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table_name WHERE id = %d",
+            $training_id
+        ), ARRAY_A);
+        
+        if (!$training_data) {
+            wp_send_json_error(__('Training data not found', 'ai-website-chatbot'));
+        }
+        
+        // Process tags
+        $tags = maybe_unserialize($training_data['tags']);
+        if (!is_array($tags)) {
+            $tags = array();
+        }
+        
+        // Prepare response data
+        $response_data = array(
+            'id' => $training_data['id'],
+            'question' => $training_data['question'],
+            'answer' => $training_data['answer'],
+            'intent' => $training_data['intent'] ?? '',
+            'tags' => $tags,
+            'status' => $training_data['status'] ?? 'active',
+            'created_at' => $training_data['created_at'],
+            'updated_at' => $training_data['updated_at'] ?? null
+        );
+        
+        wp_send_json_success($response_data);
+    }
     
     /**
      * AJAX: Delete training data
@@ -408,101 +461,252 @@ class AI_Chatbot_Admin_Training {
             wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
         }
         
-        if (!isset($_FILES['training_file'])) {
-            wp_send_json_error(__('No file uploaded', 'ai-website-chatbot'));
+        // Check if file was uploaded
+        if (!isset($_FILES['training_file']) || $_FILES['training_file']['error'] !== UPLOAD_ERR_OK) {
+            $error_message = $this->get_upload_error_message($_FILES['training_file']['error'] ?? UPLOAD_ERR_NO_FILE);
+            wp_send_json_error($error_message);
         }
         
         $file = $_FILES['training_file'];
         $file_path = $file['tmp_name'];
-        $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $file_name = $file['name'];
+        $file_size = $file['size'];
         
+        // Validate file size (10MB max)
+        $max_size = 10 * 1024 * 1024; // 10MB
+        if ($file_size > $max_size) {
+            wp_send_json_error(__('File size must be less than 10MB', 'ai-website-chatbot'));
+        }
+        
+        // Validate file extension
+        $file_extension = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
         if (!in_array($file_extension, ['csv', 'json'])) {
-            wp_send_json_error(__('Unsupported file format. Please use CSV or JSON.', 'ai-website-chatbot'));
+            wp_send_json_error(__('Unsupported file format. Please use CSV or JSON files only.', 'ai-website-chatbot'));
+        }
+        
+        // Validate file is readable
+        if (!is_readable($file_path)) {
+            wp_send_json_error(__('Unable to read uploaded file', 'ai-website-chatbot'));
         }
         
         try {
+            $imported = 0;
+            
             if ($file_extension === 'csv') {
                 $imported = $this->import_csv($file_path);
-            } else {
+            } else if ($file_extension === 'json') {
                 $imported = $this->import_json($file_path);
             }
             
             if ($imported > 0) {
-                wp_send_json_success(sprintf(__('%d training items imported successfully!', 'ai-website-chatbot'), $imported));
+                wp_send_json_success(sprintf(
+                    _n(
+                        '%d training item imported successfully!',
+                        '%d training items imported successfully!',
+                        $imported,
+                        'ai-website-chatbot'
+                    ),
+                    $imported
+                ));
             } else {
-                wp_send_json_error(__('No training data was imported. Please check your file format.', 'ai-website-chatbot'));
+                wp_send_json_error(__('No valid training data found in the file. Please check your file format and content.', 'ai-website-chatbot'));
             }
+            
         } catch (Exception $e) {
+            error_log('AI Chatbot Import Error: ' . $e->getMessage());
             wp_send_json_error(sprintf(__('Import failed: %s', 'ai-website-chatbot'), $e->getMessage()));
+        }
+    }
+
+    /**
+     * Get upload error message
+     */
+    private function get_upload_error_message($error_code) {
+        switch ($error_code) {
+            case UPLOAD_ERR_INI_SIZE:
+                return __('The uploaded file exceeds the upload_max_filesize directive in php.ini', 'ai-website-chatbot');
+            case UPLOAD_ERR_FORM_SIZE:
+                return __('The uploaded file exceeds the MAX_FILE_SIZE directive', 'ai-website-chatbot');
+            case UPLOAD_ERR_PARTIAL:
+                return __('The uploaded file was only partially uploaded', 'ai-website-chatbot');
+            case UPLOAD_ERR_NO_FILE:
+                return __('No file was uploaded', 'ai-website-chatbot');
+            case UPLOAD_ERR_NO_TMP_DIR:
+                return __('Missing a temporary folder', 'ai-website-chatbot');
+            case UPLOAD_ERR_CANT_WRITE:
+                return __('Failed to write file to disk', 'ai-website-chatbot');
+            case UPLOAD_ERR_EXTENSION:
+                return __('A PHP extension stopped the file upload', 'ai-website-chatbot');
+            default:
+                return __('Unknown upload error', 'ai-website-chatbot');
         }
     }
     
     /**
-     * Import CSV file
+     * Import CSV file with improved validation
      */
     private function import_csv($file_path) {
         $imported = 0;
         
-        if (($handle = fopen($file_path, "r")) !== FALSE) {
-            $headers = fgetcsv($handle, 1000, ",");
+        if (!file_exists($file_path)) {
+            throw new Exception(__('File not found', 'ai-website-chatbot'));
+        }
+        
+        $handle = fopen($file_path, "r");
+        if ($handle === FALSE) {
+            throw new Exception(__('Unable to open CSV file', 'ai-website-chatbot'));
+        }
+        
+        try {
+            // Read headers
+            $headers = fgetcsv($handle, 0, ",");
             
-            if (!$headers || !in_array('question', $headers) || !in_array('answer', $headers)) {
-                throw new Exception(__('CSV must contain at least "question" and "answer" columns', 'ai-website-chatbot'));
+            if (!$headers) {
+                throw new Exception(__('Unable to read CSV headers', 'ai-website-chatbot'));
             }
             
-            while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+            // Clean headers (remove BOM and trim)
+            $headers = array_map(function($header) {
+                return trim(str_replace("\xEF\xBB\xBF", '', $header));
+            }, $headers);
+            
+            // Validate required columns
+            $required_columns = ['question', 'answer'];
+            $missing_columns = array_diff($required_columns, $headers);
+            
+            if (!empty($missing_columns)) {
+                throw new Exception(sprintf(
+                    __('CSV must contain the following columns: %s', 'ai-website-chatbot'),
+                    implode(', ', $missing_columns)
+                ));
+            }
+            
+            $row_number = 1; // Start from 1 (header is row 0)
+            
+            while (($data = fgetcsv($handle, 0, ",")) !== FALSE) {
+                $row_number++;
+                
+                // Skip empty rows
+                if (empty(array_filter($data))) {
+                    continue;
+                }
+                
+                // Ensure we have enough columns
+                if (count($data) < count($headers)) {
+                    $data = array_pad($data, count($headers), '');
+                }
+                
                 $row = array_combine($headers, $data);
                 
-                if (!empty($row['question']) && !empty($row['answer'])) {
+                // Validate required fields
+                if (empty(trim($row['question'])) || empty(trim($row['answer']))) {
+                    continue; // Skip invalid rows
+                }
+                
+                // Process tags
+                $tags = array();
+                if (isset($row['tags']) && !empty(trim($row['tags']))) {
+                    $tags = array_map('trim', explode(',', $row['tags']));
+                    $tags = array_filter($tags); // Remove empty tags
+                }
+                
+                try {
                     $result = $this->add_training_data(
-                        $row['question'],
-                        $row['answer'],
-                        $row['intent'] ?? '',
-                        isset($row['tags']) ? explode(',', $row['tags']) : array()
+                        trim($row['question']),
+                        trim($row['answer']),
+                        trim($row['intent'] ?? ''),
+                        $tags
                     );
                     
                     if ($result) {
                         $imported++;
                     }
+                } catch (Exception $e) {
+                    error_log("AI Chatbot CSV Import Error (row $row_number): " . $e->getMessage());
+                    // Continue with other rows
                 }
             }
+            
+        } finally {
             fclose($handle);
         }
         
         return $imported;
     }
-    
+
     /**
-     * Import JSON file
+     * Import JSON file with improved validation
      */
     private function import_json($file_path) {
+        if (!file_exists($file_path)) {
+            throw new Exception(__('File not found', 'ai-website-chatbot'));
+        }
+        
         $json_content = file_get_contents($file_path);
+        if ($json_content === false) {
+            throw new Exception(__('Unable to read JSON file', 'ai-website-chatbot'));
+        }
+        
+        // Remove BOM if present
+        $json_content = str_replace("\xEF\xBB\xBF", '', $json_content);
+        
         $data = json_decode($json_content, true);
         
-        if (!$data) {
-            throw new Exception(__('Invalid JSON format', 'ai-website-chatbot'));
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception(sprintf(
+                __('Invalid JSON format: %s', 'ai-website-chatbot'),
+                json_last_error_msg()
+            ));
+        }
+        
+        if (!is_array($data)) {
+            throw new Exception(__('JSON file must contain an array of training data', 'ai-website-chatbot'));
         }
         
         $imported = 0;
         
-        foreach ($data as $item) {
-            if (isset($item['question']) && isset($item['answer'])) {
+        foreach ($data as $index => $item) {
+            // Skip invalid items
+            if (!is_array($item) || !isset($item['question']) || !isset($item['answer'])) {
+                continue;
+            }
+            
+            // Validate required fields
+            if (empty(trim($item['question'])) || empty(trim($item['answer']))) {
+                continue;
+            }
+            
+            // Process tags
+            $tags = array();
+            if (isset($item['tags'])) {
+                if (is_array($item['tags'])) {
+                    $tags = array_map('trim', $item['tags']);
+                    $tags = array_filter($tags); // Remove empty tags
+                } elseif (is_string($item['tags'])) {
+                    $tags = array_map('trim', explode(',', $item['tags']));
+                    $tags = array_filter($tags); // Remove empty tags
+                }
+            }
+            
+            try {
                 $result = $this->add_training_data(
-                    $item['question'],
-                    $item['answer'],
-                    $item['intent'] ?? '',
-                    $item['tags'] ?? array()
+                    trim($item['question']),
+                    trim($item['answer']),
+                    trim($item['intent'] ?? ''),
+                    $tags
                 );
                 
                 if ($result) {
                     $imported++;
                 }
+            } catch (Exception $e) {
+                error_log("AI Chatbot JSON Import Error (item $index): " . $e->getMessage());
+                // Continue with other items
             }
         }
         
         return $imported;
     }
-    
     /**
      * AJAX: Export training data
      */

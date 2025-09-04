@@ -82,16 +82,22 @@
                 'openai': {
                     'gpt-3.5-turbo': 'GPT-3.5 Turbo',
                     'gpt-4': 'GPT-4',
-                    'gpt-4-turbo': 'GPT-4 Turbo'
+                    'gpt-4-turbo': 'GPT-4 Turbo',
+                    'gpt-4o': 'GPT-4o',
+                    'gpt-4o-mini': 'GPT-4o Mini'
                 },
                 'claude': {
-                    'claude-3-haiku': 'Claude 3 Haiku',
-                    'claude-3-sonnet': 'Claude 3 Sonnet',
-                    'claude-3-opus': 'Claude 3 Opus'
+                    'claude-3-haiku-20240307': 'Claude 3 Haiku',
+                    'claude-3-sonnet-20240229': 'Claude 3 Sonnet',
+                    'claude-3-opus-20240229': 'Claude 3 Opus',
+                    'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet'
                 },
                 'gemini': {
-                    'gemini-pro': 'Gemini Pro',
-                    'gemini-pro-vision': 'Gemini Pro Vision'
+                    'gemini-2.0-flash': 'Gemini 2.0 Flash',
+                    'gemini-1.5-flash': 'Gemini 1.5 Flash',
+                    'gemini-1.5-flash-8b': 'Gemini 1.5 Flash-8B',
+                    'gemini-pro': 'Gemini Pro (Legacy)',
+                    'gemini-pro-vision': 'Gemini Pro Vision (Legacy)'
                 },
                 'custom': {}
             };

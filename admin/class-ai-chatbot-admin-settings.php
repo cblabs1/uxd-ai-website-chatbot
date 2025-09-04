@@ -612,7 +612,9 @@ class AI_Chatbot_Admin_Settings {
                 'description' => __('Gemini models from Google', 'ai-website-chatbot'),
                 'models' => array(
                     'gemini-pro' => 'Gemini Pro',
-                    'gemini-pro-vision' => 'Gemini Pro Vision'
+                    'gemini-pro-vision' => 'Gemini Pro Vision',
+                    'gemini-2.0-flash' => 'Gemini 2.0 Flash',
+                    'gemini-1.5-flash' => 'Gemini 1.5 Flash'
                 )
             ),
             'custom' => array(
