@@ -136,154 +136,34 @@ class AI_Chatbot_Admin_Settings {
      */
 
     public function handle_settings_update() {
-        // Security: Check nonce - FIXED to match the form nonce
-        if (!check_admin_referer('ai_chatbot_admin_nonce', 'nonce')) {
-            add_settings_error(
-                'ai_chatbot_settings',
-                'nonce_failed',
-                __('Security check failed. Please try again.', 'ai-website-chatbot'),
-                'error'
-            );
-            return false;
-        }
-
-        // Permission check
         if (!current_user_can('manage_options')) {
-            add_settings_error(
-                'ai_chatbot_settings',
-                'permission_denied',
-                __('You do not have sufficient permissions to save settings.', 'ai-website-chatbot'),
-                'error'
-            );
-            return false;
+            wp_die(__('You do not have sufficient permissions to access this page.', 'ai-website-chatbot'));
         }
-
+        
+        // Verify nonce
+        if (!check_admin_referer('ai_chatbot_settings', 'ai_chatbot_nonce')) {
+            wp_die(__('Security check failed', 'ai-website-chatbot'));
+        }
+        
+        $updated_settings = array();
         $saved_count = 0;
         $errors = array();
-        $updated_settings = array();
 
-        // ====================================================================
-        // GENERAL SETTINGS
-        // ====================================================================
-        
-        // Basic settings
-        $general_settings = array(
-            'ai_chatbot_enabled' => isset($_POST['ai_chatbot_enabled']) ? true : false,
-            'ai_chatbot_widget_position' => sanitize_text_field($_POST['ai_chatbot_widget_position'] ?? 'bottom-right'),
-            'ai_chatbot_theme_color' => sanitize_hex_color($_POST['ai_chatbot_theme_color'] ?? '#0073aa'),
-            'ai_chatbot_welcome_message' => wp_kses_post($_POST['ai_chatbot_welcome_message'] ?? ''),
-            'ai_chatbot_placeholder_text' => sanitize_text_field($_POST['ai_chatbot_placeholder_text'] ?? ''),
-            'ai_chatbot_offline_message' => wp_kses_post($_POST['ai_chatbot_offline_message'] ?? ''),
-        );
+        // Get all posted settings
+        foreach ($_POST as $key => $value) {
+            if (strpos($key, 'ai_chatbot_') === 0) {
+                $sanitized_value = $this->sanitize_setting_value($key, $value);
+                $updated_settings[$key] = $sanitized_value;
+            }
+        }
 
-        // ====================================================================
-        // AI PROVIDER SETTINGS
-        // ====================================================================
-        
-        $provider_settings = array(
-            'ai_chatbot_ai_provider' => sanitize_text_field($_POST['ai_chatbot_ai_provider'] ?? 'openai'),
-            'ai_chatbot_openai_api_key' => sanitize_text_field($_POST['ai_chatbot_openai_api_key'] ?? ''),
-            'ai_chatbot_openai_model' => sanitize_text_field($_POST['ai_chatbot_openai_model'] ?? 'gpt-3.5-turbo'),
-            'ai_chatbot_openai_temperature' => max(0, min(2, floatval($_POST['ai_chatbot_openai_temperature'] ?? 0.7))),
-            'ai_chatbot_openai_max_tokens' => max(1, min(4000, intval($_POST['ai_chatbot_openai_max_tokens'] ?? 150))),
-            'ai_chatbot_claude_api_key' => sanitize_text_field($_POST['ai_chatbot_claude_api_key'] ?? ''),
-            'ai_chatbot_claude_model' => sanitize_text_field($_POST['ai_chatbot_claude_model'] ?? 'claude-3-haiku-20240307'),
-            'ai_chatbot_gemini_api_key' => sanitize_text_field($_POST['ai_chatbot_gemini_api_key'] ?? ''),
-            'ai_chatbot_gemini_model' => sanitize_text_field($_POST['ai_chatbot_gemini_model'] ?? 'gemini-pro'),
-            'ai_chatbot_system_prompt' => wp_kses_post($_POST['ai_chatbot_system_prompt'] ?? ''),
-        );
-
-        // ====================================================================
-        // DISPLAY & BEHAVIOR SETTINGS
-        // ====================================================================
-        
-        $display_settings = array(
-            'ai_chatbot_widget_size' => sanitize_text_field($_POST['ai_chatbot_widget_size'] ?? 'medium'),
-            'ai_chatbot_animation_style' => sanitize_text_field($_POST['ai_chatbot_animation_style'] ?? 'slide'),
-            'ai_chatbot_show_typing_indicator' => isset($_POST['ai_chatbot_show_typing_indicator']) ? true : false,
-            'ai_chatbot_show_timestamp' => isset($_POST['ai_chatbot_show_timestamp']) ? true : false,
-            'ai_chatbot_show_powered_by' => isset($_POST['ai_chatbot_show_powered_by']) ? true : false,
-            'ai_chatbot_enable_rating' => isset($_POST['ai_chatbot_enable_rating']) ? true : false,
-        );
-
-        // ====================================================================
-        // RATE LIMITING SETTINGS
-        // ====================================================================
-        
-        $rate_limit_settings = array(
-            'ai_chatbot_rate_limit_enabled' => isset($_POST['ai_chatbot_rate_limit_enabled']) ? true : false,
-            'ai_chatbot_rate_limit_per_minute' => max(1, intval($_POST['ai_chatbot_rate_limit_per_minute'] ?? 10)),
-            'ai_chatbot_rate_limit_per_hour' => max(1, intval($_POST['ai_chatbot_rate_limit_per_hour'] ?? 50)),
-            'ai_chatbot_blocked_message' => wp_kses_post($_POST['ai_chatbot_blocked_message'] ?? ''),
-        );
-
-        // ====================================================================
-        // CONTENT SYNC SETTINGS
-        // ====================================================================
-        
-        $content_sync_settings = array(
-            'ai_chatbot_content_sync_enabled' => isset($_POST['ai_chatbot_content_sync_enabled']) ? true : false,
-            'ai_chatbot_auto_train' => isset($_POST['ai_chatbot_auto_train']) ? true : false,
-            'ai_chatbot_sync_frequency' => sanitize_text_field($_POST['ai_chatbot_sync_frequency'] ?? 'daily'),
-            'ai_chatbot_allowed_post_types' => isset($_POST['ai_chatbot_allowed_post_types']) && is_array($_POST['ai_chatbot_allowed_post_types']) ? 
-                array_map('sanitize_text_field', $_POST['ai_chatbot_allowed_post_types']) : array('post', 'page'),
-            'ai_chatbot_excluded_pages' => isset($_POST['ai_chatbot_excluded_pages']) && is_array($_POST['ai_chatbot_excluded_pages']) ? 
-                array_map('intval', $_POST['ai_chatbot_excluded_pages']) : array(),
-        );
-
-        // ====================================================================
-        // GDPR & PRIVACY SETTINGS
-        // ====================================================================
-        
-        $privacy_settings = array(
-            'ai_chatbot_gdpr_enabled' => isset($_POST['ai_chatbot_gdpr_enabled']) ? true : false,
-            'ai_chatbot_data_retention_days' => max(0, intval($_POST['ai_chatbot_data_retention_days'] ?? 30)),
-            'ai_chatbot_privacy_policy_url' => esc_url_raw($_POST['ai_chatbot_privacy_policy_url'] ?? ''),
-            'ai_chatbot_terms_url' => esc_url_raw($_POST['ai_chatbot_terms_url'] ?? ''),
-            'ai_chatbot_collect_ip' => isset($_POST['ai_chatbot_collect_ip']) ? true : false,
-            'ai_chatbot_collect_user_agent' => isset($_POST['ai_chatbot_collect_user_agent']) ? true : false,
-            'ai_chatbot_anonymize_data' => isset($_POST['ai_chatbot_anonymize_data']) ? true : false,
-            'ai_chatbot_cookie_consent' => isset($_POST['ai_chatbot_cookie_consent']) ? true : false,
-        );
-
-        // ====================================================================
-        // ADVANCED SETTINGS
-        // ====================================================================
-        
-        $advanced_settings = array(
-            'ai_chatbot_debug_mode' => isset($_POST['ai_chatbot_debug_mode']) ? true : false,
-            'ai_chatbot_log_conversations' => isset($_POST['ai_chatbot_log_conversations']) ? true : false,
-            'ai_chatbot_cache_responses' => isset($_POST['ai_chatbot_cache_responses']) ? true : false,
-            'ai_chatbot_max_message_length' => max(1, intval($_POST['ai_chatbot_max_message_length'] ?? 1000)),
-            'ai_chatbot_custom_css' => wp_strip_all_tags($_POST['ai_chatbot_custom_css'] ?? ''),
-            'ai_chatbot_custom_js' => wp_strip_all_tags($_POST['ai_chatbot_custom_js'] ?? ''),
-        );
-
-        // ====================================================================
-        // COMBINE ALL SETTINGS
-        // ====================================================================
-        
-        $all_settings = array_merge(
-            $general_settings,
-            $provider_settings, 
-            $display_settings,
-            $rate_limit_settings,
-            $content_sync_settings,
-            $privacy_settings,
-            $advanced_settings
-        );
-
-        // ====================================================================
-        // SAVE SETTINGS TO DATABASE
-        // ====================================================================
-        
-        foreach ($all_settings as $setting_name => $setting_value) {
+        // Save settings
+        foreach ($updated_settings as $setting_name => $setting_value) {
             $current_value = get_option($setting_name);
             
             if ($current_value !== $setting_value) {
                 if (update_option($setting_name, $setting_value)) {
                     $saved_count++;
-                    $updated_settings[$setting_name] = $setting_value;
                 } else {
                     $errors[] = $setting_name;
                 }
@@ -293,54 +173,29 @@ class AI_Chatbot_Admin_Settings {
             }
         }
 
-        // ====================================================================
-        // HANDLE RESULTS & SHOW MESSAGES
-        // ====================================================================
-        
+        // Handle results
         if ($saved_count > 0) {
-            // Show success message
             add_settings_error(
                 'ai_chatbot_settings',
                 'settings_updated',
                 sprintf(__('%d settings saved successfully!', 'ai-website-chatbot'), $saved_count),
                 'updated'
             );
-            
-            // Test AI connection if provider settings were updated
-            if (isset($updated_settings['ai_chatbot_ai_provider']) || 
-                isset($updated_settings['ai_chatbot_openai_api_key']) ||
-                isset($updated_settings['ai_chatbot_claude_api_key']) ||
-                isset($updated_settings['ai_chatbot_gemini_api_key'])) {
-                $this->test_ai_connection_after_save($updated_settings);
-            }
-            
-            // Trigger content sync if auto-train is enabled
-            if (isset($updated_settings['ai_chatbot_auto_train']) && $updated_settings['ai_chatbot_auto_train']) {
-                $this->maybe_trigger_content_sync();
-            }
-            
-            // Clear any caches
-            wp_cache_flush();
-            
-            return true;
-            
-        } elseif (!empty($errors)) {
-            add_settings_error(
-                'ai_chatbot_settings',
-                'settings_errors',
-                sprintf(__('Failed to save %d settings. Please try again.', 'ai-website-chatbot'), count($errors)),
-                'error'
-            );
-            return false;
-            
         } else {
+            $error_msg = __('No settings were updated', 'ai-website-chatbot');
+            if (!empty($errors)) {
+                $error_msg .= '. Failed settings: ' . implode(', ', $errors);
+            }
             add_settings_error(
                 'ai_chatbot_settings',
-                'no_changes',
-                __('No changes detected in settings.', 'ai-website-chatbot'),
-                'notice-info'
+                'settings_error',
+                $error_msg
             );
-            return true;
+        }
+
+        // Test AI connection if API key was updated
+        if (isset($updated_settings['ai_chatbot_ai_provider']) && isset($updated_settings['ai_chatbot_api_key'])) {
+            $this->test_ai_connection_after_save($updated_settings);
         }
     }
 
@@ -423,89 +278,72 @@ class AI_Chatbot_Admin_Settings {
      * Helper method: Sanitize individual setting values
      */
     private function sanitize_setting_value($key, $value) {
+        // Handle arrays
+        if (is_array($value)) {
+            return array_map('sanitize_text_field', $value);
+        }
+        
         switch ($key) {
-            // Text/Message fields
+            // API Keys
+            case 'ai_chatbot_api_key':
+            case 'ai_chatbot_openai_api_key':
+            case 'ai_chatbot_claude_api_key':
+            case 'ai_chatbot_gemini_api_key':
+                return sanitize_text_field($value);
+                
+            // Text areas with HTML
+            case 'ai_chatbot_system_prompt':
             case 'ai_chatbot_welcome_message':
             case 'ai_chatbot_offline_message':
-            case 'ai_chatbot_system_prompt':
-            case 'ai_chatbot_blocked_message':
+            case 'ai_chatbot_custom_css':
                 return wp_kses_post($value);
                 
-            // API Keys (sensitive data)
-            case 'ai_chatbot_openai_api_key':
-            case 'ai_chatbot_claude_api_key': 
-            case 'ai_chatbot_gemini_api_key':
-                return sanitize_text_field(trim($value));
-                
-            // Color values
-            case 'ai_chatbot_theme_color':
-                $color = sanitize_hex_color($value);
-                return $color ? $color : '#0073aa';
-                
-            // Numeric settings with limits
-            case 'ai_chatbot_max_tokens':
-                return max(1, min(4000, intval($value)));
-            case 'ai_chatbot_data_retention_days':
-                return max(0, intval($value));
-            case 'ai_chatbot_rate_limit_per_minute':
-                return max(1, min(100, intval($value)));
-            case 'ai_chatbot_rate_limit_per_hour':
-                return max(1, min(1000, intval($value)));
-            case 'ai_chatbot_max_message_length':
-                return max(10, min(5000, intval($value)));
-                
-            // Float settings with limits
-            case 'ai_chatbot_openai_temperature':
-                return max(0, min(2, floatval($value)));
-                
-            // Boolean settings
+            // Boolean/checkbox fields
             case 'ai_chatbot_enabled':
-            case 'ai_chatbot_auto_train':
-            case 'ai_chatbot_collect_ip':
-            case 'ai_chatbot_collect_user_agent':
-            case 'ai_chatbot_enable_rating':
-            case 'ai_chatbot_show_powered_by':
-            case 'ai_chatbot_show_typing_indicator':
-            case 'ai_chatbot_show_timestamp':
-            case 'ai_chatbot_gdpr_enabled':
-            case 'ai_chatbot_anonymize_data':
-            case 'ai_chatbot_cookie_consent':
             case 'ai_chatbot_debug_mode':
             case 'ai_chatbot_log_conversations':
             case 'ai_chatbot_cache_responses':
-            case 'ai_chatbot_content_sync_enabled':
+            case 'ai_chatbot_show_on_mobile':
+            case 'ai_chatbot_show_typing_indicator':
+            case 'ai_chatbot_show_timestamp':
             case 'ai_chatbot_rate_limit_enabled':
-                return !empty($value) && $value !== '0' && $value !== 'false';
+            case 'ai_chatbot_gdpr_anonymize_data':
+                return !empty($value) ? 1 : 0;
                 
-            // Array settings
-            case 'ai_chatbot_allowed_post_types':
-                return is_array($value) ? array_map('sanitize_text_field', $value) : array();
-            case 'ai_chatbot_excluded_pages':
-                return is_array($value) ? array_map('intval', $value) : array();
+            // Numeric fields
+            case 'ai_chatbot_max_tokens':
+            case 'ai_chatbot_max_message_length':
+            case 'ai_chatbot_rate_limit_max_requests':
+            case 'ai_chatbot_rate_limit_time_window':
+            case 'ai_chatbot_gdpr_data_retention_days':
+                return max(1, intval($value));
                 
-            // URL settings
-            case 'ai_chatbot_privacy_policy_url':
-            case 'ai_chatbot_terms_url':
+            // Float fields
+            case 'ai_chatbot_temperature':
+                return max(0, min(2, floatval($value)));
+                
+            // Color fields
+            case 'ai_chatbot_widget_color':
+                return sanitize_hex_color($value) ?: '#0073aa';
+                
+            // URL fields
+            case 'ai_chatbot_gdpr_privacy_policy_url':
                 return esc_url_raw($value);
                 
-            // Select/dropdown settings
+            // Select/dropdown fields
             case 'ai_chatbot_ai_provider':
-                $valid_providers = array('openai', 'claude', 'gemini');
-                return in_array($value, $valid_providers) ? $value : 'openai';
-                
+            case 'ai_chatbot_model':
             case 'ai_chatbot_widget_position':
-                $valid_positions = array('bottom-right', 'bottom-left', 'top-right', 'top-left', 'center');
-                return in_array($value, $valid_positions) ? $value : 'bottom-right';
-                
             case 'ai_chatbot_widget_size':
-                $valid_sizes = array('small', 'medium', 'large');
-                return in_array($value, $valid_sizes) ? $value : 'medium';
+            case 'ai_chatbot_animation_style':
+            case 'ai_chatbot_content_sync_frequency':
+                return sanitize_text_field($value);
                 
-            case 'ai_chatbot_sync_frequency':
-                $valid_frequencies = array('hourly', 'daily', 'weekly');
-                return in_array($value, $valid_frequencies) ? $value : 'daily';
+            // Array fields
+            case 'ai_chatbot_show_on_pages':
+            case 'ai_chatbot_content_sync_post_types':
+                return is_array($value) ? array_map('sanitize_text_field', $value) : array(sanitize_text_field($value));
                 
-            // Default sanitization
             default:
                 return sanitize_text_field($value);
         }
@@ -587,8 +425,139 @@ class AI_Chatbot_Admin_Settings {
      * AJAX: Save settings
      */
     public function ajax_save_settings() {
+        // Debug logging
+        error_log('AI Chatbot: ajax_save_settings called');
+        error_log('AI Chatbot: POST data: ' . print_r($_POST, true));
+        
         // Verify nonce
+        if (!check_ajax_referer('ai_chatbot_admin_nonce', 'nonce', false)) {
+            error_log('AI Chatbot: Nonce verification failed');
+            wp_send_json_error(__('Security check failed', 'ai-website-chatbot'));
+            return;
+        }
+        
+        if (!current_user_can('manage_options')) {
+            error_log('AI Chatbot: User lacks permissions');
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+            return;
+        }
+        
+        if (!isset($_POST['settings'])) {
+            error_log('AI Chatbot: No settings parameter found');
+            wp_send_json_error(__('No settings data received', 'ai-website-chatbot'));
+            return;
+        }
 
+        // Parse the serialized form data
+        parse_str($_POST['settings'], $form_data);
+        
+        error_log('AI Chatbot: Processed form data: ' . print_r($form_data, true));
+        
+        $settings_to_save = array();
+        
+        // FIXED: Handle the nested ai_chatbot_settings array structure
+        if (isset($form_data['ai_chatbot_settings']) && is_array($form_data['ai_chatbot_settings'])) {
+            $settings_array = $form_data['ai_chatbot_settings'];
+            
+            // Process flat settings (non-nested)
+            foreach ($settings_array as $key => $value) {
+                // Skip nested arrays for now, handle them separately
+                if (!is_array($value)) {
+                    $full_key = 'ai_chatbot_' . $key;
+                    $settings_to_save[$full_key] = $this->sanitize_setting_value($full_key, $value);
+                    error_log("AI Chatbot: Processing flat setting: $full_key = $value");
+                }
+            }
+            
+            // Handle nested arrays (rate_limiting, content_sync, gdpr, etc.)
+            foreach ($settings_array as $key => $value) {
+                if (is_array($value)) {
+                    error_log("AI Chatbot: Processing nested array: $key");
+                    
+                    switch ($key) {
+                        case 'rate_limiting':
+                            $settings_to_save['ai_chatbot_rate_limit_enabled'] = !empty($value['enabled']) ? 1 : 0;
+                            $settings_to_save['ai_chatbot_rate_limit_max_requests'] = intval($value['max_requests'] ?? 10);
+                            $settings_to_save['ai_chatbot_rate_limit_time_window'] = intval($value['time_window'] ?? 3600);
+                            break;
+                            
+                        case 'content_sync':
+                            $settings_to_save['ai_chatbot_content_sync_post_types'] = is_array($value['post_types']) ? $value['post_types'] : array();
+                            $settings_to_save['ai_chatbot_content_sync_frequency'] = sanitize_text_field($value['sync_frequency'] ?? 'daily');
+                            break;
+                            
+                        case 'gdpr':
+                            $settings_to_save['ai_chatbot_gdpr_data_retention_days'] = intval($value['data_retention_days'] ?? 30);
+                            $settings_to_save['ai_chatbot_gdpr_privacy_policy_url'] = esc_url_raw($value['privacy_policy_url'] ?? '');
+                            $settings_to_save['ai_chatbot_gdpr_anonymize_data'] = !empty($value['anonymize_data']) ? 1 : 0;
+                            break;
+                            
+                        case 'show_on_pages':
+                            $settings_to_save['ai_chatbot_show_on_pages'] = is_array($value) ? $value : array($value);
+                            break;
+                            
+                        default:
+                            // Handle any other nested arrays
+                            $settings_to_save['ai_chatbot_' . $key] = $value;
+                            break;
+                    }
+                }
+            }
+        } else {
+            // Fallback: Process flat structure if nested structure not found
+            foreach ($form_data as $key => $value) {
+                if (strpos($key, 'ai_chatbot_') === 0) {
+                    $settings_to_save[$key] = $this->sanitize_setting_value($key, $value);
+                }
+            }
+        }
+        
+        error_log('AI Chatbot: Final settings to save: ' . print_r($settings_to_save, true));
+
+        if (empty($settings_to_save)) {
+            error_log('AI Chatbot: No valid settings found after processing');
+            wp_send_json_error(__('No valid settings found to save', 'ai-website-chatbot'));
+            return;
+        }
+
+        // Save settings
+        $saved_count = 0;
+        $failed_settings = array();
+        $option_name = 'ai_chatbot_settings';
+        
+        $result = update_option($option_name, $settings_to_save);
+        if ($result) {
+            $saved_count++;
+            error_log("AI Chatbot: Successfully saved: $setting_name");
+        } else {
+            // Check if the value is the same as current value
+            $current_value = get_option($option_name);
+            if ($current_value === $setting_value) {
+                $saved_count++; // Count as successful since value is already correct
+                error_log("AI Chatbot: Value unchanged for: $setting_name");
+            } else {
+                $failed_settings[] = $setting_name;
+                error_log("AI Chatbot: Failed to save: $setting_name");
+            }
+        }
+
+        if ($saved_count > 0) {
+            $message = sprintf(__('%d settings saved successfully!', 'ai-website-chatbot'), $saved_count);
+            if (!empty($failed_settings)) {
+                $message .= ' ' . sprintf(__('(%d settings failed to save)', 'ai-website-chatbot'), count($failed_settings));
+            }
+            wp_send_json_success($message);
+        } else {
+            wp_send_json_error(__('No settings were updated. Failed settings: ', 'ai-website-chatbot') . implode(', ', $failed_settings));
+        }
+    }
+    
+    /**
+     * AJAX: Reset settings to defaults
+     */
+    public function ajax_reset_settings() {
+        error_log('AI Chatbot: ajax_reset_settings called');
+        
         if (!check_ajax_referer('ai_chatbot_admin_nonce', 'nonce', false)) {
             wp_send_json_error(__('Security check failed', 'ai-website-chatbot'));
             return;
@@ -599,55 +568,19 @@ class AI_Chatbot_Admin_Settings {
             return;
         }
         
-        if (!isset($_POST['settings'])) {
-            wp_send_json_error(__('No settings data received', 'ai-website-chatbot'));
-            return;
-        }
-
-        // Parse the serialized form data
-        parse_str($_POST['settings'], $form_data);
-        
-        $settings_to_save = array();
-        
-        // Process settings
-        foreach ($form_data as $key => $value) {
-            if (strpos($key, 'ai_chatbot_') === 0) {
-                $settings_to_save[$key] = $this->sanitize_setting_value($key, $value);
-            }
-        }
-
-        // Save settings
-        $saved_count = 0;
-        foreach ($settings_to_save as $setting_name => $setting_value) {
-            if (update_option($setting_name, $setting_value)) {
-                $saved_count++;
-            }
-        }
-
-        if ($saved_count > 0) {
-            wp_send_json_success(sprintf(__('%d settings saved successfully!', 'ai-website-chatbot'), $saved_count));
-        } else {
-            wp_send_json_error(__('No settings were updated', 'ai-website-chatbot'));
-        }
-    }
-    
-    /**
-     * AJAX: Reset settings to defaults
-     */
-    public function ajax_reset_settings() {
-        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
-        }
-        
         $defaults = $this->get_default_settings();
-        $updated = update_option('ai_chatbot_settings', $defaults);
+        $reset_count = 0;
         
-        if ($updated) {
-            wp_send_json_success(__('Settings reset to defaults successfully!', 'ai-website-chatbot'));
+        foreach ($defaults as $setting_name => $default_value) {
+            if (update_option($setting_name, $default_value)) {
+                $reset_count++;
+            }
+        }
+        
+        if ($reset_count > 0) {
+            wp_send_json_success(sprintf(__('%d settings reset to defaults successfully!', 'ai-website-chatbot'), $reset_count));
         } else {
-            wp_send_json_error(__('Failed to reset settings', 'ai-website-chatbot'));
+            wp_send_json_error(__('No settings were reset', 'ai-website-chatbot'));
         }
     }
     
@@ -655,10 +588,16 @@ class AI_Chatbot_Admin_Settings {
      * AJAX: Test API connection
      */
     public function ajax_test_api_connection() {
-        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
+        error_log('AI Chatbot: ajax_test_api_connection called');
+        
+        if (!check_ajax_referer('ai_chatbot_admin_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Security check failed', 'ai-website-chatbot'));
+            return;
+        }
         
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+            return;
         }
         
         $provider = sanitize_text_field($_POST['provider'] ?? '');
@@ -666,35 +605,19 @@ class AI_Chatbot_Admin_Settings {
         
         if (empty($provider) || empty($api_key)) {
             wp_send_json_error(__('Provider and API key are required', 'ai-website-chatbot'));
+            return;
         }
         
-        // Load the provider class
-        $provider_file = AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-' . $provider . '.php';
+        // Test connection based on provider
+        $result = $this->test_provider_connection($provider, $api_key);
         
-        if (!file_exists($provider_file)) {
-            wp_send_json_error(__('Provider not supported', 'ai-website-chatbot'));
-        }
-        
-        require_once $provider_file;
-        $provider_class = 'AI_Chatbot_' . ucfirst($provider);
-        
-        if (!class_exists($provider_class)) {
-            wp_send_json_error(__('Provider class not found', 'ai-website-chatbot'));
-        }
-        
-        try {
-            $provider_instance = new $provider_class();
-            $result = $provider_instance->test_connection($api_key);
-            
-            if ($result) {
-                wp_send_json_success(__('Connection successful!', 'ai-website-chatbot'));
-            } else {
-                wp_send_json_error(__('Connection failed. Please check your API key.', 'ai-website-chatbot'));
-            }
-        } catch (Exception $e) {
-            wp_send_json_error(sprintf(__('Connection error: %s', 'ai-website-chatbot'), $e->getMessage()));
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(__('API connection successful!', 'ai-website-chatbot'));
         }
     }
+    
     
     /**
      * AJAX: Sync content

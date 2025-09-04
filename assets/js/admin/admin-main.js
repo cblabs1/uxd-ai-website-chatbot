@@ -111,12 +111,17 @@
             var $form = $(this);
             var formData = $form.serialize();
             
-            AIChatbotAdmin.showNotification(aiChatbotAdmin.strings.loading, 'info');
+            AIChatbotAdmin.showNotification('Saving settings...', 'info');
             
+            // FIXED: Send form data as 'settings' parameter instead of direct data
             $.ajax({
                 url: aiChatbotAdmin.ajaxUrl,
                 type: 'POST',
-                data: formData + '&action=ai_chatbot_save_settings&nonce=' + aiChatbotAdmin.nonce,
+                data: {
+                    action: 'ai_chatbot_save_settings',
+                    nonce: aiChatbotAdmin.nonce,
+                    settings: formData  // FIXED: Pass serialized form data as 'settings' parameter
+                },
                 success: function(response) {
                     if (response.success) {
                         AIChatbotAdmin.showNotification(response.data, 'success');
@@ -128,14 +133,16 @@
                         AIChatbotAdmin.showNotification(response.data, 'error');
                     }
                 },
-                error: function() {
-                    AIChatbotAdmin.showNotification(aiChatbotAdmin.strings.error, 'error');
+                error: function(xhr, status, error) {
+                    console.error('AJAX Error:', status, error);
+                    console.log('Response:', xhr.responseText);
+                    AIChatbotAdmin.showNotification('Failed to save settings. Check console for details.', 'error');
                 }
             });
         },
         
         /**
-         * Auto-save settings
+         * Auto-save settings - FIXED VERSION
          */
         autoSaveSettings: function() {
             var $form = $('.ai-chatbot-settings-form');
@@ -143,10 +150,15 @@
             
             var formData = $form.serialize();
             
+            // FIXED: Send form data as 'settings' parameter
             $.ajax({
                 url: aiChatbotAdmin.ajaxUrl,
                 type: 'POST',
-                data: formData + '&action=ai_chatbot_save_settings&nonce=' + aiChatbotAdmin.nonce,
+                data: {
+                    action: 'ai_chatbot_save_settings',
+                    nonce: aiChatbotAdmin.nonce,
+                    settings: formData  // FIXED: Pass serialized form data as 'settings' parameter
+                },
                 success: function(response) {
                     if (response.success) {
                         $('.auto-save-indicator').addClass('saved').text('Auto-saved');
