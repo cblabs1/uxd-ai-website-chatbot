@@ -162,29 +162,67 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 	 */
 	public function get_available_models() {
 		return array(
-			'claude-3-haiku-20240307' => array(
-				'name' => 'Claude 3 Haiku',
-				'description' => __( 'Fast and cost-effective for simple tasks', 'ai-website-chatbot' ),
+			// Claude 3.5 models (Latest)
+			'claude-3-5-sonnet-20241022' => array(
+				'name' => 'Claude 3.5 Sonnet (New)',
+				'description' => __( 'Latest Claude 3.5 Sonnet with improved coding and reasoning capabilities', 'ai-website-chatbot' ),
+				'max_tokens' => 8192,
+				'context_length' => 200000,
+				'cost_per_1k_input' => 3.00,
+				'cost_per_1k_output' => 15.00,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
+			),
+			'claude-3-5-sonnet-20240620' => array(
+				'name' => 'Claude 3.5 Sonnet',
+				'description' => __( 'Most intelligent model, combining top-tier performance with improved speed', 'ai-website-chatbot' ),
+				'max_tokens' => 8192,
+				'context_length' => 200000,
+				'cost_per_1k_input' => 3.00,
+				'cost_per_1k_output' => 15.00,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
+			),
+			'claude-3-5-haiku-20241022' => array(
+				'name' => 'Claude 3.5 Haiku',
+				'description' => __( 'Fastest model with improved instruction following and coding capabilities', 'ai-website-chatbot' ),
+				'max_tokens' => 8192,
+				'context_length' => 200000,
+				'cost_per_1k_input' => 0.80,
+				'cost_per_1k_output' => 4.00,
+				'supports_vision' => false,
+				'supports_function_calling' => true,
+			),
+			// Claude 3 models
+			'claude-3-opus-20240229' => array(
+				'name' => 'Claude 3 Opus',
+				'description' => __( 'Most powerful model for highly complex tasks', 'ai-website-chatbot' ),
 				'max_tokens' => 4096,
-				'cost_per_1k' => 0.25,
+				'context_length' => 200000,
+				'cost_per_1k_input' => 15.00,
+				'cost_per_1k_output' => 75.00,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
 			),
 			'claude-3-sonnet-20240229' => array(
 				'name' => 'Claude 3 Sonnet',
-				'description' => __( 'Balanced performance and speed', 'ai-website-chatbot' ),
+				'description' => __( 'Balanced performance and speed for enterprise workloads', 'ai-website-chatbot' ),
 				'max_tokens' => 4096,
-				'cost_per_1k' => 3.0,
+				'context_length' => 200000,
+				'cost_per_1k_input' => 3.00,
+				'cost_per_1k_output' => 15.00,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
 			),
-			'claude-3-opus-20240229' => array(
-				'name' => 'Claude 3 Opus',
-				'description' => __( 'Most capable model for complex tasks', 'ai-website-chatbot' ),
+			'claude-3-haiku-20240307' => array(
+				'name' => 'Claude 3 Haiku',
+				'description' => __( 'Fastest and most compact model for near-instant responsiveness', 'ai-website-chatbot' ),
 				'max_tokens' => 4096,
-				'cost_per_1k' => 15.0,
-			),
-			'claude-3-5-sonnet-20241022' => array(
-				'name' => 'Claude 3.5 Sonnet',
-				'description' => __( 'Enhanced version of Sonnet with improved capabilities', 'ai-website-chatbot' ),
-				'max_tokens' => 8192,
-				'cost_per_1k' => 3.0,
+				'context_length' => 200000,
+				'cost_per_1k_input' => 0.25,
+				'cost_per_1k_output' => 1.25,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
 			),
 		);
 	}

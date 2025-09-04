@@ -99,7 +99,7 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	 * Generate response from AI
 	 *
 	 * @param string $message User message.
-	 * @param string $context Additional context from website.
+	 * @param string|array $context Additional context from website or conversation history.
 	 * @param array  $options Optional parameters.
 	 * @return string|WP_Error AI response or WP_Error if failed.
 	 * @since 1.0.0
@@ -109,26 +109,51 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 			return new WP_Error( 'not_configured', __( 'Gemini API key is not configured.', 'ai-website-chatbot' ) );
 		}
 
-		// Build full prompt with context
-		$full_prompt = $this->build_full_prompt( $message, $context, $options );
+		// Handle conversation history if provided as array
+		$conversation_contents = array();
+		
+		if ( is_array( $context ) && !empty( $context ) ) {
+			// Build conversation from history array
+			foreach ( $context as $item ) {
+				if ( isset( $item['sender'], $item['message'] ) ) {
+					$conversation_contents[] = array(
+						'role' => $item['sender'] === 'user' ? 'user' : 'model',
+						'parts' => array( array( 'text' => $item['message'] ) )
+					);
+				}
+			}
+		} else {
+			// Build simple prompt with context string
+			$full_prompt = $this->build_full_prompt( $message, $context, $options );
+		}
+
+		// Add current user message
+		$conversation_contents[] = array(
+			'role' => 'user',
+			'parts' => array( array( 'text' => isset($full_prompt) ? $full_prompt : $message ) )
+		);
 
 		// Get model
-		$model = $options['model'] ?? get_option( 'ai_chatbot_gemini_model', 'gemini-pro' );
+		$model = $options['model'] ?? get_option( 'ai_chatbot_gemini_model', 'gemini-2.0-flash' );
 
 		// Prepare request data
 		$data = array(
-			'contents' => array(
-				array(
-					'parts' => array(
-						array( 'text' => $full_prompt )
-					)
-				)
-			),
+			'contents' => $conversation_contents,
 			'generationConfig' => array(
-				'temperature' => $options['temperature'] ?? get_option( 'ai_chatbot_gemini_temperature', 0.7 ),
-				'maxOutputTokens' => $options['max_tokens'] ?? get_option( 'ai_chatbot_gemini_max_tokens', 300 ),
+				'temperature' => floatval( $options['temperature'] ?? get_option( 'ai_chatbot_gemini_temperature', 0.7 ) ),
+				'maxOutputTokens' => intval( $options['max_tokens'] ?? get_option( 'ai_chatbot_gemini_max_tokens', 1000 ) ),
+				'topP' => floatval( get_option( 'ai_chatbot_gemini_top_p', 0.8 ) ),
+				'topK' => intval( get_option( 'ai_chatbot_gemini_top_k', 40 ) )
 			),
 		);
+
+		// Add system instruction if available
+		$system_prompt = get_option( 'ai_chatbot_system_prompt', '' );
+		if ( !empty( $system_prompt ) ) {
+			$data['systemInstruction'] = array(
+				'parts' => array( array( 'text' => $system_prompt ) )
+			);
+		}
 
 		$response = $this->make_request( "models/{$model}:generateContent", $data );
 
@@ -147,43 +172,67 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	}
 
 	/**
-	 * Get available models
+	 * Get available models with latest Gemini models
 	 *
 	 * @return array Available models.
 	 * @since 1.0.0
 	 */
 	public function get_available_models() {
 		return array(
-			'gemini-pro' => array(
-				'name' => 'Gemini Pro',
-				'description' => __( 'Best model for text-based tasks', 'ai-website-chatbot' ),
-				'max_tokens' => 8192,
-				'cost_per_1k' => 0.5,
-			),
-			'gemini-pro-vision' => array(
-				'name' => 'Gemini Pro Vision',
-				'description' => __( 'Multimodal model with vision capabilities', 'ai-website-chatbot' ),
-				'max_tokens' => 8192,
-				'cost_per_1k' => 0.5,
-			),
 			'gemini-2.0-flash' => array(
 				'name' => 'Gemini 2.0 Flash',
-				'description' => __( 'Fast and efficient for simple tasks', 'ai-website-chatbot' ),
+				'description' => __( 'Latest and fastest Gemini model with improved reasoning and multimodal capabilities', 'ai-website-chatbot' ),
 				'max_tokens' => 8192,
-				'cost_per_1k' => 0.1,
+				'context_length' => 1000000,
+				'cost_per_1k' => 0.075,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
 			),
-			'gemini-1.5-flash-8b' => array(
-				'name' => 'Gemini 1.5 Flash-8B',
-				'description' => __( 'Fast and efficient for simple tasks', 'ai-website-chatbot' ),
+			'gemini-1.5-pro' => array(
+				'name' => 'Gemini 1.5 Pro',
+				'description' => __( 'High-performance model for complex reasoning and large context', 'ai-website-chatbot' ),
 				'max_tokens' => 8192,
-				'cost_per_1k' => 0.1,
+				'context_length' => 2000000,
+				'cost_per_1k' => 1.25,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
 			),
 			'gemini-1.5-flash' => array(
 				'name' => 'Gemini 1.5 Flash',
-				'description' => __( 'Fast and efficient for simple tasks', 'ai-website-chatbot' ),
+				'description' => __( 'Fast and efficient model for most use cases', 'ai-website-chatbot' ),
 				'max_tokens' => 8192,
-				'cost_per_1k' => 0.1,
+				'context_length' => 1000000,
+				'cost_per_1k' => 0.075,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
 			),
+			'gemini-1.5-flash-8b' => array(
+				'name' => 'Gemini 1.5 Flash 8B',
+				'description' => __( 'Lightweight model optimized for speed and efficiency', 'ai-website-chatbot' ),
+				'max_tokens' => 8192,
+				'context_length' => 1000000,
+				'cost_per_1k' => 0.0375,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
+			),
+			'gemini-pro' => array(
+				'name' => 'Gemini Pro',
+				'description' => __( 'Original Gemini Pro model for text tasks', 'ai-website-chatbot' ),
+				'max_tokens' => 2048,
+				'context_length' => 30720,
+				'cost_per_1k' => 0.5,
+				'supports_vision' => false,
+				'supports_function_calling' => true,
+			),
+			'gemini-pro-vision' => array(
+				'name' => 'Gemini Pro Vision',
+				'description' => __( 'Gemini Pro with vision capabilities', 'ai-website-chatbot' ),
+				'max_tokens' => 2048,
+				'context_length' => 12288,
+				'cost_per_1k' => 0.5,
+				'supports_vision' => true,
+				'supports_function_calling' => false,
+			)
 		);
 	}
 
@@ -194,7 +243,7 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function get_default_model() {
-		return 'gemini-pro';
+		return 'gemini-2.0-flash';
 	}
 
 	/**
@@ -216,7 +265,7 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 				'type' => 'select',
 				'options' => wp_list_pluck( $this->get_available_models(), 'name' ),
 				'description' => __( 'Choose the Gemini model to use', 'ai-website-chatbot' ),
-				'default' => 'gemini-pro',
+				'default' => 'gemini-2.0-flash',
 			),
 			'ai_chatbot_gemini_temperature' => array(
 				'label' => __( 'Temperature', 'ai-website-chatbot' ),
@@ -224,16 +273,33 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 				'min' => 0,
 				'max' => 2,
 				'step' => 0.1,
-				'description' => __( 'Controls randomness in responses', 'ai-website-chatbot' ),
+				'description' => __( 'Controls randomness in responses (0.0 = deterministic, 2.0 = very random)', 'ai-website-chatbot' ),
 				'default' => 0.7,
 			),
 			'ai_chatbot_gemini_max_tokens' => array(
-				'label' => __( 'Max Tokens', 'ai-website-chatbot' ),
+				'label' => __( 'Max Output Tokens', 'ai-website-chatbot' ),
 				'type' => 'number',
 				'min' => 1,
 				'max' => 8192,
 				'description' => __( 'Maximum length of the response', 'ai-website-chatbot' ),
-				'default' => 300,
+				'default' => 1000,
+			),
+			'ai_chatbot_gemini_top_p' => array(
+				'label' => __( 'Top P', 'ai-website-chatbot' ),
+				'type' => 'number',
+				'min' => 0,
+				'max' => 1,
+				'step' => 0.01,
+				'description' => __( 'Nucleus sampling parameter', 'ai-website-chatbot' ),
+				'default' => 0.8,
+			),
+			'ai_chatbot_gemini_top_k' => array(
+				'label' => __( 'Top K', 'ai-website-chatbot' ),
+				'type' => 'number',
+				'min' => 1,
+				'max' => 100,
+				'description' => __( 'Top-k sampling parameter', 'ai-website-chatbot' ),
+				'default' => 40,
 			),
 		);
 	}
@@ -251,7 +317,7 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 		// Validate API key
 		if ( empty( $config['ai_chatbot_gemini_api_key'] ) ) {
 			$errors[] = __( 'API key is required.', 'ai-website-chatbot' );
-		} elseif ( ! preg_match( '/^[a-zA-Z0-9_-]{35,45}$/', $config['ai_chatbot_gemini_api_key'] ) ) {
+		} elseif ( strlen( $config['ai_chatbot_gemini_api_key'] ) < 35 ) {
 			$errors[] = __( 'Invalid API key format.', 'ai-website-chatbot' );
 		}
 
@@ -291,14 +357,12 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function get_usage_stats() {
-		$stats = get_option( 'ai_chatbot_gemini_usage_stats', array(
+		return get_option( 'ai_chatbot_gemini_usage_stats', array(
 			'total_requests' => 0,
 			'total_tokens' => 0,
 			'total_cost' => 0,
 			'last_request' => null,
 		) );
-
-		return $stats;
 	}
 
 	/**
@@ -309,116 +373,99 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	 */
 	public function get_rate_limits() {
 		return array(
-			'requests_per_minute' => array(
-				'free_tier' => 60,
-				'paid_tier' => 1000,
-			),
-			'requests_per_day' => array(
-				'free_tier' => 1500,
-				'paid_tier' => 50000,
-			),
+			'requests_per_minute' => 60,
+			'requests_per_day' => 1500,
+			'tokens_per_minute' => 32000,
 		);
 	}
 
 	/**
-	 * Make API request to Gemini
+	 * Make HTTP request to Gemini API
 	 *
 	 * @param string $endpoint API endpoint.
 	 * @param array  $data Request data.
-	 * @param string $method HTTP method.
-	 * @return array|WP_Error Response data or WP_Error if failed.
+	 * @return array|WP_Error Response data or WP_Error.
 	 * @since 1.0.0
 	 */
-	private function make_request( $endpoint, $data = array(), $method = 'POST' ) {
-		$url = $this->api_base . $endpoint . '?key=' . $this->api_key;
-
+	private function make_request( $endpoint, $data ) {
+		$url = $this->api_base . $endpoint;
+		
 		$args = array(
-			'method' => $method,
+			'method' => 'POST',
 			'headers' => array(
 				'Content-Type' => 'application/json',
-				'User-Agent' => 'WordPress-AI-Chatbot/' . AI_CHATBOT_VERSION,
+				'X-goog-api-key' => $this->api_key,
 			),
+			'body' => wp_json_encode( $data ),
 			'timeout' => 30,
-			'sslverify' => true,
 		);
-
-		if ( $method === 'POST' && ! empty( $data ) ) {
-			$args['body'] = wp_json_encode( $data );
-		}
 
 		$response = wp_remote_request( $url, $args );
 
 		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'request_failed', $response->get_error_message() );
+			return new WP_Error( 'request_failed', __( 'Failed to connect to Gemini API.', 'ai-website-chatbot' ) );
 		}
 
-		$status_code = wp_remote_retrieve_response_code( $response );
-		$body = wp_remote_retrieve_body( $response );
-		$decoded_body = json_decode( $body, true );
+		$response_code = wp_remote_retrieve_response_code( $response );
+		$response_body = wp_remote_retrieve_body( $response );
 
-		if ( $status_code !== 200 ) {
-			$error_message = isset( $decoded_body['error']['message'] ) 
-				? $decoded_body['error']['message'] 
-				: sprintf( __( 'HTTP %d error', 'ai-website-chatbot' ), $status_code );
-				
-			return new WP_Error( 'api_error', $error_message, array( 'status_code' => $status_code ) );
+		if ( $response_code !== 200 ) {
+			$error_data = json_decode( $response_body, true );
+			$error_message = $error_data['error']['message'] ?? __( 'Unknown API error.', 'ai-website-chatbot' );
+			
+			return new WP_Error( 'api_error', sprintf( 
+				__( 'Gemini API error (%d): %s', 'ai-website-chatbot' ), 
+				$response_code, 
+				$error_message 
+			) );
 		}
+
+		$data = json_decode( $response_body, true );
 
 		if ( json_last_error() !== JSON_ERROR_NONE ) {
-			return new WP_Error( 'invalid_json', __( 'Invalid JSON response from Gemini.', 'ai-website-chatbot' ) );
+			return new WP_Error( 'invalid_json', __( 'Invalid JSON response from Gemini API.', 'ai-website-chatbot' ) );
 		}
 
-		return $decoded_body;
+		return $data;
 	}
 
 	/**
-	 * Build full prompt with context and history
+	 * Build full prompt with context
 	 *
 	 * @param string $message User message.
 	 * @param string $context Website context.
-	 * @param array  $options Options including history.
+	 * @param array  $options Additional options.
 	 * @return string Full prompt.
 	 * @since 1.0.0
 	 */
-	private function build_full_prompt( $message, $context = '', $options = array() ) {
-		$custom_prompt = get_option( 'ai_chatbot_custom_prompt', '' );
-		
-		if ( ! empty( $custom_prompt ) ) {
-			$system_message = $custom_prompt;
-		} else {
-			$system_message = __( 'You are a helpful AI assistant for this website. Answer questions accurately and helpfully based on the provided context. If you don\'t know something based on the context, say so politely. Keep responses concise and friendly.', 'ai-website-chatbot' );
+	private function build_full_prompt( $message, $context, $options ) {
+		$full_prompt = '';
+
+		// Add system prompt if available
+		$system_prompt = get_option( 'ai_chatbot_system_prompt', '' );
+		if ( ! empty( $system_prompt ) ) {
+			$full_prompt .= $system_prompt . "\n\n";
 		}
 
-		$full_prompt = $system_message;
-
-		// Add website information
-		$site_name = get_bloginfo( 'name' );
-		$site_description = get_bloginfo( 'description' );
-		
-		if ( ! empty( $site_name ) ) {
-			$full_prompt .= "\n\n" . sprintf( __( 'Website: %s', 'ai-website-chatbot' ), $site_name );
-		}
-		
-		if ( ! empty( $site_description ) ) {
-			$full_prompt .= "\n" . sprintf( __( 'Description: %s', 'ai-website-chatbot' ), $site_description );
-		}
-
-		// Add context if provided
-		if ( ! empty( $context ) ) {
-			$full_prompt .= "\n\n" . __( 'Website Context:', 'ai-website-chatbot' ) . "\n" . $context;
+		// Add website context
+		if ( ! empty( $context ) && is_string( $context ) ) {
+			$full_prompt .= __( 'Website information:', 'ai-website-chatbot' ) . "\n" . $context . "\n\n";
 		}
 
 		// Add conversation history if provided
 		if ( ! empty( $options['history'] ) ) {
-			$full_prompt .= "\n\n" . __( 'Recent conversation:', 'ai-website-chatbot' );
+			$full_prompt .= __( 'Recent conversation:', 'ai-website-chatbot' ) . "\n";
 			foreach ( $options['history'] as $item ) {
-				$full_prompt .= "\nUser: " . $item['user_message'];
-				$full_prompt .= "\nAssistant: " . $item['bot_response'];
+				if ( isset( $item['user_message'], $item['bot_response'] ) ) {
+					$full_prompt .= "User: " . $item['user_message'] . "\n";
+					$full_prompt .= "Assistant: " . $item['bot_response'] . "\n";
+				}
 			}
+			$full_prompt .= "\n";
 		}
 
 		// Add current user message
-		$full_prompt .= "\n\n" . __( 'Current user question:', 'ai-website-chatbot' ) . "\n" . $message;
+		$full_prompt .= __( 'User question:', 'ai-website-chatbot' ) . "\n" . $message;
 
 		return $full_prompt;
 	}
@@ -430,8 +477,6 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	private function log_usage( $response ) {
-		// Gemini doesn't provide detailed usage stats in the same way as other providers
-		// We'll estimate based on the response
 		$stats = get_option( 'ai_chatbot_gemini_usage_stats', array(
 			'total_requests' => 0,
 			'total_tokens' => 0,
@@ -442,22 +487,19 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 		$stats['total_requests']++;
 		$stats['last_request'] = current_time( 'mysql' );
 
-		// Estimate tokens (rough approximation)
+		// Estimate tokens and cost
 		if ( isset( $response['candidates'][0]['content']['parts'][0]['text'] ) ) {
 			$response_text = $response['candidates'][0]['content']['parts'][0]['text'];
 			$estimated_tokens = strlen( $response_text ) / 4; // Rough estimate
 			$stats['total_tokens'] += $estimated_tokens;
 
-			// Estimate cost
-			$model = get_option( 'ai_chatbot_gemini_model', 'gemini-pro' );
+			// Calculate cost
+			$model = get_option( 'ai_chatbot_gemini_model', 'gemini-2.0-flash' );
 			$cost_per_1k = $this->get_model_cost( $model );
 			$stats['total_cost'] += ( $estimated_tokens / 1000 ) * $cost_per_1k;
 		}
 
 		update_option( 'ai_chatbot_gemini_usage_stats', $stats );
-
-		// Log detailed usage for analytics
-		$this->log_detailed_usage( $response );
 	}
 
 	/**
@@ -469,117 +511,6 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	 */
 	private function get_model_cost( $model ) {
 		$models = $this->get_available_models();
-		return $models[ $model ]['cost_per_1k'] ?? 0.5;
-	}
-
-	/**
-	 * Log detailed usage for analytics
-	 *
-	 * @param array $response API response.
-	 * @since 1.0.0
-	 */
-	private function log_detailed_usage( $response ) {
-		$usage_log = get_option( 'ai_chatbot_gemini_usage_log', array() );
-		
-		// Estimate tokens from response
-		$estimated_tokens = 0;
-		if ( isset( $response['candidates'][0]['content']['parts'][0]['text'] ) ) {
-			$response_text = $response['candidates'][0]['content']['parts'][0]['text'];
-			$estimated_tokens = strlen( $response_text ) / 4;
-		}
-
-		$log_entry = array(
-			'timestamp' => current_time( 'mysql' ),
-			'model' => get_option( 'ai_chatbot_gemini_model', 'gemini-pro' ),
-			'estimated_tokens' => $estimated_tokens,
-		);
-
-		$usage_log[] = $log_entry;
-
-		// Keep only last 100 entries
-		if ( count( $usage_log ) > 100 ) {
-			$usage_log = array_slice( $usage_log, -100 );
-		}
-
-		update_option( 'ai_chatbot_gemini_usage_log', $usage_log );
-	}
-
-	/**
-	 * Get model information
-	 *
-	 * @param string $model_id Model identifier.
-	 * @return array|null Model information.
-	 * @since 1.0.0
-	 */
-	public function get_model_info( $model_id ) {
-		$models = $this->get_available_models();
-		return $models[ $model_id ] ?? null;
-	}
-
-	/**
-	 * Validate message content
-	 *
-	 * @param string $message Message to validate.
-	 * @return bool|WP_Error True if valid, WP_Error if invalid.
-	 * @since 1.0.0
-	 */
-	public function validate_message( $message ) {
-		// Check message length
-		if ( empty( trim( $message ) ) ) {
-			return new WP_Error( 'empty_message', __( 'Message cannot be empty.', 'ai-website-chatbot' ) );
-		}
-
-		// Gemini has reasonable limits
-		if ( strlen( $message ) > 8000 ) {
-			return new WP_Error( 'message_too_long', __( 'Message is too long. Please shorten your message.', 'ai-website-chatbot' ) );
-		}
-
-		return true;
-	}
-
-	/**
-	 * Get provider status
-	 *
-	 * @return array Provider status information.
-	 * @since 1.0.0
-	 */
-	public function get_status() {
-		$status = array(
-			'configured' => $this->is_configured(),
-			'connection' => false,
-			'last_error' => null,
-			'usage_stats' => $this->get_usage_stats(),
-		);
-
-		if ( $status['configured'] ) {
-			$connection_test = $this->test_connection();
-			if ( is_wp_error( $connection_test ) ) {
-				$status['last_error'] = $connection_test->get_error_message();
-			} else {
-				$status['connection'] = true;
-			}
-		}
-
-		return $status;
-	}
-
-	/**
-	 * Reset usage statistics
-	 *
-	 * @return bool True if reset successful.
-	 * @since 1.0.0
-	 */
-	public function reset_usage_stats() {
-		$default_stats = array(
-			'total_requests' => 0,
-			'total_tokens' => 0,
-			'total_cost' => 0,
-			'last_request' => null,
-		);
-
-		update_option( 'ai_chatbot_gemini_usage_stats', $default_stats );
-		delete_option( 'ai_chatbot_gemini_usage_log' );
-
-		return true;
+		return $models[ $model ]['cost_per_1k'] ?? 0.075;
 	}
 }

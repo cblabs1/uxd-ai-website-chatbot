@@ -164,29 +164,78 @@ class AI_Chatbot_OpenAI implements AI_Chatbot_Provider_Interface {
 	 */
 	public function get_available_models() {
 		return array(
-			'gpt-3.5-turbo' => array(
-				'name' => 'GPT-3.5 Turbo',
-				'description' => __( 'Fast and cost-effective model for most use cases', 'ai-website-chatbot' ),
+			// GPT-4 models (Latest)
+			'gpt-4o' => array(
+				'name' => 'GPT-4o',
+				'description' => __( 'Latest multimodal flagship model, cheaper and faster than GPT-4 Turbo', 'ai-website-chatbot' ),
 				'max_tokens' => 4096,
-				'cost_per_1k' => 0.002,
+				'context_length' => 128000,
+				'cost_per_1k_input' => 2.50,
+				'cost_per_1k_output' => 10.00,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
 			),
-			'gpt-3.5-turbo-16k' => array(
-				'name' => 'GPT-3.5 Turbo 16K',
-				'description' => __( 'Extended context version of GPT-3.5', 'ai-website-chatbot' ),
+			'gpt-4o-mini' => array(
+				'name' => 'GPT-4o Mini',
+				'description' => __( 'Affordable and intelligent small model for fast, lightweight tasks', 'ai-website-chatbot' ),
 				'max_tokens' => 16384,
-				'cost_per_1k' => 0.004,
+				'context_length' => 128000,
+				'cost_per_1k_input' => 0.15,
+				'cost_per_1k_output' => 0.60,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
+			),
+			'gpt-4-turbo' => array(
+				'name' => 'GPT-4 Turbo',
+				'description' => __( 'Latest GPT-4 Turbo model with vision capabilities', 'ai-website-chatbot' ),
+				'max_tokens' => 4096,
+				'context_length' => 128000,
+				'cost_per_1k_input' => 10.00,
+				'cost_per_1k_output' => 30.00,
+				'supports_vision' => true,
+				'supports_function_calling' => true,
 			),
 			'gpt-4' => array(
 				'name' => 'GPT-4',
-				'description' => __( 'Most capable model for complex tasks', 'ai-website-chatbot' ),
-				'max_tokens' => 8192,
-				'cost_per_1k' => 0.03,
+				'description' => __( 'Original GPT-4 model for complex tasks', 'ai-website-chatbot' ),
+				'max_tokens' => 4096,
+				'context_length' => 8192,
+				'cost_per_1k_input' => 30.00,
+				'cost_per_1k_output' => 60.00,
+				'supports_vision' => false,
+				'supports_function_calling' => true,
 			),
-			'gpt-4-32k' => array(
-				'name' => 'GPT-4 32K',
-				'description' => __( 'Extended context version of GPT-4', 'ai-website-chatbot' ),
+			// GPT-3.5 models
+			'gpt-3.5-turbo' => array(
+				'name' => 'GPT-3.5 Turbo',
+				'description' => __( 'Fast, inexpensive model for simple tasks', 'ai-website-chatbot' ),
+				'max_tokens' => 4096,
+				'context_length' => 16384,
+				'cost_per_1k_input' => 0.50,
+				'cost_per_1k_output' => 1.50,
+				'supports_vision' => false,
+				'supports_function_calling' => true,
+			),
+			// Reasoning models (o1 series - GPT-5 level)
+			'o1-preview' => array(
+				'name' => 'o1-preview (GPT-5 level)',
+				'description' => __( 'Advanced reasoning model designed to solve hard problems across domains', 'ai-website-chatbot' ),
 				'max_tokens' => 32768,
-				'cost_per_1k' => 0.06,
+				'context_length' => 128000,
+				'cost_per_1k_input' => 15.00,
+				'cost_per_1k_output' => 60.00,
+				'supports_vision' => false,
+				'supports_function_calling' => false,
+			),
+			'o1-mini' => array(
+				'name' => 'o1-mini (GPT-5 level)',
+				'description' => __( 'Faster and cheaper reasoning model for coding, math, and science', 'ai-website-chatbot' ),
+				'max_tokens' => 65536,
+				'context_length' => 128000,
+				'cost_per_1k_input' => 3.00,
+				'cost_per_1k_output' => 12.00,
+				'supports_vision' => false,
+				'supports_function_calling' => false,
 			),
 		);
 	}
@@ -198,7 +247,7 @@ class AI_Chatbot_OpenAI implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function get_default_model() {
-		return 'gpt-3.5-turbo';
+		return 'gpt-4o';
 	}
 
 	/**
