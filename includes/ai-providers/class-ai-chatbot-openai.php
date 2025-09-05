@@ -41,7 +41,15 @@ class AI_Chatbot_OpenAI implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function __construct() {
-		$this->api_key = get_option( 'ai_chatbot_openai_api_key', '' );
+		$main_settings = get_option('ai_chatbot_settings', array());
+    
+		if (!empty($main_settings['api_key']) && $main_settings['ai_provider'] === 'openai') {
+			// New structure: settings stored in main array
+			$this->api_key = $main_settings['api_key'];
+		} else {
+			// Fallback to old structure: individual options
+			$this->api_key = get_option('ai_chatbot_openai_api_key', '');
+		}
 	}
 
 	/**
@@ -71,7 +79,9 @@ class AI_Chatbot_OpenAI implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function is_configured() {
-		return ! empty( $this->api_key ) && strlen( $this->api_key ) >= 20;
+		$api_key = $this->api_key;
+		error_log('OpenAI Provider - API Key check: ' . (empty($api_key) ? 'EMPTY' : 'Present (' . strlen($api_key) . ' chars)'));
+		return !empty($api_key) && strlen($api_key) >= 20;
 	}
 
 	/**
@@ -117,7 +127,7 @@ class AI_Chatbot_OpenAI implements AI_Chatbot_Provider_Interface {
 
 		// Prepare request data
 		$data = array(
-			'model' => $options['model'] ?? get_option( 'ai_chatbot_openai_model', 'gpt-3.5-turbo' ),
+			'model' => $options['model'] ?? $this->get_model(),
 			'messages' => array(
 				array(
 					'role' => 'system',
@@ -128,8 +138,8 @@ class AI_Chatbot_OpenAI implements AI_Chatbot_Provider_Interface {
 					'content' => $message,
 				),
 			),
-			'max_tokens' => $options['max_tokens'] ?? get_option( 'ai_chatbot_openai_max_tokens', 300 ),
-			'temperature' => $options['temperature'] ?? get_option( 'ai_chatbot_openai_temperature', 0.7 ),
+			'max_tokens' => $options['max_tokens'] ?? $this->get_max_tokens(),
+			'temperature' => $options['temperature'] ?? $this->get_temperature(),
 			'stream' => false,
 		);
 
@@ -710,5 +720,35 @@ class AI_Chatbot_OpenAI implements AI_Chatbot_Provider_Interface {
 		delete_option( 'ai_chatbot_openai_usage_log' );
 
 		return true;
+	}
+
+	private function get_model() {
+		$main_settings = get_option('ai_chatbot_settings', array());
+		
+		if (!empty($main_settings['model']) && $main_settings['ai_provider'] === 'openai') {
+			return $main_settings['model'];
+		}
+		
+		return get_option('ai_chatbot_openai_model', 'gpt-3.5-turbo');
+	}
+
+	private function get_temperature() {
+		$main_settings = get_option('ai_chatbot_settings', array());
+		
+		if (isset($main_settings['temperature']) && $main_settings['ai_provider'] === 'openai') {
+			return floatval($main_settings['temperature']);
+		}
+		
+		return floatval(get_option('ai_chatbot_openai_temperature', 0.7));
+	}
+
+	private function get_max_tokens() {
+		$main_settings = get_option('ai_chatbot_settings', array());
+		
+		if (isset($main_settings['max_tokens']) && $main_settings['ai_provider'] === 'openai') {
+			return intval($main_settings['max_tokens']);
+		}
+		
+		return intval(get_option('ai_chatbot_openai_max_tokens', 300));
 	}
 }

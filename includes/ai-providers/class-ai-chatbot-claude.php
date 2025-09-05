@@ -41,7 +41,15 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function __construct() {
-		$this->api_key = get_option( 'ai_chatbot_claude_api_key', '' );
+		$main_settings = get_option('ai_chatbot_settings', array());
+    
+		if (!empty($main_settings['api_key']) && $main_settings['ai_provider'] === 'claude') {
+			// New structure: settings stored in main array
+			$this->api_key = $main_settings['api_key'];
+		} else {
+			// Fallback to old structure: individual options
+			$this->api_key = get_option('ai_chatbot_claude_api_key', '');
+		}
 	}
 
 	/**
@@ -71,7 +79,9 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function is_configured() {
-		return ! empty( $this->api_key ) && strlen( $this->api_key ) >= 20;
+		$api_key = $this->api_key;
+		error_log('Claude Provider - API Key check: ' . (empty($api_key) ? 'EMPTY' : 'Present (' . strlen($api_key) . ' chars)'));
+		return !empty($api_key) && strlen($api_key) >= 20;
 	}
 
 	/**
@@ -120,8 +130,8 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 
 		// Prepare request data
 		$data = array(
-			'model' => $options['model'] ?? get_option( 'ai_chatbot_claude_model', 'claude-3-haiku-20240307' ),
-			'max_tokens' => $options['max_tokens'] ?? get_option( 'ai_chatbot_claude_max_tokens', 300 ),
+			'model' => $options['model'] ?? $this->get_model(),
+			'max_tokens' => $options['max_tokens'] ?? $this->get_max_tokens(),
 			'system' => $system_prompt,
 			'messages' => array(
 				array(
@@ -616,5 +626,25 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 		}
 
 		update_option( 'ai_chatbot_claude_usage_log', $usage_log );
+	}
+
+	private function get_model() {
+		$main_settings = get_option('ai_chatbot_settings', array());
+		
+		if (!empty($main_settings['model']) && $main_settings['ai_provider'] === 'claude') {
+			return $main_settings['model'];
+		}
+		
+		return get_option('ai_chatbot_claude_model', 'claude-3-haiku-20240307');
+	}
+
+	private function get_max_tokens() {
+		$main_settings = get_option('ai_chatbot_settings', array());
+		
+		if (isset($main_settings['max_tokens']) && $main_settings['ai_provider'] === 'claude') {
+			return intval($main_settings['max_tokens']);
+		}
+		
+		return intval(get_option('ai_chatbot_claude_max_tokens', 300));
 	}
 }

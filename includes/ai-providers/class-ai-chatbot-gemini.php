@@ -41,7 +41,17 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function __construct() {
-		$this->api_key = get_option( 'ai_chatbot_gemini_api_key', '' );
+
+		$main_settings = get_option('ai_chatbot_settings', array());
+    
+		if (!empty($main_settings['api_key']) && $main_settings['ai_provider'] === 'gemini') {
+			// New structure: settings stored in main array
+			$this->api_key = $main_settings['api_key'];
+		} else {
+			// Fallback to old structure: individual options
+			$this->api_key = get_option('ai_chatbot_gemini_api_key', '');
+		}
+
 	}
 
 	/**
@@ -71,7 +81,12 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	 * @since 1.0.0
 	 */
 	public function is_configured() {
-		return ! empty( $this->api_key ) && strlen( $this->api_key ) >= 20;
+		$api_key = $this->api_key;
+    
+		// Debug logging
+		error_log('Gemini Provider - API Key check: ' . (empty($api_key) ? 'EMPTY' : 'Present (' . strlen($api_key) . ' chars)'));
+		
+		return !empty($api_key) && strlen($api_key) >= 20;
 	}
 
 	/**
@@ -134,16 +149,16 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 		);
 
 		// Get model
-		$model = $options['model'] ?? get_option( 'ai_chatbot_gemini_model', 'gemini-2.0-flash' );
+		$model = $options['model'] ?? $this->get_model();
 
 		// Prepare request data
 		$data = array(
 			'contents' => $conversation_contents,
 			'generationConfig' => array(
-				'temperature' => floatval( $options['temperature'] ?? get_option( 'ai_chatbot_gemini_temperature', 0.7 ) ),
-				'maxOutputTokens' => intval( $options['max_tokens'] ?? get_option( 'ai_chatbot_gemini_max_tokens', 1000 ) ),
-				'topP' => floatval( get_option( 'ai_chatbot_gemini_top_p', 0.8 ) ),
-				'topK' => intval( get_option( 'ai_chatbot_gemini_top_k', 40 ) )
+				'temperature' => floatval($options['temperature'] ?? $this->get_temperature()),
+				'maxOutputTokens' => intval($options['max_tokens'] ?? $this->get_max_tokens()),
+				'topP' => floatval($this->get_top_p()),
+				'topK' => intval($this->get_top_k())
 			),
 		);
 
@@ -512,5 +527,58 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	private function get_model_cost( $model ) {
 		$models = $this->get_available_models();
 		return $models[ $model ]['cost_per_1k'] ?? 0.075;
+	}
+
+	/**
+	 * Get model from correct settings location
+	 */
+	private function get_model() {
+		$main_settings = get_option('ai_chatbot_settings', array());
+		
+		if (!empty($main_settings['model']) && $main_settings['ai_provider'] === 'gemini') {
+			return $main_settings['model'];
+		}
+		
+		return get_option('ai_chatbot_gemini_model', 'gemini-2.0-flash');
+	}
+
+	/**
+	 * Get temperature from correct settings location
+	 */
+	private function get_temperature() {
+		$main_settings = get_option('ai_chatbot_settings', array());
+		
+		if (isset($main_settings['temperature']) && $main_settings['ai_provider'] === 'gemini') {
+			return floatval($main_settings['temperature']);
+		}
+		
+		return floatval(get_option('ai_chatbot_gemini_temperature', 0.7));
+	}
+
+	/**
+	 * Get max tokens from correct settings location
+	 */
+	private function get_max_tokens() {
+		$main_settings = get_option('ai_chatbot_settings', array());
+		
+		if (isset($main_settings['max_tokens']) && $main_settings['ai_provider'] === 'gemini') {
+			return intval($main_settings['max_tokens']);
+		}
+		
+		return intval(get_option('ai_chatbot_gemini_max_tokens', 1000));
+	}
+
+	/**
+	 * Get top_p setting
+	 */
+	private function get_top_p() {
+		return floatval(get_option('ai_chatbot_gemini_top_p', 0.8));
+	}
+
+	/**
+	 * Get top_k setting
+	 */
+	private function get_top_k() {
+		return intval(get_option('ai_chatbot_gemini_top_k', 40));
 	}
 }
