@@ -204,9 +204,16 @@ class AI_Chatbot_Ajax {
      * @since 1.0.0
      */
     private function get_ai_provider() {
-        $provider_name = get_option('ai_chatbot_ai_provider', 'openai');
-        
-        error_log('AI Chatbot: Loading provider - ' . $provider_name);
+		$main_settings = get_option('ai_chatbot_settings', array());
+
+		if (!empty($main_settings['ai_provider'])) {
+			$provider_name = $main_settings['ai_provider'];
+			error_log('AI Chatbot: Provider from main settings - ' . $provider_name);
+		} else {
+			// Only fallback to individual option if main settings don't exist
+			$provider_name = get_option('ai_chatbot_ai_provider', 'openai');
+			error_log('AI Chatbot: Provider from individual option (fallback) - ' . $provider_name);
+		}
         
         // Ensure provider classes are loaded
         $providers_path = AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/';
@@ -338,27 +345,34 @@ class AI_Chatbot_Ajax {
      */
     private function create_tables() {
         global $wpdb;
-        
-        $charset_collate = $wpdb->get_charset_collate();
-        
-        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
-        
-        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
-            id bigint(20) NOT NULL AUTO_INCREMENT,
-            session_id varchar(255) NOT NULL,
-            conversation_id varchar(255) NOT NULL,
-            message text NOT NULL,
-            sender varchar(20) NOT NULL,
-            page_url varchar(255) DEFAULT '',
-            timestamp datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY session_id (session_id),
-            KEY conversation_id (conversation_id),
-            KEY timestamp (timestamp)
-        ) $charset_collate;";
-        
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
+    
+		$charset_collate = $wpdb->get_charset_collate();
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+		
+		// CORRECTED: Include all required columns from the start
+		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			session_id varchar(255) NOT NULL,
+			conversation_id varchar(255) NOT NULL,
+			message text NOT NULL,
+			sender varchar(20) NOT NULL DEFAULT 'user',
+			page_url varchar(255) DEFAULT '',
+			timestamp datetime DEFAULT CURRENT_TIMESTAMP,
+			user_message longtext DEFAULT NULL,
+			bot_response longtext DEFAULT NULL,
+			rating tinyint(1) DEFAULT NULL,
+			status varchar(20) DEFAULT 'completed',
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY idx_session_id (session_id),
+			KEY idx_conversation_id (conversation_id),
+			KEY idx_timestamp (timestamp),
+			KEY idx_sender (sender)
+		) $charset_collate;";
+		
+		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+		dbDelta($sql);
     }
 
     /**

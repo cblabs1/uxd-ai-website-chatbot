@@ -173,14 +173,56 @@
                     this.hideTyping();
                     
                     if (response.success) {
-                        this.addMessage(response.data.response, 'bot');
+                        // Ensure we have a valid response string
+                        let botResponse = response.data && response.data.response ? response.data.response : '';
+                        if (!botResponse) {
+                            botResponse = ai_chatbot_ajax.strings.error || 'No response received';
+                        }
+                        this.addMessage(botResponse, 'bot');
                     } else {
-                        this.addMessage(response.data || ai_chatbot_ajax.strings.error, 'bot', 'error');
+                        // Handle error response properly
+                        let errorMessage = '';
+                        
+                        if (response.data) {
+                            if (typeof response.data === 'string') {
+                                errorMessage = response.data;
+                            } else if (response.data.message) {
+                                errorMessage = response.data.message;
+                            } else {
+                                errorMessage = ai_chatbot_ajax.strings.error || 'An error occurred';
+                            }
+                        } else {
+                            errorMessage = ai_chatbot_ajax.strings.error || 'An error occurred';
+                        }
+                        
+                        this.addMessage(errorMessage, 'bot', 'error');
                     }
                 },
-                error: () => {
+                error: (xhr, status, error) => {
                     this.hideTyping();
-                    this.addMessage(ai_chatbot_ajax.strings.error, 'bot', 'error');
+                    
+                    let errorMessage = ai_chatbot_ajax.strings.error || 'Something went wrong. Please try again.';
+                    
+                    // Provide more specific error messages based on status
+                    if (xhr.status === 403) {
+                        errorMessage = 'Access denied. Please refresh the page and try again.';
+                    } else if (xhr.status === 429) {
+                        errorMessage = 'Too many requests. Please wait a moment before trying again.';
+                    } else if (xhr.status >= 500) {
+                        errorMessage = 'Server error. Please try again later.';
+                    } else if (xhr.status === 0) {
+                        errorMessage = 'Network error. Please check your internet connection.';
+                    }
+                    
+                    this.addMessage(errorMessage, 'bot', 'error');
+                    
+                    // Log error for debugging
+                    console.error('Chatbot AJAX Error:', {
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        responseText: xhr.responseText,
+                        error: error
+                    });
                 }
             });
         }
@@ -189,6 +231,23 @@
          * Add message to chat
          */
         addMessage(text, sender, type = 'normal') {
+            // Ensure text is always a string
+            if (text === null || text === undefined) {
+                text = '';
+            }
+            
+            if (typeof text !== 'string') {
+                if (typeof text === 'object' && text.message) {
+                    text = text.message;
+                } else {
+                    try {
+                        text = String(text);
+                    } catch (e) {
+                        text = 'Invalid message content';
+                    }
+                }
+            }
+            
             const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             const messageClass = `ai-chatbot-message ai-chatbot-message-${sender}`;
             const errorClass = type === 'error' ? ' ai-chatbot-message-error' : '';
@@ -278,6 +337,33 @@
          * Escape HTML to prevent XSS
          */
         escapeHtml(unsafe) {
+            // Handle null, undefined, or non-string values
+            if (unsafe === null || unsafe === undefined) {
+                return '';
+            }
+            
+            // Convert to string if it's not already a string
+            if (typeof unsafe !== 'string') {
+                // Handle objects (like error responses from API)
+                if (typeof unsafe === 'object') {
+                    // If it has a message property (common for error objects)
+                    if (unsafe.message && typeof unsafe.message === 'string') {
+                        unsafe = unsafe.message;
+                    } else {
+                        // Convert object to JSON string or fallback
+                        try {
+                            unsafe = JSON.stringify(unsafe);
+                        } catch (e) {
+                            unsafe = '[Object object]';
+                        }
+                    }
+                } else {
+                    // Convert other types to string
+                    unsafe = String(unsafe);
+                }
+            }
+            
+            // Now safely escape the string
             return unsafe
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")

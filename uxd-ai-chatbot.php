@@ -3,7 +3,7 @@
  * Plugin Name: AI Website Chatbot
  * Plugin URI: https://wordpress.org/plugins/ai-website-chatbot
  * Description: An intelligent chatbot that learns from your website content and integrates with multiple AI platforms. GDPR compliant with privacy controls.
- * Version: 5.6.0
+ * Version: 5.9.0
  * Requires at least: 5.0
  * Requires PHP: 7.4
  * Author: Your Name
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'AI_CHATBOT_VERSION', '5.6.0' );
+define( 'AI_CHATBOT_VERSION', '5.9.0' );
 define( 'AI_CHATBOT_PLUGIN_FILE', __FILE__ );
 define( 'AI_CHATBOT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AI_CHATBOT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

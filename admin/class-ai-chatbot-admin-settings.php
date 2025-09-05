@@ -62,9 +62,29 @@ class AI_Chatbot_Admin_Settings {
      */
     public function get_settings() {
         $defaults = $this->get_default_settings();
-        $settings = get_option('ai_chatbot_settings', array());
+    
+        // Get from main settings first, then fallback to individual options
+        $main_settings = get_option('ai_chatbot_settings', array());
         
-        return wp_parse_args($settings, $defaults);
+        if (!empty($main_settings)) {
+            // Use main settings structure
+            $settings = wp_parse_args($main_settings, $defaults);
+        } else {
+            // Fallback: try to build from individual options
+            $individual_settings = array();
+            foreach ($defaults as $key => $default_value) {
+                $option_name = 'ai_chatbot_' . $key;
+                $individual_settings[$key] = get_option($option_name, $default_value);
+            }
+            $settings = $individual_settings;
+        }
+        
+        // Ensure ai_provider is set
+        if (empty($settings['ai_provider'])) {
+            $settings['ai_provider'] = get_option('ai_chatbot_ai_provider', 'openai');
+        }
+        
+        return $settings;
     }
     
     /**
@@ -203,54 +223,43 @@ class AI_Chatbot_Admin_Settings {
      * Helper method: Test AI connection after save
      */
     private function test_ai_connection_after_save($settings) {
-        $provider = $settings['ai_chatbot_ai_provider'] ?? get_option('ai_chatbot_ai_provider', 'openai');
+        $provider = '';
+        $api_key = '';
         
-        try {
-            // Load the appropriate provider class
-            switch ($provider) {
-                case 'openai':
-                    if (class_exists('AI_Chatbot_OpenAI')) {
-                        $provider_instance = new AI_Chatbot_OpenAI();
-                        $test_result = $provider_instance->test_connection();
-                        break;
-                    }
-                case 'claude':
-                    if (class_exists('AI_Chatbot_Claude')) {
-                        $provider_instance = new AI_Chatbot_Claude();
-                        $test_result = $provider_instance->test_connection();
-                        break;
-                    }
-                case 'gemini':
-                    if (class_exists('AI_Chatbot_Gemini')) {
-                        $provider_instance = new AI_Chatbot_Gemini();
-                        $test_result = $provider_instance->test_connection();
-                        break;
-                    }
-                default:
-                    return; // Skip test if provider not found
-            }
-            
-            if (isset($test_result) && !is_wp_error($test_result)) {
-                add_settings_error(
-                    'ai_chatbot_settings',
-                    'connection_success',
-                    __('AI connection test successful!', 'ai-website-chatbot'),
-                    'notice-success'
-                );
-            } elseif (is_wp_error($test_result)) {
-                add_settings_error(
-                    'ai_chatbot_settings',
-                    'connection_failed', 
-                    sprintf(__('AI connection test failed: %s', 'ai-website-chatbot'), $test_result->get_error_message()),
-                    'notice-warning'
-                );
-            }
-        } catch (Exception $e) {
+        // Check if it's in the new structure
+        if (isset($settings['ai_chatbot_settings'])) {
+            $provider = $settings['ai_chatbot_settings']['ai_provider'] ?? '';
+            $api_key = $settings['ai_chatbot_settings']['api_key'] ?? '';
+        } else {
+            // Check individual settings
+            $provider = $settings['ai_chatbot_ai_provider'] ?? '';
+            $api_key = $settings['ai_chatbot_api_key'] ?? '';
+        }
+        
+        if (empty($provider) || empty($api_key)) {
+            error_log('AI Chatbot: Skipping connection test - missing provider or API key');
+            return;
+        }
+        
+        error_log('AI Chatbot: Testing connection after save for provider: ' . $provider);
+        
+        $result = $this->test_provider_connection($provider, $api_key);
+        
+        if (is_wp_error($result)) {
+            error_log('AI Chatbot: Connection test failed: ' . $result->get_error_message());
             add_settings_error(
                 'ai_chatbot_settings',
-                'connection_error',
-                sprintf(__('Connection test error: %s', 'ai-website-chatbot'), $e->getMessage()),
+                'connection_failed',
+                sprintf(__('Settings saved but API connection test failed: %s', 'ai-website-chatbot'), $result->get_error_message()),
                 'notice-warning'
+            );
+        } else {
+            error_log('AI Chatbot: Connection test successful');
+            add_settings_error(
+                'ai_chatbot_settings',
+                'connection_success',
+                __('Settings saved and API connection test successful!', 'ai-website-chatbot'),
+                'notice-success'
             );
         }
     }
@@ -540,8 +549,43 @@ class AI_Chatbot_Admin_Settings {
             return;
         }
         
+        // FIXED: Get provider and API key from the correct location
+        $main_settings = get_option('ai_chatbot_settings', array());
+        
+        // Check if we have values in POST data (from the test button)
         $provider = sanitize_text_field($_POST['provider'] ?? '');
         $api_key = sanitize_text_field($_POST['api_key'] ?? '');
+        
+        // If not in POST, get from main settings
+        if (empty($provider) && !empty($main_settings['ai_provider'])) {
+            $provider = $main_settings['ai_provider'];
+        }
+        
+        if (empty($api_key) && !empty($main_settings['api_key'])) {
+            $api_key = $main_settings['api_key'];
+        }
+        
+        // Fallback to individual options if main settings don't exist
+        if (empty($provider)) {
+            $provider = get_option('ai_chatbot_ai_provider', 'openai');
+        }
+        
+        if (empty($api_key)) {
+            switch ($provider) {
+                case 'openai':
+                    $api_key = get_option('ai_chatbot_openai_api_key', '');
+                    break;
+                case 'claude':
+                    $api_key = get_option('ai_chatbot_claude_api_key', '');
+                    break;
+                case 'gemini':
+                    $api_key = get_option('ai_chatbot_gemini_api_key', '');
+                    break;
+            }
+        }
+        
+        error_log('AI Chatbot: Testing connection for provider: ' . $provider);
+        error_log('AI Chatbot: API key present: ' . (empty($api_key) ? 'NO' : 'YES (' . strlen($api_key) . ' chars)'));
         
         if (empty($provider) || empty($api_key)) {
             wp_send_json_error(__('Provider and API key are required', 'ai-website-chatbot'));
@@ -556,6 +600,90 @@ class AI_Chatbot_Admin_Settings {
         } else {
             wp_send_json_success(__('API connection successful!', 'ai-website-chatbot'));
         }
+    }
+
+    /**
+     * Test provider connection
+     */
+    private function test_provider_connection($provider, $api_key) {
+        error_log('AI Chatbot: test_provider_connection called with provider: ' . $provider);
+        
+        // Load provider classes
+        $providers_path = AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/';
+        
+        // Load provider interface if not loaded
+        if (!interface_exists('AI_Chatbot_Provider_Interface')) {
+            require_once $providers_path . 'class-ai-chatbot-provider-interface.php';
+        }
+        
+        switch ($provider) {
+            case 'openai':
+                if (!class_exists('AI_Chatbot_OpenAI')) {
+                    require_once $providers_path . 'class-ai-chatbot-openai.php';
+                }
+                if (class_exists('AI_Chatbot_OpenAI')) {
+                    // Temporarily override the API key for testing
+                    $original_key = get_option('ai_chatbot_openai_api_key', '');
+                    update_option('ai_chatbot_openai_api_key', $api_key);
+                    
+                    $provider_instance = new AI_Chatbot_OpenAI();
+                    $result = $provider_instance->test_connection();
+                    
+                    // Restore original key
+                    update_option('ai_chatbot_openai_api_key', $original_key);
+                    
+                    return $result;
+                }
+                break;
+                
+            case 'claude':
+                if (!class_exists('AI_Chatbot_Claude')) {
+                    require_once $providers_path . 'class-ai-chatbot-claude.php';
+                }
+                if (class_exists('AI_Chatbot_Claude')) {
+                    // Temporarily override the API key for testing
+                    $original_key = get_option('ai_chatbot_claude_api_key', '');
+                    update_option('ai_chatbot_claude_api_key', $api_key);
+                    
+                    $provider_instance = new AI_Chatbot_Claude();
+                    $result = $provider_instance->test_connection();
+                    
+                    // Restore original key
+                    update_option('ai_chatbot_claude_api_key', $original_key);
+                    
+                    return $result;
+                }
+                break;
+                
+            case 'gemini':
+                if (!class_exists('AI_Chatbot_Gemini')) {
+                    require_once $providers_path . 'class-ai-chatbot-gemini.php';
+                }
+                if (class_exists('AI_Chatbot_Gemini')) {
+                    // FIXED: For testing, temporarily set both the main settings and individual option
+                    $main_settings = get_option('ai_chatbot_settings', array());
+                    $original_main_settings = $main_settings;
+                    $original_individual_key = get_option('ai_chatbot_gemini_api_key', '');
+                    
+                    // Set the test values
+                    $main_settings['ai_provider'] = 'gemini';
+                    $main_settings['api_key'] = $api_key;
+                    update_option('ai_chatbot_settings', $main_settings);
+                    update_option('ai_chatbot_gemini_api_key', $api_key);
+                    
+                    $provider_instance = new AI_Chatbot_Gemini();
+                    $result = $provider_instance->test_connection();
+                    
+                    // Restore original values
+                    update_option('ai_chatbot_settings', $original_main_settings);
+                    update_option('ai_chatbot_gemini_api_key', $original_individual_key);
+                    
+                    return $result;
+                }
+                break;
+        }
+        
+        return new WP_Error('provider_not_found', __('AI provider class not found.', 'ai-website-chatbot'));
     }
     
     

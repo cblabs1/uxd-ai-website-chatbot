@@ -115,17 +115,21 @@ class AI_Chatbot_Activator {
 
 		$charset_collate = $wpdb->get_charset_collate();
 
-		// Conversations table
+		// FIXED: Conversations table with correct schema
 		$conversations_table = $wpdb->prefix . 'ai_chatbot_conversations';
 		$sql_conversations = "CREATE TABLE $conversations_table (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			session_id varchar(255) NOT NULL,
-			user_message longtext NOT NULL,
-			bot_response longtext NOT NULL,
+			conversation_id varchar(255) NOT NULL,
+			message text NOT NULL,
+			sender varchar(20) NOT NULL DEFAULT 'user',
+			page_url varchar(255) DEFAULT '',
+			timestamp datetime DEFAULT CURRENT_TIMESTAMP,
+			user_message longtext DEFAULT NULL,
+			bot_response longtext DEFAULT NULL,
 			ai_response longtext DEFAULT NULL,
 			user_name varchar(255) DEFAULT '',
 			user_ip varchar(100) DEFAULT '',
-			page_url varchar(2048) DEFAULT '',
 			user_agent varchar(500) DEFAULT '',
 			status varchar(20) DEFAULT 'completed',
 			intent varchar(255) DEFAULT NULL,
@@ -137,34 +141,37 @@ class AI_Chatbot_Activator {
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
-			KEY session_id (session_id),
-			KEY created_at (created_at),
-			KEY rating (rating),
-			KEY status (status),
-			KEY intent (intent),
-			KEY provider (provider)
+			KEY idx_session_id (session_id),
+			KEY idx_conversation_id (conversation_id),
+			KEY idx_timestamp (timestamp),
+			KEY idx_created_at (created_at),
+			KEY idx_rating (rating),
+			KEY idx_status (status),
+			KEY idx_intent (intent),
+			KEY idx_provider (provider)
 		) $charset_collate;";
 
 		// Website content index table
 		$content_table = $wpdb->prefix . 'ai_chatbot_content';
 		$sql_content = "CREATE TABLE $content_table (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			post_id bigint(20) unsigned,
+			post_id bigint(20) unsigned DEFAULT NULL,
 			content_type varchar(50) NOT NULL,
 			title text,
 			content longtext,
 			url varchar(2048) DEFAULT '',
 			content_hash varchar(64) DEFAULT '',
 			embedding_status varchar(20) DEFAULT 'pending',
+			embedding_vector longtext,
 			last_trained datetime DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
-			KEY post_id (post_id),
-			KEY content_type (content_type),
-			KEY embedding_status (embedding_status),
-			KEY content_hash (content_hash),
-			KEY last_trained (last_trained)
+			KEY idx_post_id (post_id),
+			KEY idx_content_type (content_type),
+			KEY idx_embedding_status (embedding_status),
+			KEY idx_content_hash (content_hash),
+			KEY idx_last_trained (last_trained)
 		) $charset_collate;";
 
 		// Training sessions table
@@ -180,8 +187,8 @@ class AI_Chatbot_Activator {
 			completed_at datetime DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
-			KEY status (status),
-			KEY created_at (created_at)
+			KEY idx_status (status),
+			KEY idx_created_at (created_at)
 		) $charset_collate;";
 
 		// Training data table
@@ -197,20 +204,20 @@ class AI_Chatbot_Activator {
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
-			KEY status (status),
-			KEY intent (intent),
-			KEY user_id (user_id),
-			KEY created_at (created_at)
+			KEY idx_status (status),
+			KEY idx_intent (intent),
+			KEY idx_user_id (user_id),
+			KEY idx_created_at (created_at)
 		) $charset_collate;";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql_conversations );
-		dbDelta( $sql_content );
-		dbDelta( $sql_training );
-		dbDelta( $sql_training_data );
+		dbDelta($sql_conversations);
+		dbDelta($sql_content);
+		dbDelta($sql_training);
+		dbDelta($sql_training_data);
 
 		// Store database version for future upgrades
-		add_option( 'ai_chatbot_db_version', '1.0.0' );
+		update_option('ai_chatbot_db_version', '1.2.0');
 	}
 
 	/**
@@ -299,7 +306,8 @@ class AI_Chatbot_Activator {
 
 		$current_db_version = get_option('ai_chatbot_db_version', '1.0.0');
 		
-		if (version_compare($current_db_version, '1.1.0', '<')) {
+		// Update to version 1.2.0 (includes conversation_id fix)
+		if (version_compare($current_db_version, '1.2.0', '<')) {
 			$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
 			
 			// Check if table exists first
@@ -311,6 +319,22 @@ class AI_Chatbot_Activator {
 
 			// Add missing columns one by one
 			$columns_to_add = array(
+				'conversation_id' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN conversation_id varchar(255) NOT NULL AFTER session_id',
+					'check' => 'conversation_id'
+				),
+				'message' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN message text NOT NULL',
+					'check' => 'message'
+				),
+				'sender' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN sender varchar(20) NOT NULL DEFAULT "user"',
+					'check' => 'sender'
+				),
+				'timestamp' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN timestamp datetime DEFAULT CURRENT_TIMESTAMP',
+					'check' => 'timestamp'
+				),
 				'ai_response' => array(
 					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN ai_response longtext DEFAULT NULL',
 					'check' => 'ai_response'
@@ -352,12 +376,29 @@ class AI_Chatbot_Activator {
 					$result = $wpdb->query($config['sql']);
 					if ($result === false) {
 						error_log("AI Chatbot: Failed to add column $column to $table_name");
+					} else {
+						error_log("AI Chatbot: Successfully added column $column to $table_name");
 					}
 				}
 			}
 
+			// Add indexes for better performance
+			$indexes_to_add = array(
+				'idx_conversation_id' => 'ALTER TABLE ' . $table_name . ' ADD INDEX idx_conversation_id (conversation_id)',
+				'idx_timestamp' => 'ALTER TABLE ' . $table_name . ' ADD INDEX idx_timestamp (timestamp)',
+				'idx_sender' => 'ALTER TABLE ' . $table_name . ' ADD INDEX idx_sender (sender)'
+			);
+
+			foreach ($indexes_to_add as $index_name => $sql) {
+				// Check if index exists
+				$index_exists = $wpdb->get_results("SHOW INDEX FROM $table_name WHERE Key_name = '$index_name'");
+				if (empty($index_exists)) {
+					$wpdb->query($sql);
+				}
+			}
+
 			// Update database version
-			update_option('ai_chatbot_db_version', '1.1.0');
+			update_option('ai_chatbot_db_version', '1.2.0');
 		}
 	}
 
