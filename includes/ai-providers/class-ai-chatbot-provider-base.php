@@ -199,25 +199,21 @@ abstract class AI_Chatbot_Provider_Base implements AI_Chatbot_Provider_Interface
     protected function check_training_data($message) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'ai_chatbot_training';
+        $table_name = $wpdb->prefix . 'ai_chatbot_training_data';
         
-        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-            return new WP_Error('no_training_table', 'Training table does not exist');
-        }
+        // First check exact match (case-insensitive)
+		$result = $wpdb->get_var($wpdb->prepare(
+			"SELECT answer FROM $table_name WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) AND status = 'active' LIMIT 1",
+			$message
+		));
+		
+		if ($result) {
+			error_log('Found exact training match for: ' . $message);
+			return $result;
+		}
+		
+		return new WP_Error('no_training_match', 'No exact training match found');
         
-        $training_data = $wpdb->get_row($wpdb->prepare(
-            "SELECT response FROM {$table_name} 
-             WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) 
-             AND status = 'active' 
-             LIMIT 1",
-            $message
-        ));
-        
-        if ($training_data && !empty($training_data->response)) {
-            return $training_data->response;
-        }
-        
-        return new WP_Error('no_match', 'No training match found');
     }
 
     /**
@@ -226,36 +222,47 @@ abstract class AI_Chatbot_Provider_Base implements AI_Chatbot_Provider_Interface
      * @param string $message User message
      * @return array|WP_Error Similar training data or error
      */
-    protected function find_similar_training($message) {
+    protected function find_similar_training($message, $similarity_threshold = 0.7) {
         global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'ai_chatbot_training';
-        
-        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-            return new WP_Error('no_training_table', 'Training table does not exist');
-        }
-        
-        $similar_data = $wpdb->get_results($wpdb->prepare(
-            "SELECT question, response,
-                    MATCH(question) AGAINST(%s IN NATURAL LANGUAGE MODE) as relevance
-             FROM {$table_name} 
-             WHERE MATCH(question) AGAINST(%s IN NATURAL LANGUAGE MODE)
-             AND status = 'active'
-             ORDER BY relevance DESC 
-             LIMIT 1",
-            $message, $message
-        ));
-        
-        if (!empty($similar_data) && $similar_data[0]->relevance > 0.5) {
-            return array(
-                'response' => $similar_data[0]->response,
-                'similarity' => $similar_data[0]->relevance,
-                'original_question' => $similar_data[0]->question
-            );
-        }
-        
-        return new WP_Error('no_similar_match', 'No similar training match found');
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
+		
+		$training_data = $wpdb->get_results(
+			"SELECT question, answer FROM $table_name WHERE status = 'active'",
+			ARRAY_A
+		);
+		
+		$best_match = null;
+		$best_similarity = 0;
+		
+		foreach ($training_data as $training_item) {
+			$similarity = $this->calculate_similarity($message, $training_item['question']);
+			
+			if ($similarity > $best_similarity && $similarity >= $similarity_threshold) {
+				$best_similarity = $similarity;
+				$best_match = array(
+					'response' => $training_item['answer'],
+					'similarity' => $similarity,
+					'original_question' => $training_item['question']
+				);
+			}
+		}
+		
+		return $best_match ? $best_match : new WP_Error('no_similar_match', 'No similar training match found');
     }
+
+    /**
+	 * Calculate similarity between two strings
+	 */
+	private function calculate_similarity($str1, $str2) {
+		// Simple Levenshtein distance based similarity
+		$distance = levenshtein(strtolower($str1), strtolower($str2));
+		$max_length = max(strlen($str1), strlen($str2));
+		
+		if ($max_length == 0) return 1.0;
+		
+		return 1 - ($distance / $max_length);
+	}
 
     /**
      * Adapt training response to current message
