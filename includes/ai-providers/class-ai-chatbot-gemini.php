@@ -129,8 +129,7 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 		
 		// Get or generate conversation ID
 		$conversation_id = $options['conversation_id'] ?? $this->generate_conversation_id($session_id);
-   
-		
+
 		// Check training data first (exact match)
 		$training_response = $this->check_training_data($message);
 		if (!is_wp_error($training_response) && !empty($training_response)) {
@@ -187,49 +186,88 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 			return $validation;
 		}
 
-		// Get model and settings
-		$model = $options['model'] ?? get_option( 'ai_chatbot_gemini_model', 'gemini-1.5-flash' );
-		$max_tokens = $options['max_tokens'] ?? get_option( 'ai_chatbot_gemini_max_tokens', 300 );
-		$temperature = $options['temperature'] ?? 0.7;
+		// FIXED: Use the proper getter methods that check main settings
+		$model = $options['model'] ?? $this->get_model();           // ✅ NOW USES get_model()
+		$max_tokens = $options['max_tokens'] ?? $this->get_max_tokens(); // ✅ NOW USES get_max_tokens()
+		$temperature = $options['temperature'] ?? $this->get_temperature(); // ✅ NOW USES get_temperature()
+
+		// Add debug logging to see what model is actually being used
+		error_log('Gemini Provider: Using model: ' . $model);
+		error_log('Gemini Provider: Max tokens: ' . $max_tokens);
+		error_log('Gemini Provider: Temperature: ' . $temperature);
 
 		// Build system instruction with enhanced context
 		$system_instruction = $this->build_system_message( $context );
 
-		// Build conversation history
+		// Build conversation history with validation
 		$conversation_history = $this->get_chat_conversation_history($conversation_id, 3);
 		$contents = array();
 
-		// Add conversation history
+		// Add conversation history - WITH VALIDATION
 		foreach (array_reverse($conversation_history) as $history_item) {
+			// Validate that both user_message and ai_response have content
+			$user_msg = trim($history_item['user_message'] ?? '');
+			$ai_msg = trim($history_item['ai_response'] ?? '');
+			
+			// Only add to contents if both messages have actual content
+			if (!empty($user_msg) && !empty($ai_msg)) {
+				$contents[] = array(
+					'role' => 'user',
+					'parts' => array(array('text' => $user_msg))
+				);
+				$contents[] = array(
+					'role' => 'model',
+					'parts' => array(array('text' => $ai_msg))
+				);
+			}
+		}
+
+		// Add current message - WITH VALIDATION
+		$current_message = trim($message);
+		if (!empty($current_message)) {
 			$contents[] = array(
 				'role' => 'user',
-				'parts' => array(array('text' => $history_item['user_message']))
-			);
-			$contents[] = array(
-				'role' => 'model',
-				'parts' => array(array('text' => $history_item['ai_response']))
+				'parts' => array(array('text' => $current_message))
 			);
 		}
 
-		// Add current message
-		$contents[] = array(
-			'role' => 'user',
-			'parts' => array(array('text' => $message))
-		);
+		// Ensure we have at least one content item
+		if (empty($contents)) {
+			$contents[] = array(
+				'role' => 'user',
+				'parts' => array(array('text' => $message)) // Use original message as fallback
+			);
+		}
+
+		// Build system instruction with validation
+		$system_instruction = trim($this->build_system_message($context));
+		$system_data = array();
+
+		if (!empty($system_instruction)) {
+			$system_data = array(
+				'parts' => array(array('text' => $system_instruction))
+			);
+		}
 
 		// Prepare request data
 		$data = array(
 			'contents' => $contents,
-			'systemInstruction' => array(
-				'parts' => array(array('text' => $system_instruction))
-			),
 			'generationConfig' => array(
 				'maxOutputTokens' => (int) $max_tokens,
 				'temperature' => (float) $temperature,
 			),
 		);
 
-		$api_url = str_replace('{model}', $model, $this->api_base . 'models/{model}:generateContent?key=' . $this->api_key);
+		// Only add systemInstruction if we have content
+		if (!empty($system_data)) {
+			$data['systemInstruction'] = $system_data;
+		}
+
+		// Create the correct API URL
+		$api_url = $this->api_base . 'models/' . $model . ':generateContent?key=' . $this->api_key;
+		
+		error_log('Gemini API URL: ' . $api_url);
+		error_log('Gemini API Request Data: ' . wp_json_encode($data, JSON_PRETTY_PRINT));
 
 		// Make API request
 		$response = wp_remote_post( $api_url, array(
@@ -247,6 +285,9 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 
 		$response_code = wp_remote_retrieve_response_code( $response );
 		$response_body = wp_remote_retrieve_body( $response );
+
+		error_log('Gemini API Response Code: ' . $response_code);
+		error_log('Gemini API Response Body: ' . $response_body);
 
 		if ( 200 !== $response_code ) {
 			$error_data = json_decode( $response_body, true );
