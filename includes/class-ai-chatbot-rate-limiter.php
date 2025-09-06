@@ -224,6 +224,42 @@ class AI_Chatbot_Rate_Limiter {
     }
 
     /**
+     * Check rate limit
+     *
+     * @param string $identifier User identifier
+     * @return bool
+     * @since 1.0.0
+     */
+    private function check_rate_limit($identifier) {
+        $settings = get_option('ai_chatbot_settings', array());
+        $rate_limit_enabled = $settings['rate_limit_enabled'] ?? false;
+        
+        if (!$rate_limit_enabled) {
+            return true;
+        }
+        
+        $max_requests = intval($settings['rate_limit_per_minute'] ?? 10);
+        $time_window = 60; // 1 minute
+        
+        // Use IP address for rate limiting
+        $identifier = $this->get_client_ip();
+        $transient_key = 'ai_chatbot_rate_limit_' . md5($identifier);
+        $current_count = get_transient($transient_key);
+        
+        if ($current_count === false) {
+            set_transient($transient_key, 1, $time_window);
+            return true;
+        }
+        
+        if ($current_count >= $max_requests) {
+            return false;
+        }
+        
+        set_transient($transient_key, $current_count + 1, $time_window);
+        return true;
+    }
+
+    /**
      * Get cache key for identifier
      *
      * @param string $identifier User identifier

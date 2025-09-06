@@ -263,7 +263,7 @@ class AI_Chatbot_Security {
 	 * @return bool True if appears to be spam.
 	 * @since 1.0.0
 	 */
-	private function is_spam_message( $message ) {
+	public function is_spam_message( $message ) {
 		// Check for excessive repetition
 		if ( preg_match( '/(.)\1{10,}/', $message ) ) {
 			return true;

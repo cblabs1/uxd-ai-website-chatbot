@@ -124,67 +124,373 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 			return new WP_Error( 'not_configured', __( 'Gemini API key is not configured.', 'ai-website-chatbot' ) );
 		}
 
-		// Handle conversation history if provided as array
-		$conversation_contents = array();
+		// Get or generate session ID
+		$session_id = $options['session_id'] ?? $this->get_or_generate_session_id();
 		
-		if ( is_array( $context ) && !empty( $context ) ) {
-			// Build conversation from history array
-			foreach ( $context as $item ) {
-				if ( isset( $item['sender'], $item['message'] ) ) {
-					$conversation_contents[] = array(
-						'role' => $item['sender'] === 'user' ? 'user' : 'model',
-						'parts' => array( array( 'text' => $item['message'] ) )
-					);
-				}
-			}
-		} else {
-			// Build simple prompt with context string
-			$full_prompt = $this->build_full_prompt( $message, $context, $options );
-		}
-
-		// Add current user message
-		$conversation_contents[] = array(
-			'role' => 'user',
-			'parts' => array( array( 'text' => isset($full_prompt) ? $full_prompt : $message ) )
-		);
-
-		// Get model
-		$model = $options['model'] ?? $this->get_model();
-
-		// Prepare request data
-		$data = array(
-			'contents' => $conversation_contents,
-			'generationConfig' => array(
-				'temperature' => floatval($options['temperature'] ?? $this->get_temperature()),
-				'maxOutputTokens' => intval($options['max_tokens'] ?? $this->get_max_tokens()),
-				'topP' => floatval($this->get_top_p()),
-				'topK' => intval($this->get_top_k())
-			),
-		);
-
-		// Add system instruction if available
-		$system_prompt = get_option( 'ai_chatbot_system_prompt', '' );
-		if ( !empty( $system_prompt ) ) {
-			$data['systemInstruction'] = array(
-				'parts' => array( array( 'text' => $system_prompt ) )
+		// Get or generate conversation ID
+		$conversation_id = $options['conversation_id'] ?? $this->generate_conversation_id($session_id);
+   
+		
+		// Check training data first (exact match)
+		$training_response = $this->check_training_data($message);
+		if (!is_wp_error($training_response) && !empty($training_response)) {
+			error_log('Gemini Provider: Found exact training match for: ' . $message);
+			
+			// Log the training response
+			$this->log_conversation($conversation_id, $message, $training_response, 0, 'training');
+			
+			return array(
+				'response' => $training_response,
+				'tokens_used' => 0,
+				'model' => 'training',
+				'source' => 'training'
 			);
 		}
 
-		$response = $this->make_request( "models/{$model}:generateContent", $data );
+		// Check for partial training matches (similarity-based)
+		$partial_match = $this->find_similar_training($message);
+		if (!is_wp_error($partial_match) && !empty($partial_match['response'])) {
+			error_log('Gemini Provider: Found similar training match for: ' . $message . ' (similarity: ' . $partial_match['similarity'] . ')');
+			
+			// Use similar response with slight modification
+			$modified_response = $this->adapt_training_response($partial_match['response'], $message);
+			
+			$this->log_conversation($conversation_id, $message, $modified_response, 0, 'training_similar');
+			
+			return array(
+				'response' => $modified_response,
+				'tokens_used' => 0,
+				'model' => 'training_similar',
+				'source' => 'training'
+			);
+		}
+
+		// Check cache for API responses
+		$cached = $this->check_cached_response($message);
+		if ($cached['cached']) {
+			error_log('Gemini Provider: Using cached response for: ' . $message);
+			
+			return array(
+				'response' => $cached['response'],
+				'tokens_used' => 0,
+				'model' => 'cached',
+				'source' => 'cache'
+			);
+		}
+
+		// Proceed with API call
+		error_log('Gemini Provider: Making API call for: ' . $message);
+
+		// Validate message
+		$validation = $this->validate_message( $message );
+		if ( is_wp_error( $validation ) ) {
+			return $validation;
+		}
+
+		// Get model and settings
+		$model = $options['model'] ?? get_option( 'ai_chatbot_gemini_model', 'gemini-1.5-flash' );
+		$max_tokens = $options['max_tokens'] ?? get_option( 'ai_chatbot_gemini_max_tokens', 300 );
+		$temperature = $options['temperature'] ?? 0.7;
+
+		// Build system instruction with enhanced context
+		$system_instruction = $this->build_system_message( $context );
+
+		// Build conversation history
+		$conversation_history = $this->get_chat_conversation_history($conversation_id, 3);
+		$contents = array();
+
+		// Add conversation history
+		foreach (array_reverse($conversation_history) as $history_item) {
+			$contents[] = array(
+				'role' => 'user',
+				'parts' => array(array('text' => $history_item['user_message']))
+			);
+			$contents[] = array(
+				'role' => 'model',
+				'parts' => array(array('text' => $history_item['ai_response']))
+			);
+		}
+
+		// Add current message
+		$contents[] = array(
+			'role' => 'user',
+			'parts' => array(array('text' => $message))
+		);
+
+		// Prepare request data
+		$data = array(
+			'contents' => $contents,
+			'systemInstruction' => array(
+				'parts' => array(array('text' => $system_instruction))
+			),
+			'generationConfig' => array(
+				'maxOutputTokens' => (int) $max_tokens,
+				'temperature' => (float) $temperature,
+			),
+		);
+
+		$api_url = str_replace('{model}', $model, $this->api_base . 'models/{model}:generateContent?key=' . $this->api_key);
+
+		// Make API request
+		$response = wp_remote_post( $api_url, array(
+			'headers' => array(
+				'Content-Type' => 'application/json',
+			),
+			'body' => wp_json_encode( $data ),
+			'timeout' => 60,
+		) );
 
 		if ( is_wp_error( $response ) ) {
-			return $response;
+			error_log('Gemini API Error: ' . $response->get_error_message());
+			return new WP_Error( 'api_error', __( 'Failed to connect to Gemini API.', 'ai-website-chatbot' ) );
 		}
 
-		if ( ! isset( $response['candidates'][0]['content']['parts'][0]['text'] ) ) {
-			return new WP_Error( 'invalid_response', __( 'Invalid response from Gemini.', 'ai-website-chatbot' ) );
+		$response_code = wp_remote_retrieve_response_code( $response );
+		$response_body = wp_remote_retrieve_body( $response );
+
+		if ( 200 !== $response_code ) {
+			$error_data = json_decode( $response_body, true );
+			$error_message = $error_data['error']['message'] ?? __( 'Unknown API error.', 'ai-website-chatbot' );
+			error_log('Gemini API Error ' . $response_code . ': ' . $error_message);
+			
+			return new WP_Error( 'api_error', sprintf( 
+				__( 'Gemini API error (%d): %s', 'ai-website-chatbot' ), 
+				$response_code, 
+				$error_message 
+			) );
 		}
 
-		// Log usage
-		$this->log_usage( $response );
+		$response_data = json_decode( $response_body, true );
 
-		return trim( $response['candidates'][0]['content']['parts'][0]['text'] );
+		if ( ! isset( $response_data['candidates'][0]['content']['parts'][0]['text'] ) ) {
+			// Check for content filtering
+			if ( isset( $response_data['candidates'][0]['finishReason'] ) && 
+				$response_data['candidates'][0]['finishReason'] === 'SAFETY' ) {
+				return new WP_Error( 'content_filtered', __( 'Response was filtered for safety. Please try rephrasing your question.', 'ai-website-chatbot' ) );
+			}
+			
+			return new WP_Error( 'invalid_response', __( 'Invalid response from Gemini API.', 'ai-website-chatbot' ) );
+		}
+
+		$response_text = trim( $response_data['candidates'][0]['content']['parts'][0]['text'] );
+		$tokens_used = $response_data['usageMetadata']['totalTokenCount'] ?? 0;
+
+		// Cache the response
+		$cache_key = 'ai_chatbot_gemini_response_' . md5(strtolower(trim($message)));
+		set_transient($cache_key, $response_text, 3600); // Cache for 1 hour
+
+		// Log the conversation
+		$this->log_conversation($conversation_id, $message, $response_text, $tokens_used, 'api');
+
+		return array(
+			'response' => $response_text,
+			'tokens_used' => $tokens_used,
+			'model' => $model,
+			'source' => 'api'
+		);
 	}
+
+	/**
+	 * Helper method for session ID management in providers
+	 */
+	private function get_or_generate_session_id() {
+		// Check if session ID exists in cookie
+		$session_id = isset($_COOKIE['ai_chatbot_session']) ? sanitize_text_field($_COOKIE['ai_chatbot_session']) : '';
+		
+		// Validate existing session ID
+		if (!empty($session_id) && strlen($session_id) >= 20) {
+			return $session_id;
+		}
+		
+		// Generate new session ID
+		$security = new AI_Chatbot_Security();
+		$session_id = $security->generate_session_id();
+		
+		// Set cookie (valid for 7 days)
+		if (!headers_sent()) {
+			setcookie('ai_chatbot_session', $session_id, time() + (7 * 24 * 60 * 60), '/');
+		}
+		
+		return $session_id;
+	}
+
+	/**
+	 * Helper method to generate conversation ID
+	 */
+	private function generate_conversation_id($session_id) {
+		return $session_id . '_conv_' . time() . '_' . wp_generate_password(8, false, false);
+	}
+
+	private function check_training_data($message) {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_training';
+		
+		// First check exact match (case-insensitive)
+		$result = $wpdb->get_var($wpdb->prepare(
+			"SELECT response FROM $table_name WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) AND status = 'active' LIMIT 1",
+			$message
+		));
+		
+		if ($result) {
+			error_log('Found exact training match for: ' . $message);
+			return $result;
+		}
+		
+		return new WP_Error('no_training_match', 'No exact training match found');
+	}
+
+	/**
+	 * Find similar training data using fuzzy matching
+	 */
+	private function find_similar_training($message, $similarity_threshold = 0.7) {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_training';
+		
+		$training_data = $wpdb->get_results(
+			"SELECT question, response FROM $table_name WHERE status = 'active'",
+			ARRAY_A
+		);
+		
+		$best_match = null;
+		$best_similarity = 0;
+		
+		foreach ($training_data as $training_item) {
+			$similarity = $this->calculate_similarity($message, $training_item['question']);
+			
+			if ($similarity > $best_similarity && $similarity >= $similarity_threshold) {
+				$best_similarity = $similarity;
+				$best_match = array(
+					'response' => $training_item['response'],
+					'similarity' => $similarity,
+					'original_question' => $training_item['question']
+				);
+			}
+		}
+		
+		return $best_match ? $best_match : new WP_Error('no_similar_match', 'No similar training match found');
+	}
+
+	/**
+	 * Calculate similarity between two strings
+	 */
+	private function calculate_similarity($str1, $str2) {
+		// Simple Levenshtein distance based similarity
+		$distance = levenshtein(strtolower($str1), strtolower($str2));
+		$max_length = max(strlen($str1), strlen($str2));
+		
+		if ($max_length == 0) return 1.0;
+		
+		return 1 - ($distance / $max_length);
+	}
+
+	/**
+	 * Adapt training response for similar questions
+	 */
+	private function adapt_training_response($response, $original_message) {
+		// Simple adaptation - could be enhanced with AI
+		return $response;
+	}
+
+	/**
+	 * Get conversation history
+	 */
+	private function get_chat_conversation_history($conversation_id, $limit = 3) {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+		
+		return $wpdb->get_results($wpdb->prepare(
+			"SELECT user_message, ai_response, created_at 
+			FROM $table_name 
+			WHERE conversation_id = %s 
+			ORDER BY created_at DESC 
+			LIMIT %d",
+			$conversation_id,
+			$limit
+		), ARRAY_A);
+	}
+
+	/**
+	 * Check cached response
+	 */
+	private function check_cached_response($query, $similarity_threshold = 0.8) {
+		$cache_key = 'ai_chatbot_' . $this->get_name() . '_response_' . md5(strtolower(trim($query)));
+		$cached = get_transient($cache_key);
+		
+		if ($cached) {
+			return array(
+				'cached' => true,
+				'response' => $cached,
+				'similarity' => 1.0
+			);
+		}
+		
+		return array('cached' => false);
+	}
+
+	/**
+	 * Log conversation to database
+	 */
+	private function log_conversation($conversation_id, $user_message, $ai_response, $tokens_used, $source) {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+		
+		$wpdb->insert(
+			$table_name,
+			array(
+				'conversation_id' => $conversation_id,
+				'user_message' => $user_message,
+				'ai_response' => $ai_response,
+				'tokens_used' => $tokens_used,
+				'source' => $source,
+				'provider' => $this->get_name(),
+				'created_at' => current_time('mysql')
+			),
+			array('%s', '%s', '%s', '%d', '%s', '%s', '%s')
+		);
+	}
+
+	/**
+	 * Build enhanced system message with context
+	 */
+	private function build_system_message( $context = '' ) {
+		$system_prompt = get_option( 'ai_chatbot_system_prompt', $this->get_default_system_prompt() );
+		
+		if ( ! empty( $context ) ) {
+			if ( is_array( $context ) ) {
+				$context = implode( "\n\n", $context );
+			}
+			$system_prompt .= "\n\nWebsite Context:\n" . $context;
+		}
+		
+		return $system_prompt;
+	}
+
+	/**
+	 * Get default system prompt
+	 */
+	private function get_default_system_prompt() {
+		return "You are a helpful AI assistant for this website. Provide accurate, helpful, and concise responses based on the website content and context provided. Be friendly and professional.";
+	}
+
+	/**
+	 * Validate user message
+	 */
+	private function validate_message( $message ) {
+		if ( empty( trim( $message ) ) ) {
+			return new WP_Error( 'empty_message', __( 'Message cannot be empty.', 'ai-website-chatbot' ) );
+		}
+		
+		if ( strlen( $message ) > 4000 ) {
+			return new WP_Error( 'message_too_long', __( 'Message is too long. Please keep it under 4000 characters.', 'ai-website-chatbot' ) );
+		}
+		
+		return true;
+	}
+
 
 	/**
 	 * Get available models with latest Gemini models

@@ -497,11 +497,16 @@ class AI_Chatbot_Analytics {
      * @return string
      */
     private function get_user_identifier() {
+        // Prefer user ID if logged in
         if (is_user_logged_in()) {
             return 'user_' . get_current_user_id();
         }
         
-        return 'ip_' . md5($this->get_client_ip());
+        // Use IP + User Agent hash for anonymous users
+        $ip = $this->get_client_ip();
+        $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
+        
+        return 'anon_' . substr(md5($ip . $user_agent), 0, 16);
     }
 
     /**
@@ -541,10 +546,22 @@ class AI_Chatbot_Analytics {
      * @return string
      */
     private function get_session_id() {
-        if (!session_id()) {
-            return wp_generate_password(32, false);
+        // Check if session ID exists in cookie
+        $session_id = isset($_COOKIE['ai_chatbot_session']) ? sanitize_text_field($_COOKIE['ai_chatbot_session']) : '';
+        
+        // Validate existing session ID
+        if (!empty($session_id) && strlen($session_id) >= 20) {
+            return $session_id;
         }
-        return session_id();
+        
+        // Generate new session ID using security class
+        $security = new AI_Chatbot_Security();
+        $session_id = $security->generate_session_id();
+        
+        // Set cookie (valid for 7 days)
+        setcookie('ai_chatbot_session', $session_id, time() + (7 * 24 * 60 * 60), '/');
+        
+        return $session_id;
     }
 
     /**
