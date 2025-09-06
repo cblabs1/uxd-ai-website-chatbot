@@ -103,31 +103,59 @@ class AI_Chatbot_Admin_Conversations {
         
         $where_clause = implode(' AND ', $where_clauses);
         
-        // Prepare query
+        // Build query with proper placeholders
         $query = "SELECT 
-                    id,
-                    session_id,
-                    conversation_id,
-                    user_message,
-                    ai_response,
-                    user_name,
-                    user_email,
-                    user_ip,
-                    status,
-                    rating,
-                    intent,
-                    response_time,
-                    provider,
-                    model,
-                    created_at
-                FROM $table_name 
-                WHERE $where_clause 
-                ORDER BY created_at DESC 
-                LIMIT $offset, $per_page";
-        $where_values[] = $limit;
-        $where_values[] = $offset;
+            id,
+            session_id,
+            conversation_id,
+            user_message,
+            ai_response,
+            user_name,
+            user_email,
+            user_ip,
+            status,
+            rating,
+            intent,
+            response_time,
+            provider,
+            model,
+            created_at
+        FROM $table_name 
+        WHERE $where_clause 
+        ORDER BY created_at DESC 
+        LIMIT %d, %d";
         
-        $results = $wpdb->get_results($wpdb->prepare($query, $where_values), ARRAY_A);
+        // Add limit and offset to values
+        $where_values[] = intval($offset);
+        $where_values[] = intval($limit);
+        
+        // Execute query
+        if (!empty($where_values)) {
+            $results = $wpdb->get_results($wpdb->prepare($query, $where_values), ARRAY_A);
+        } else {
+            // If no WHERE values, build simpler query
+            $simple_query = "SELECT 
+                id,
+                session_id,
+                conversation_id,
+                user_message,
+                ai_response,
+                user_name,
+                user_email,
+                user_ip,
+                status,
+                rating,
+                intent,
+                response_time,
+                provider,
+                model,
+                created_at
+            FROM $table_name 
+            ORDER BY created_at DESC 
+            LIMIT %d, %d";
+            
+            $results = $wpdb->get_results($wpdb->prepare($simple_query, intval($offset), intval($limit)), ARRAY_A);
+        }
         
         return $results ?: array();
     }
@@ -174,7 +202,7 @@ class AI_Chatbot_Admin_Conversations {
         if (!empty($where_values)) {
             return intval($wpdb->get_var($wpdb->prepare($query, $where_values)));
         } else {
-            return intval($wpdb->get_var($query));
+            return intval($wpdb->get_var("SELECT COUNT(*) FROM $table_name"));
         }
     }
     
@@ -612,28 +640,49 @@ class AI_Chatbot_Admin_Conversations {
         
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
         
-        $stats = array(
-            'total_conversations' => 0,
-            'active_conversations' => 0,
-            'resolved_conversations' => 0,
-            'pending_conversations' => 0,
-            'avg_rating' => 0,
-            'conversations_today' => 0
-        );
-        
         // Check if table exists
         if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-            return $stats;
+            return array(
+                'total_conversations' => 0,
+                'active_conversations' => 0,
+                'resolved_conversations' => 0,
+                'pending_conversations' => 0,
+                'conversations_today' => 0,
+                'average_rating' => 0
+            );
         }
         
-        $stats['total_conversations'] = intval($wpdb->get_var("SELECT COUNT(*) FROM $table_name"));
-        $stats['active_conversations'] = intval($wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE status = 'active'"));
-        $stats['resolved_conversations'] = intval($wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE status = 'resolved'"));
-        $stats['pending_conversations'] = intval($wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE status = 'pending'"));
-        $stats['conversations_today'] = intval($wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE DATE(created_at) = CURDATE()"));
+        $stats = array();
         
-        $avg_rating = $wpdb->get_var("SELECT AVG(rating) FROM $table_name WHERE rating > 0");
-        $stats['avg_rating'] = round($avg_rating ?: 0, 1);
+        // Total conversations
+        $stats['total_conversations'] = intval($wpdb->get_var("SELECT COUNT(*) FROM $table_name"));
+        
+        // Active conversations
+        $stats['active_conversations'] = intval($wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_name WHERE status = %s",
+            'active'
+        )));
+        
+        // Resolved conversations
+        $stats['resolved_conversations'] = intval($wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_name WHERE status = %s",
+            'completed'
+        )));
+        
+        // Pending conversations
+        $stats['pending_conversations'] = intval($wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_name WHERE status = %s",
+            'pending'
+        )));
+        
+        // Conversations today
+        $stats['conversations_today'] = intval($wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_name WHERE DATE(created_at) = CURDATE()"
+        ));
+        
+        // Average rating
+        $avg_rating = $wpdb->get_var("SELECT AVG(rating) FROM $table_name WHERE rating IS NOT NULL");
+        $stats['average_rating'] = $avg_rating ? round(floatval($avg_rating), 1) : 0;
         
         return $stats;
     }

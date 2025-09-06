@@ -87,19 +87,14 @@ class AI_Chatbot_Ajax {
         
         // Check nonce for security
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'ai_chatbot_nonce')) {
-            error_log('AI Chatbot Error: Nonce verification failed');
-            wp_send_json_error(array(
-                'message' => __('Security check failed. Please refresh the page and try again.', 'ai-website-chatbot')
-            ));
+            wp_send_json_error(array('message' => __('Security check failed.', 'ai-website-chatbot')));
             return;
         }
 
-        // Rate limiting check
+        // Check rate limiting
         $user_identifier = $this->get_user_identifier();
         if (!$this->check_rate_limit($user_identifier)) {
-            wp_send_json_error(array(
-                'message' => __('Too many requests. Please wait a moment before sending another message.', 'ai-website-chatbot')
-            ));
+            wp_send_json_error(array('message' => __('Too many requests. Please wait a moment.', 'ai-website-chatbot')));
             return;
         }
 
@@ -109,92 +104,144 @@ class AI_Chatbot_Ajax {
         $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
         $page_url = esc_url_raw($_POST['page_url'] ?? '');
 
-        // Validate message
+        // Validate input
         if (empty($message)) {
-            wp_send_json_error(array(
-                'message' => __('Please enter a message.', 'ai-website-chatbot')
-            ));
+            wp_send_json_error(array('message' => __('Message cannot be empty.', 'ai-website-chatbot')));
             return;
         }
 
-        // Check message length
-        $max_length = get_option('ai_chatbot_max_message_length', 1000);
-        if (strlen($message) > $max_length) {
-            wp_send_json_error(array(
-                'message' => sprintf(__('Message too long. Maximum %d characters allowed.', 'ai-website-chatbot'), $max_length)
-            ));
-            return;
-        }
-
-        // Generate session ID if not provided
         if (empty($session_id)) {
             $session_id = 'session_' . uniqid();
         }
 
-        // Generate conversation ID if not provided
         if (empty($conversation_id)) {
-            $conversation_id = 'conv_' . uniqid();
+            $conversation_id = 'conv_' . time() . '_' . wp_generate_password(10, false);
         }
 
-        try {
-            // Get AI provider
-            $provider = $this->get_ai_provider();
-            
-            if (is_wp_error($provider)) {
-                error_log('AI Chatbot Error: Provider initialization failed - ' . $provider->get_error_message());
-                wp_send_json_error(array(
-                    'message' => __('AI service is currently unavailable. Please check your API configuration in the settings.', 'ai-website-chatbot'),
-                    'error_details' => $provider->get_error_message()
-                ));
-                return;
-            }
+        // Save user message to database first
+        $user_message_saved = $this->save_message($session_id, $conversation_id, $message, null, $page_url);
+        
+        if (!$user_message_saved) {
+            error_log('AI Chatbot: Failed to save user message to database');
+        }
 
-            // Check if provider is configured
-            if (!$provider->is_configured()) {
-                error_log('AI Chatbot Error: Provider not configured');
-                wp_send_json_error(array(
-                    'message' => __('AI service is not properly configured. Please check your API key in the settings.', 'ai-website-chatbot')
-                ));
-                return;
-            }
+        // Get AI provider and settings
+        $settings = get_option('ai_chatbot_settings', array());
+        $provider_name = $settings['ai_provider'] ?? 'openai';
+        
+        error_log('AI Chatbot: Provider from main settings - ' . $provider_name);
 
-            // Save user message to database
-            $this->save_message($session_id, $conversation_id, $message, 'user', $page_url);
+        // Load the AI provider
+        $provider = $this->get_ai_provider($provider_name);
+        
+        if (!$provider || !$provider->is_configured()) {
+            wp_send_json_error(array('message' => __('AI service is not configured.', 'ai-website-chatbot')));
+            return;
+        }
 
-            // Get conversation history for context
-            $conversation_history = $this->get_conversation_history($session_id, $conversation_id);
+        error_log('AI Chatbot: Generating AI response');
 
-            // Generate AI response
-            error_log('AI Chatbot: Generating AI response');
-            $ai_response = $provider->generate_response($message, $conversation_history);
+        // Get conversation history for context
+        $history = $this->get_conversation_history($session_id);
+        
+        // Get website content for context
+        $context = $this->get_website_context($page_url);
 
-            if (is_wp_error($ai_response)) {
-                error_log('AI Chatbot Error: Failed to generate response - ' . $ai_response->get_error_message());
-                wp_send_json_error(array(
-                    'message' => __('Failed to get AI response. Please check your API key and try again.', 'ai-website-chatbot'),
-                    'error_details' => $ai_response->get_error_message()
-                ));
-                return;
-            }
+        // Generate AI response
+        $ai_response = $provider->generate_response($message, $context, array(
+            'history' => $history,
+            'max_tokens' => intval($settings['max_tokens'] ?? 300),
+            'temperature' => floatval($settings['temperature'] ?? 0.7)
+        ));
 
-            // Save AI response to database
-            $this->save_message($session_id, $conversation_id, $ai_response, 'bot', $page_url);
+        if (is_wp_error($ai_response)) {
+            wp_send_json_error(array('message' => $ai_response->get_error_message()));
+            return;
+        }
 
-            // Return success response
-            wp_send_json_success(array(
-                'response' => $ai_response,
+        // Update the conversation with AI response
+        $this->update_conversation_response($session_id, $conversation_id, $ai_response);
+
+        // Return successful response
+        wp_send_json_success(array(
+            'response' => $ai_response,
+            'session_id' => $session_id,
+            'conversation_id' => $conversation_id,
+            'message' => __('Response generated successfully.', 'ai-website-chatbot')
+        ));
+    }
+
+    /**
+     * Update conversation with AI response
+     *
+     * @param string $session_id
+     * @param string $conversation_id
+     * @param string $ai_response
+     * @return int|false
+     * @since 1.0.0
+     */
+    private function update_conversation_response($session_id, $conversation_id, $ai_response) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        return $wpdb->update(
+            $table_name,
+            array(
+                'ai_response' => $ai_response,
+                'updated_at' => current_time('mysql')
+            ),
+            array(
                 'session_id' => $session_id,
                 'conversation_id' => $conversation_id,
-                'timestamp' => current_time('timestamp')
-            ));
+                'ai_response' => null  // Update the most recent record without ai_response
+            ),
+            array('%s', '%s'),
+            array('%s', '%s', '%s')
+        );
+    }
 
-        } catch (Exception $e) {
-            error_log('AI Chatbot Error: Exception - ' . $e->getMessage());
-            wp_send_json_error(array(
-                'message' => __('An error occurred while processing your message. Please try again.', 'ai-website-chatbot'),
-                'error_details' => $e->getMessage()
-            ));
+    /**
+     * Get website context for AI
+     *
+     * @param string $page_url Current page URL
+     * @return string Context string
+     * @since 1.0.0
+     */
+    private function get_website_context($page_url = '') {
+        $context = '';
+        
+        // Add site information
+        $site_name = get_bloginfo('name');
+        $site_description = get_bloginfo('description');
+        
+        if (!empty($site_name)) {
+            $context .= "Website: " . $site_name . "\n";
         }
+        
+        if (!empty($site_description)) {
+            $context .= "Description: " . $site_description . "\n";
+        }
+        
+        // Add current page context if URL provided
+        if (!empty($page_url)) {
+            $post_id = url_to_postid($page_url);
+            if ($post_id) {
+                $post = get_post($post_id);
+                if ($post) {
+                    $context .= "Current page: " . $post->post_title . "\n";
+                    $context .= "Page content: " . wp_trim_words(strip_tags($post->post_content), 50) . "\n";
+                }
+            }
+        }
+        
+        // Add general context from settings
+        $custom_context = get_option('ai_chatbot_website_context', '');
+        if (!empty($custom_context)) {
+            $context .= $custom_context . "\n";
+        }
+        
+        return $context;
     }
 
     /**
@@ -277,16 +324,19 @@ class AI_Chatbot_Ajax {
      * @since 1.0.0
      */
     private function check_rate_limit($identifier) {
-        $rate_limit_enabled = get_option('ai_chatbot_enable_rate_limiting', 'yes');
+        $settings = get_option('ai_chatbot_settings', array());
+        $rate_limit_enabled = $settings['rate_limit_enabled'] ?? false;
         
-        if ($rate_limit_enabled !== 'yes') {
+        if (!$rate_limit_enabled) {
             return true;
         }
         
-        $max_requests = intval(get_option('ai_chatbot_rate_limit_max_requests', 10));
-        $time_window = intval(get_option('ai_chatbot_rate_limit_time_window', 60));
+        $max_requests = intval($settings['rate_limit_per_minute'] ?? 10);
+        $time_window = 60; // 1 minute
         
-        $transient_key = 'ai_chatbot_rate_' . md5($identifier);
+        // Use IP address for rate limiting
+        $identifier = $this->get_client_ip();
+        $transient_key = 'ai_chatbot_rate_limit_' . md5($identifier);
         $current_count = get_transient($transient_key);
         
         if ($current_count === false) {
@@ -303,19 +353,42 @@ class AI_Chatbot_Ajax {
     }
 
     /**
+     * Get client IP address
+     *
+     * @return string IP address
+     * @since 1.0.0
+     */
+    private function get_client_ip() {
+        $ip_keys = array('HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR');
+        
+        foreach ($ip_keys as $key) {
+            if (array_key_exists($key, $_SERVER) === true) {
+                foreach (explode(',', $_SERVER[$key]) as $ip) {
+                    $ip = trim($ip);
+                    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
+                        return $ip;
+                    }
+                }
+            }
+        }
+        
+        return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    }
+
+    /**
      * Save message to database
      *
      * @param string $session_id
      * @param string $conversation_id
-     * @param string $message
-     * @param string $sender
+     * @param string $user_message
+     * @param string|null $ai_response
      * @param string $page_url
      * @return int|false
      * @since 1.0.0
      */
-    private function save_message($session_id, $conversation_id, $message, $sender, $page_url = '') {
-       global $wpdb;
-    
+    private function save_message($session_id, $conversation_id, $user_message, $ai_response = null, $page_url = '') {
+        global $wpdb;
+        
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
         
         // Check if table exists
@@ -389,82 +462,68 @@ class AI_Chatbot_Ajax {
      * @return string
      * @since 1.0.0
      */
-    private function get_conversation_history($session_id, $conversation_id = '') {
+    private function get_conversation_history($session_id, $limit = 5) {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
         
         // Check if table exists
         if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-            return '';
+            return array();
         }
         
-        $where = $wpdb->prepare("WHERE session_id = %s", $session_id);
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT user_message, ai_response, created_at 
+            FROM $table_name 
+            WHERE session_id = %s 
+            AND user_message IS NOT NULL 
+            AND ai_response IS NOT NULL 
+            ORDER BY created_at DESC 
+            LIMIT %d",
+            $session_id,
+            $limit
+        ), ARRAY_A);
         
-        if (!empty($conversation_id)) {
-            $where .= $wpdb->prepare(" AND conversation_id = %s", $conversation_id);
-        }
-        
-        $results = $wpdb->get_results(
-            "SELECT message, sender FROM $table_name 
-             $where 
-             ORDER BY timestamp DESC 
-             LIMIT 10"
-        );
-        
-        if (empty($results)) {
-            return '';
-        }
-        
-        $history = array();
-        foreach (array_reverse($results) as $row) {
-            $history[] = ucfirst($row->sender) . ': ' . $row->message;
-        }
-        
-        return implode("\n", $history);
+        // Reverse to get chronological order (oldest first)
+        return array_reverse($results ?: array());
     }
 
     /**
-     * Get conversation starters
+     * Get conversation starter suggestions
      *
-     * @return array
+     * @return array Suggestions
      * @since 1.0.0
      */
     private function get_conversation_starters() {
-        $default_starters = array(
-            __('How can I help you?', 'ai-website-chatbot'),
-            __('What information are you looking for?', 'ai-website-chatbot'),
-            __('Do you have any questions?', 'ai-website-chatbot'),
-            __('How can I assist you today?', 'ai-website-chatbot')
+        $default_suggestions = array(
+            __('How can I help you today?', 'ai-website-chatbot'),
+            __('What would you like to know?', 'ai-website-chatbot'),
+            __('Ask me anything about our services.', 'ai-website-chatbot'),
+            __('I\'m here to assist you.', 'ai-website-chatbot')
         );
         
-        $custom_starters = get_option('ai_chatbot_conversation_starters', '');
+        $custom_suggestions = get_option('ai_chatbot_conversation_starters', array());
         
-        if (!empty($custom_starters)) {
-            $starters = explode("\n", $custom_starters);
-            return array_map('trim', $starters);
-        }
-        
-        return $default_starters;
+        return !empty($custom_suggestions) ? $custom_suggestions : $default_suggestions;
     }
 
     /**
      * Check AI service status
      *
-     * @return bool
+     * @return bool True if online
      * @since 1.0.0
      */
     private function check_ai_service_status() {
-        $provider = $this->get_ai_provider();
+        $settings = get_option('ai_chatbot_settings', array());
+        $provider_name = $settings['ai_provider'] ?? 'openai';
         
-        if (is_wp_error($provider)) {
+        $provider = $this->get_ai_provider($provider_name);
+        
+        if (!$provider || !$provider->is_configured()) {
             return false;
         }
         
-        if (!$provider->is_configured()) {
-            return false;
-        }
-        
+        // Simple connection test
         $test_result = $provider->test_connection();
         
         return !is_wp_error($test_result);

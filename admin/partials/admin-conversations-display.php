@@ -56,7 +56,7 @@ $conversation_stats = $this->get_conversation_statistics();
                     <span class="dashicons dashicons-star-filled"></span>
                 </div>
                 <div class="stat-content">
-                    <div class="stat-number"><?php echo esc_html($conversation_stats['avg_rating']); ?>/5</div>
+                    <div class="stat-number"><?php echo esc_html($conversation_stats['average_rating']); ?>/5</div>
                     <div class="stat-label"><?php _e('Average Rating', 'ai-website-chatbot'); ?></div>
                 </div>
             </div>
