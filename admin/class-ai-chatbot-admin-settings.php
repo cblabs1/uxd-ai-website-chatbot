@@ -64,7 +64,10 @@ class AI_Chatbot_Admin_Settings {
         $defaults = $this->get_default_settings();
     
         // Get from main settings first, then fallback to individual options
-        $main_settings = get_option('ai_chatbot_settings', array());
+        $saved_settings = get_option('ai_chatbot_settings', array());
+
+        $main_settings = wp_parse_args($saved_settings, $defaults);
+
         
         if (!empty($main_settings)) {
             // Use main settings structure
@@ -77,6 +80,14 @@ class AI_Chatbot_Admin_Settings {
                 $individual_settings[$key] = get_option($option_name, $default_value);
             }
             $settings = $individual_settings;
+        }
+
+        if (isset($main_settings['rate_limiting'])) {
+            $settings['rate_limiting'] = wp_parse_args($main_settings['rate_limiting'], $defaults['rate_limiting']);
+        }
+        
+        if (isset($main_settings['gdpr'])) {
+            $settings['gdpr'] = wp_parse_args($main_settings['gdpr'], $defaults['gdpr']);
         }
         
         // Ensure ai_provider is set
@@ -160,69 +171,125 @@ class AI_Chatbot_Admin_Settings {
             wp_die(__('You do not have sufficient permissions to access this page.', 'ai-website-chatbot'));
         }
         
-        // Verify nonce
-        if (!check_admin_referer('ai_chatbot_settings', 'ai_chatbot_nonce')) {
+        // Verify nonce - FIXED: Use correct nonce name from form
+        if (!check_admin_referer('ai_chatbot_admin_nonce', 'nonce')) {
             wp_die(__('Security check failed', 'ai-website-chatbot'));
         }
         
-        $updated_settings = array();
-        $saved_count = 0;
-        $errors = array();
-
-        // Get all posted settings
-        foreach ($_POST as $key => $value) {
-            if (strpos($key, 'ai_chatbot_') === 0) {
-                $sanitized_value = $this->sanitize_setting_value($key, $value);
-                $updated_settings[$key] = $sanitized_value;
-            }
-        }
-
-        // Save settings
-        foreach ($updated_settings as $setting_name => $setting_value) {
-            $current_value = get_option($setting_name);
-            
-            if ($current_value !== $setting_value) {
-                if (update_option($setting_name, $setting_value)) {
-                    $saved_count++;
-                } else {
-                    $errors[] = $setting_name;
-                }
-            } else {
-                // Value is the same, count as successful
-                $saved_count++;
-            }
-        }
-
-        // Handle results
-        if ($saved_count > 0) {
+        // Get submitted settings from the ai_chatbot_settings array
+        $submitted_settings = $_POST['ai_chatbot_settings'] ?? array();
+        
+        // CRITICAL FIX: Get defaults and handle missing checkboxes
+        $defaults = $this->get_default_settings();
+        
+        // Extract checkbox defaults (boolean values) and set unchecked ones to false
+        $processed_settings = $this->process_checkbox_settings($submitted_settings, $defaults);
+        
+        // Save the complete settings as one option
+        $save_result = update_option('ai_chatbot_settings', $processed_settings);
+        
+        if ($save_result) {
             add_settings_error(
                 'ai_chatbot_settings',
                 'settings_updated',
-                sprintf(__('%d settings saved successfully!', 'ai-website-chatbot'), $saved_count),
+                __('Settings saved successfully!', 'ai-website-chatbot'),
                 'updated'
             );
-        } else {
-            $error_msg = __('No settings were updated', 'ai-website-chatbot');
-            if (!empty($errors)) {
-                $error_msg .= '. Failed settings: ' . implode(', ', $errors);
+            
+            // Test API connection if enabled and API key provided
+            if (!empty($processed_settings['enabled']) && !empty($processed_settings['api_key'])) {
+                $this->maybe_test_api_connection($processed_settings);
             }
-            add_settings_error(
-                'ai_chatbot_settings',
-                'settings_error',
-                $error_msg
-            );
-        }
-
-        // Test AI connection if API key was updated
-        if (isset($updated_settings['ai_chatbot_ai_provider']) && isset($updated_settings['ai_chatbot_api_key'])) {
-            $this->test_ai_connection_after_save($updated_settings);
+            
+            // Trigger content sync if needed
+            $this->maybe_trigger_content_sync();
+            
+        } else {
+            // Check if settings are the same (update_option returns false if no change)
+            $current_settings = get_option('ai_chatbot_settings', array());
+            if ($current_settings === $processed_settings) {
+                add_settings_error(
+                    'ai_chatbot_settings',
+                    'settings_unchanged',
+                    __('Settings are up to date!', 'ai-website-chatbot'),
+                    'updated'
+                );
+            } else {
+                add_settings_error(
+                    'ai_chatbot_settings',
+                    'settings_failed',
+                    __('Failed to save settings. Please try again.', 'ai-website-chatbot'),
+                    'error'
+                );
+            }
         }
     }
 
     /**
+     * Process checkbox settings to handle unchecked values
+     * 
+     * @param array $submitted_settings Settings from form submission
+     * @param array $defaults Default settings structure
+     * @return array Processed settings with proper checkbox values
+     */
+    private function process_checkbox_settings($submitted_settings, $defaults) {
+        // Start with current settings to preserve non-form values
+        $current_settings = get_option('ai_chatbot_settings', array());
+        
+        // Recursively process settings
+        $processed = $this->merge_settings_recursive($submitted_settings, $defaults, $current_settings);
+        
+        return $processed;
+    }
+
+    /**
+     * Recursively merge settings handling checkboxes properly
+     * 
+     * @param array $submitted Submitted form data
+     * @param array $defaults Default values structure
+     * @param array $current Current saved settings
+     * @return array Merged settings
+     */
+    private function merge_settings_recursive($submitted, $defaults, $current) {
+        $result = $current; // Start with current settings
+        
+        foreach ($defaults as $key => $default_value) {
+            if (is_array($default_value)) {
+                // Handle nested arrays (like gdpr, rate_limiting, content_sync)
+                if (!isset($result[$key])) {
+                    $result[$key] = array();
+                }
+                
+                $submitted_nested = $submitted[$key] ?? array();
+                $result[$key] = $this->merge_settings_recursive($submitted_nested, $default_value, $result[$key]);
+                
+            } elseif (is_bool($default_value)) {
+                // Handle checkbox fields - set to false if not submitted, true if submitted
+                $result[$key] = isset($submitted[$key]) && $submitted[$key];
+                
+            } else {
+                // Handle regular fields - use submitted value if provided, otherwise keep current
+                if (isset($submitted[$key])) {
+                    $result[$key] = $this->sanitize_setting_value($key, $submitted[$key]);
+                }
+            }
+        }
+        
+        // Add any submitted settings that aren't in defaults (for flexibility)
+        foreach ($submitted as $key => $value) {
+            if (!isset($defaults[$key]) && !is_array($value)) {
+                $result[$key] = $this->sanitize_setting_value($key, $value);
+            }
+        }
+        
+        return $result;
+    }
+
+
+    /**
      * Helper method: Test AI connection after save
      */
-    private function test_ai_connection_after_save($settings) {
+    private function maybe_test_api_connection($settings) {
         $provider = '';
         $api_key = '';
         
@@ -268,7 +335,8 @@ class AI_Chatbot_Admin_Settings {
      * Helper method: Trigger content sync if needed
      */
     private function maybe_trigger_content_sync() {
-        if (get_option('ai_chatbot_auto_train', false)) {
+        $settings = get_option('ai_chatbot_settings', array());
+        if (!empty($settings['content_sync']['auto_sync'])) {
             // Schedule content sync
             if (!wp_next_scheduled('ai_chatbot_content_sync')) {
                 wp_schedule_single_event(time() + 60, 'ai_chatbot_content_sync');
@@ -294,65 +362,76 @@ class AI_Chatbot_Admin_Settings {
         
         switch ($key) {
             // API Keys
-            case 'ai_chatbot_api_key':
-            case 'ai_chatbot_openai_api_key':
-            case 'ai_chatbot_claude_api_key':
-            case 'ai_chatbot_gemini_api_key':
+            case 'api_key':
+            case 'openai_api_key':
+            case 'claude_api_key':
+            case 'gemini_api_key':
                 return sanitize_text_field($value);
                 
             // Text areas with HTML
-            case 'ai_chatbot_system_prompt':
-            case 'ai_chatbot_welcome_message':
-            case 'ai_chatbot_offline_message':
-            case 'ai_chatbot_custom_css':
-                return wp_kses_post($value);
+            case 'welcome_message':
+            case 'offline_message':
+            case 'system_prompt':
+            case 'blocked_message':
+                return sanitize_textarea_field($value);
                 
             // Boolean/checkbox fields
-            case 'ai_chatbot_enabled':
-            case 'ai_chatbot_debug_mode':
-            case 'ai_chatbot_log_conversations':
-            case 'ai_chatbot_cache_responses':
-            case 'ai_chatbot_show_on_mobile':
-            case 'ai_chatbot_show_typing_indicator':
-            case 'ai_chatbot_show_timestamp':
-            case 'ai_chatbot_rate_limit_enabled':
-            case 'ai_chatbot_gdpr_anonymize_data':
+            case 'enabled':
+            case 'debug_mode':
+            case 'log_conversations':
+            case 'cache_responses':
+            case 'show_on_mobile':
+            case 'show_typing_indicator':
+            case 'show_timestamp':
+            case 'rate_limit_enabled':
+            case 'gdpr_anonymize_data':
                 return !empty($value) ? 1 : 0;
                 
             // Numeric fields
-            case 'ai_chatbot_max_tokens':
-            case 'ai_chatbot_max_message_length':
-            case 'ai_chatbot_rate_limit_max_requests':
-            case 'ai_chatbot_rate_limit_time_window':
-            case 'ai_chatbot_gdpr_data_retention_days':
+            case 'max_tokens':
+            case 'max_message_length':
+            case 'max_requests':
+            case 'time_window':
+            case 'retention_days':
                 return max(1, intval($value));
                 
             // Float fields
-            case 'ai_chatbot_temperature':
+            case 'temperature':
                 return max(0, min(2, floatval($value)));
                 
             // Color fields
-            case 'ai_chatbot_widget_color':
+            case 'widget_color':
+            case 'theme_color':
                 return sanitize_hex_color($value) ?: '#0073aa';
                 
             // URL fields
-            case 'ai_chatbot_gdpr_privacy_policy_url':
+            case 'privacy_policy_url':
                 return esc_url_raw($value);
                 
             // Select/dropdown fields
-            case 'ai_chatbot_ai_provider':
-            case 'ai_chatbot_model':
-            case 'ai_chatbot_widget_position':
-            case 'ai_chatbot_widget_size':
-            case 'ai_chatbot_animation_style':
-            case 'ai_chatbot_content_sync_frequency':
+            case 'ai_provider':
+            case 'model':
+            case 'widget_position':
+            case 'widget_size':
+            case 'animation_style':
+            case 'content_sync_frequency':
                 return sanitize_text_field($value);
+
+            // Decimals
+            case 'temperature':
+                return floatval($value);
+
+            // CSS/JS
+            case 'custom_css':
+            case 'custom_js':
+                return wp_strip_all_tags($value);
                 
             // Array fields
-            case 'ai_chatbot_show_on_pages':
-            case 'ai_chatbot_content_sync_post_types':
-                return is_array($value) ? array_map('sanitize_text_field', $value) : array(sanitize_text_field($value));
-                
+            case 'post_types':
+            case 'show_on_pages':
+            case 'hide_on_pages':
+                return is_array($value) ? array_map('sanitize_text_field', $value) : array();
+             
             default:
                 return sanitize_text_field($value);
         }
@@ -471,6 +550,37 @@ class AI_Chatbot_Admin_Settings {
             $current_settings = get_option('ai_chatbot_settings', array());
             
             // Merge current settings with new settings
+            $checkbox_fields = array(
+                'enabled',
+                'debug_mode', 
+                'log_conversations',
+                'show_on_mobile',
+                'show_typing_indicator'
+            );
+
+            $checkbox_nested_fields = array(
+                'gdpr' => array('enabled', 'cookie_consent', 'anonymize_data'),
+                'rate_limiting' => array('enabled')
+            );
+
+            // Set missing checkboxes to false
+            foreach ($checkbox_fields as $field) {
+                if (!isset($new_settings[$field])) {
+                    $new_settings[$field] = false;
+                }
+            }
+
+            // Handle nested checkbox fields
+            foreach ($checkbox_nested_fields as $parent => $fields) {
+                if (!isset($new_settings[$parent])) {
+                    $new_settings[$parent] = array();
+                }
+                foreach ($fields as $field) {
+                    if (!isset($new_settings[$parent][$field])) {
+                        $new_settings[$parent][$field] = false;
+                    }
+                }
+            }
             $updated_settings = array_merge($current_settings, $new_settings);
             
             error_log('AI Chatbot: Current settings: ' . print_r($current_settings, true));
