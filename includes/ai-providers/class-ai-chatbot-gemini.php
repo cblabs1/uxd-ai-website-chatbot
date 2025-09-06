@@ -324,11 +324,11 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	private function check_training_data($message) {
 		global $wpdb;
 		
-		$table_name = $wpdb->prefix . 'ai_chatbot_training';
+		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
 		
 		// First check exact match (case-insensitive)
 		$result = $wpdb->get_var($wpdb->prepare(
-			"SELECT response FROM $table_name WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) AND status = 'active' LIMIT 1",
+			"SELECT answer FROM $table_name WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) AND status = 'active' LIMIT 1",
 			$message
 		));
 		
@@ -346,10 +346,10 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 	private function find_similar_training($message, $similarity_threshold = 0.7) {
 		global $wpdb;
 		
-		$table_name = $wpdb->prefix . 'ai_chatbot_training';
+		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
 		
 		$training_data = $wpdb->get_results(
-			"SELECT question, response FROM $table_name WHERE status = 'active'",
+			"SELECT question, answer FROM $table_name WHERE status = 'active'",
 			ARRAY_A
 		);
 		
@@ -362,7 +362,7 @@ class AI_Chatbot_Gemini implements AI_Chatbot_Provider_Interface {
 			if ($similarity > $best_similarity && $similarity >= $similarity_threshold) {
 				$best_similarity = $similarity;
 				$best_match = array(
-					'response' => $training_item['response'],
+					'response' => $training_item['answer'],
 					'similarity' => $similarity,
 					'original_question' => $training_item['question']
 				);

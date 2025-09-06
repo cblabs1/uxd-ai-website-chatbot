@@ -117,35 +117,38 @@ class AI_Chatbot_Activator {
 
 		// FIXED: Conversations table with correct schema
 		$conversations_table = $wpdb->prefix . 'ai_chatbot_conversations';
-		$sql_conversations = "CREATE TABLE $conversations_table (
-			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			session_id varchar(255) NOT NULL,
-			conversation_id varchar(255) NOT NULL,
-			user_message longtext NOT NULL,
-			ai_response longtext DEFAULT NULL,
-			user_name varchar(255) DEFAULT '',
-			user_email varchar(255) DEFAULT '',
-			user_ip varchar(100) DEFAULT '',
-			user_agent varchar(500) DEFAULT '',
-			page_url varchar(255) DEFAULT '',
-			status varchar(20) DEFAULT 'completed',
-			intent varchar(255) DEFAULT NULL,
-			rating tinyint(1) DEFAULT NULL,
-			response_time decimal(8,3) DEFAULT NULL,
-			tokens_used int(10) unsigned DEFAULT NULL,
-			provider varchar(50) DEFAULT NULL,
-			model varchar(100) DEFAULT NULL,
-			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			PRIMARY KEY (id),
-			KEY idx_session_id (session_id),
-			KEY idx_conversation_id (conversation_id),
-			KEY idx_created_at (created_at),
-			KEY idx_rating (rating),
-			KEY idx_status (status),
-			KEY idx_intent (intent),
-			KEY idx_provider (provider)
-		) $charset_collate;";
+        $sql_conversations = "CREATE TABLE $conversations_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            session_id varchar(255) NOT NULL,
+            conversation_id varchar(255) NOT NULL,
+            user_message longtext NOT NULL,
+            ai_response longtext DEFAULT NULL,
+            user_name varchar(255) DEFAULT '',
+            user_email varchar(255) DEFAULT '',
+            user_ip varchar(100) DEFAULT '',
+            user_agent varchar(500) DEFAULT '',
+            page_url varchar(255) DEFAULT '',
+            source varchar(100) DEFAULT 'chatbot',
+			error_message varchar(100) DEFAULT NULL,
+            status varchar(20) DEFAULT 'completed',
+            intent varchar(255) DEFAULT NULL,
+            rating tinyint(1) DEFAULT NULL,
+            response_time decimal(8,3) DEFAULT NULL,
+            tokens_used int(10) unsigned DEFAULT NULL,
+            provider varchar(50) DEFAULT NULL,
+            model varchar(100) DEFAULT NULL,
+            created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_session_id (session_id),
+            KEY idx_conversation_id (conversation_id),
+            KEY idx_created_at (created_at),
+            KEY idx_rating (rating),
+            KEY idx_status (status),
+            KEY idx_intent (intent),
+            KEY idx_provider (provider),
+            KEY idx_source (source)
+        ) $charset_collate;";
 
 		// Website content index table
 		$content_table = $wpdb->prefix . 'ai_chatbot_content';

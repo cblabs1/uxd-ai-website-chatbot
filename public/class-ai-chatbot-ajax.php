@@ -655,7 +655,7 @@ class AI_Chatbot_Ajax {
      * Check rate limiting
      */
     private function check_rate_limit($user_identifier) {
-        $rate_limiter = new AI_Chatbot_Rate_Limiter();
+        $rate_limiter = new AI_Chatbot_Security();
         return $rate_limiter->check_rate_limit($user_identifier, 'chat_message');
     }
 

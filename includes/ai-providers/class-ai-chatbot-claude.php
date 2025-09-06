@@ -304,7 +304,7 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 	private function check_training_data($message) {
 		global $wpdb;
 		
-		$table_name = $wpdb->prefix . 'ai_chatbot_training';
+		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
 		
 		// First check exact match (case-insensitive)
 		$result = $wpdb->get_var($wpdb->prepare(
@@ -326,7 +326,7 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 	private function find_similar_training($message, $similarity_threshold = 0.7) {
 		global $wpdb;
 		
-		$table_name = $wpdb->prefix . 'ai_chatbot_training';
+		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
 		
 		$training_data = $wpdb->get_results(
 			"SELECT question, response FROM $table_name WHERE status = 'active'",
