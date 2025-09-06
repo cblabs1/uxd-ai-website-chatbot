@@ -2,6 +2,7 @@
 /**
  * Plugin Name: AI Website Chatbot
  * Plugin URI: https://wordpress.org/plugins/ai-website-chatbot
+ * GitHub Plugin URI: https://github.com/cblabs1/uxd-ai-website-chatbot.git
  * Description: An intelligent chatbot that learns from your website content and integrates with multiple AI platforms. GDPR compliant with privacy controls.
  * Version: 6.4.0
  * Requires at least: 5.0
