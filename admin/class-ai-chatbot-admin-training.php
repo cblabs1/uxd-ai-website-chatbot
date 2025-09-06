@@ -50,17 +50,21 @@ class AI_Chatbot_Admin_Training {
         
         // Handle bulk actions
         $this->handle_bulk_actions();
-        
-        // Get training data
-        $training_data = $this->get_training_data();
-        $total_items = $this->get_training_data_count();
-        
-        // Pagination
+
+        // Pagination setup
         $items_per_page = 20;
         $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
         $offset = ($current_page - 1) * $items_per_page;
         
+        // Get data
+        $total_items = $this->get_training_data_count();
         $training_data = $this->get_training_data($items_per_page, $offset);
+        
+        // Calculate total pages - ADD THIS LINE
+        $total_pages = ceil($total_items / $items_per_page);
+        
+        // Get training statistics
+        $training_stats = $this->get_training_statistics();
         
         // Include training template
         include AI_CHATBOT_PLUGIN_DIR . 'admin/partials/admin-training-display.php';

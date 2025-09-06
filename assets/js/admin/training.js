@@ -30,22 +30,22 @@
             $(document).off('.aichatbot-training');
             
             // Add training data
-            $(document).on('click.aichatbot-training', '.add-training-data', this.showAddForm.bind(this));
-            $(document).on('submit.aichatbot-training', '#training-data-form', this.submitTrainingData.bind(this));
-            $(document).on('click.aichatbot-training', '.cancel-add', this.hideAddForm.bind(this));
+            $(document).on('click.aichatbot-training', '.add-training-data', this.showAddForm);
+            $(document).on('submit.aichatbot-training', '#training-data-form', this.submitTrainingData);
+            $(document).on('click.aichatbot-training', '.cancel-add', this.hideAddForm);
             
             // Edit training data
-            $(document).on('click.aichatbot-training', '.edit-training-data', this.showEditForm.bind(this));
-            $(document).on('click.aichatbot-training', '.cancel-edit', this.hideEditForm.bind(this));
+            $(document).on('click.aichatbot-training', '.edit-training-data', this.showEditForm);
+            $(document).on('click.aichatbot-training', '.cancel-edit', this.hideEditForm);
             
             // Delete training data
-            $(document).on('click.aichatbot-training', '.delete-training-data', this.deleteTrainingData.bind(this));
+            $(document).on('click.aichatbot-training', '.delete-training-data', this.deleteTrainingData);
             
             // Import/Export - Fix the file upload binding
-            $(document).on('click.aichatbot-training', '.import-training-data', this.showImportModal.bind(this));
-            $(document).on('click.aichatbot-training', '.export-training-data', this.exportTrainingData.bind(this));
-            $(document).on('change.aichatbot-training', '#training-import-file', this.handleFileUpload.bind(this));
-            $(document).on('click.aichatbot-training', '.process-import', this.processImport.bind(this));
+            $(document).on('click.aichatbot-training', '.import-training-data', this.showImportModal);
+            $(document).on('click.aichatbot-training', '.export-training-data', this.exportTrainingData);
+            $(document).on('change.aichatbot-training', '#training-import-file', this.handleFileUpload);
+            $(document).on('click.aichatbot-training', '.process-import', this.processImport);
             
             // Modal close events
             $(document).on('click.aichatbot-training', '[data-modal-close]', function() {
@@ -58,18 +58,18 @@
             });
             
             // Train model
-            $(document).on('click.aichatbot-training', '.train-model', this.trainModel.bind(this));
+            $(document).on('click.aichatbot-training', '.train-model', this.trainModel);
             
             // Filter and search
-            $(document).on('change.aichatbot-training', '#training-filter', this.filterTrainingData.bind(this));
-            $(document).on('input.aichatbot-training', '#training-search', this.debounce(this.searchTrainingData.bind(this), 300));
+            $(document).on('change.aichatbot-training', '#training-filter', this.filterTrainingData);
+            $(document).on('input.aichatbot-training', '#training-search', this.debounce(this.searchTrainingData, 300));
             
             // Tag management
-            $(document).on('click.aichatbot-training', '.add-tag', this.addTag.bind(this));
-            $(document).on('click.aichatbot-training', '.remove-tag', this.removeTag.bind(this));
+            $(document).on('click.aichatbot-training', '.add-tag', this.addTag);
+            $(document).on('click.aichatbot-training', '.remove-tag', this.removeTag);
             
             // Intent suggestions
-            $(document).on('input.aichatbot-training', '#training-intent', this.suggestIntents.bind(this));
+            $(document).on('input.aichatbot-training', '#training-intent', this.suggestIntents);
             
             console.log('AIChatbotTraining: All events bound');
         },
@@ -232,7 +232,16 @@
             var $button = $(this);
             var trainingId = $button.data('id');
             
-            $button.prop('disabled', true);
+            // Debug: Add this line to check if ID is captured
+            console.log('Deleting training ID:', trainingId);
+            
+            if (!trainingId) {
+                alert('Error: Training data ID not found');
+                return;
+            }
+            
+            var $row = $button.closest('tr');
+            $button.prop('disabled', true).text('Deleting...');
             
             $.ajax({
                 url: aiChatbotAdmin.ajaxUrl,
