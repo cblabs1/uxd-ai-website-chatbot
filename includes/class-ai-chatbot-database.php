@@ -32,13 +32,22 @@ class AI_Chatbot_Database {
 		// Sanitize data
 		$sanitized_data = array(
 			'session_id'    => sanitize_text_field( $conversation_data['session_id'] ),
+			'conversation_id' => sanitize_text_field( $conversation_data['conversation_id'] ?? '' ),
 			'user_message'  => wp_kses_post( $conversation_data['user_message'] ),
-			'bot_response'  => wp_kses_post( $conversation_data['bot_response'] ),
+			'ai_response'   => wp_kses_post( $conversation_data['ai_response'] ?? '' ),
+			'user_name'     => sanitize_text_field( $conversation_data['user_name'] ?? '' ),
+			'user_email'    => sanitize_email( $conversation_data['user_email'] ?? '' ),
 			'user_ip'       => $this->sanitize_ip( $conversation_data['user_ip'] ?? '' ),
 			'page_url'      => esc_url_raw( $conversation_data['page_url'] ?? '' ),
 			'user_agent'    => sanitize_text_field( $conversation_data['user_agent'] ?? '' ),
+			'status'        => sanitize_text_field( $conversation_data['status'] ?? 'completed' ),
+			'provider'      => sanitize_text_field( $conversation_data['provider'] ?? '' ),
+			'model'         => sanitize_text_field( $conversation_data['model'] ?? '' ),
+			'response_time' => floatval( $conversation_data['response_time'] ?? 0 ),
+			'tokens_used'   => intval( $conversation_data['tokens_used'] ?? 0 ),
 			'created_at'    => current_time( 'mysql' ),
 		);
+
 
 		// Insert into database
 		return $wpdb->insert(
@@ -46,11 +55,19 @@ class AI_Chatbot_Database {
 			$sanitized_data,
 			array(
 				'%s', // session_id
+				'%s', // conversation_id
 				'%s', // user_message
-				'%s', // bot_response
+				'%s', // ai_response
+				'%s', // user_name
+				'%s', // user_email
 				'%s', // user_ip
 				'%s', // page_url
 				'%s', // user_agent
+				'%s', // status
+				'%s', // provider
+				'%s', // model
+				'%f', // response_time
+				'%d', // tokens_used
 				'%s', // created_at
 			)
 		);

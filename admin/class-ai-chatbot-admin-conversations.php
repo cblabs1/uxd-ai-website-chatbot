@@ -104,7 +104,26 @@ class AI_Chatbot_Admin_Conversations {
         $where_clause = implode(' AND ', $where_clauses);
         
         // Prepare query
-        $query = "SELECT * FROM $table_name WHERE $where_clause ORDER BY created_at DESC LIMIT %d OFFSET %d";
+        $query = "SELECT 
+                    id,
+                    session_id,
+                    conversation_id,
+                    user_message,
+                    ai_response,
+                    user_name,
+                    user_email,
+                    user_ip,
+                    status,
+                    rating,
+                    intent,
+                    response_time,
+                    provider,
+                    model,
+                    created_at
+                FROM $table_name 
+                WHERE $where_clause 
+                ORDER BY created_at DESC 
+                LIMIT $offset, $per_page";
         $where_values[] = $limit;
         $where_values[] = $offset;
         

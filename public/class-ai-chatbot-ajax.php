@@ -314,8 +314,8 @@ class AI_Chatbot_Ajax {
      * @since 1.0.0
      */
     private function save_message($session_id, $conversation_id, $message, $sender, $page_url = '') {
-        global $wpdb;
-        
+       global $wpdb;
+    
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
         
         // Check if table exists
@@ -329,10 +329,10 @@ class AI_Chatbot_Ajax {
             array(
                 'session_id' => $session_id,
                 'conversation_id' => $conversation_id,
-                'message' => $message,
-                'sender' => $sender,
+                'user_message' => $user_message,
+                'ai_response' => $ai_response,
                 'page_url' => $page_url,
-                'timestamp' => current_time('mysql')
+                'created_at' => current_time('mysql')
             ),
             array('%s', '%s', '%s', '%s', '%s', '%s')
         );
@@ -351,25 +351,31 @@ class AI_Chatbot_Ajax {
 		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
 		
 		// CORRECTED: Include all required columns from the start
-		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
-			id bigint(20) NOT NULL AUTO_INCREMENT,
-			session_id varchar(255) NOT NULL,
-			conversation_id varchar(255) NOT NULL,
-			message text NOT NULL,
-			sender varchar(20) NOT NULL DEFAULT 'user',
-			page_url varchar(255) DEFAULT '',
-			timestamp datetime DEFAULT CURRENT_TIMESTAMP,
-			user_message longtext DEFAULT NULL,
-			bot_response longtext DEFAULT NULL,
-			rating tinyint(1) DEFAULT NULL,
-			status varchar(20) DEFAULT 'completed',
-			created_at datetime DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id),
-			KEY idx_session_id (session_id),
-			KEY idx_conversation_id (conversation_id),
-			KEY idx_timestamp (timestamp),
-			KEY idx_sender (sender)
-		) $charset_collate;";
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            session_id varchar(255) NOT NULL,
+            conversation_id varchar(255) NOT NULL,
+            user_message longtext NOT NULL,
+            ai_response longtext DEFAULT NULL,
+            user_name varchar(255) DEFAULT '',
+            user_email varchar(255) DEFAULT '',
+            user_ip varchar(100) DEFAULT '',
+            user_agent varchar(500) DEFAULT '',
+            page_url varchar(255) DEFAULT '',
+            status varchar(20) DEFAULT 'completed',
+            intent varchar(255) DEFAULT NULL,
+            rating tinyint(1) DEFAULT NULL,
+            response_time decimal(8,3) DEFAULT NULL,
+            tokens_used int(10) unsigned DEFAULT NULL,
+            provider varchar(50) DEFAULT NULL,
+            model varchar(100) DEFAULT NULL,
+            created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_session_id (session_id),
+            KEY idx_conversation_id (conversation_id),
+            KEY idx_created_at (created_at)
+        ) $charset_collate;";
 		
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);

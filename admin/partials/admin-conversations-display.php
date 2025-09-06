@@ -174,10 +174,13 @@ $conversation_stats = $this->get_conversation_statistics();
                                 </td>
                                 <td class="message-cell">
                                     <div class="message-content">
-                                        <?php echo esc_html(wp_trim_words($conversation['user_message'], 15)); ?>
-                                        <?php if (strlen($conversation['user_message']) > 75): ?>
+                                        <?php 
+                                        $user_msg = $conversation['user_message'] ?? '';
+                                        echo esc_html(wp_trim_words($user_msg, 15)); 
+                                        ?>
+                                        <?php if (!empty($user_msg) && strlen($user_msg) > 75): ?>
                                             <div class="message-preview" style="display: none;">
-                                                <?php echo esc_html($conversation['user_message']); ?>
+                                                <?php echo esc_html($user_msg); ?>
                                             </div>
                                             <button type="button" class="button-link toggle-message"><?php _e('Show more', 'ai-website-chatbot'); ?></button>
                                         <?php endif; ?>
@@ -190,17 +193,20 @@ $conversation_stats = $this->get_conversation_statistics();
                                 </td>
                                 <td class="response-cell">
                                     <div class="response-content">
-                                        <?php echo esc_html(wp_trim_words($conversation['ai_response'], 12)); ?>
-                                        <?php if (strlen($conversation['ai_response']) > 60): ?>
+                                        <?php 
+                                        $ai_resp = $conversation['ai_response'] ?? '';
+                                        echo esc_html(wp_trim_words($ai_resp, 12)); 
+                                        ?>
+                                        <?php if (!empty($ai_resp) && strlen($ai_resp) > 60): ?>
                                             <div class="response-preview" style="display: none;">
-                                                <?php echo esc_html($conversation['ai_response']); ?>
+                                                <?php echo esc_html($ai_resp); ?>
                                             </div>
                                             <button type="button" class="button-link toggle-response"><?php _e('Show more', 'ai-website-chatbot'); ?></button>
                                         <?php endif; ?>
                                     </div>
                                     <?php if (!empty($conversation['response_time'])): ?>
                                         <div class="response-time">
-                                            <small><?php printf(__('Response time: %dms', 'ai-website-chatbot'), $conversation['response_time']); ?></small>
+                                            <small><?php printf(__('Response time: %dms', 'ai-website-chatbot'), intval($conversation['response_time'])); ?></small>
                                         </div>
                                     <?php endif; ?>
                                 </td>
