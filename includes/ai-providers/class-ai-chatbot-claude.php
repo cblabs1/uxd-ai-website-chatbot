@@ -1,6 +1,7 @@
 <?php
 /**
  * Anthropic Claude Provider Implementation
+ * Uses AI_Chatbot_Provider_Base for common functionality
  *
  * @package AI_Website_Chatbot
  * @subpackage AI_Providers
@@ -13,43 +14,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Claude provider class
+ * Claude provider class - NOW EXTENDS BASE CLASS
  *
  * @since 1.0.0
  */
-class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
+class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 
 	/**
-	 * API base URL
-	 *
-	 * @var string
-	 * @since 1.0.0
-	 */
-	private $api_base = 'https://api.anthropic.com/v1/';
-
-	/**
-	 * API key
-	 *
-	 * @var string
-	 * @since 1.0.0
-	 */
-	private $api_key;
-
-	/**
-	 * Constructor
-	 *
-	 * @since 1.0.0
+	 * Initialize provider-specific settings
 	 */
 	public function __construct() {
-		$main_settings = get_option('ai_chatbot_settings', array());
-    
-		if (!empty($main_settings['api_key']) && $main_settings['ai_provider'] === 'claude') {
-			// New structure: settings stored in main array
-			$this->api_key = $main_settings['api_key'];
-		} else {
-			// Fallback to old structure: individual options
-			$this->api_key = get_option('ai_chatbot_claude_api_key', '');
-		}
+		$this->api_base = 'https://api.anthropic.com/v1/';
+		$this->provider_name = 'claude';
+		
+		// Call parent constructor to load API key
+		parent::__construct();
 	}
 
 	/**
@@ -73,45 +52,13 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 	}
 
 	/**
-	 * Check if provider is configured
-	 *
-	 * @return bool True if configured.
-	 * @since 1.0.0
-	 */
-	public function is_configured() {
-		$api_key = $this->api_key;
-		error_log('Claude Provider - API Key check: ' . (empty($api_key) ? 'EMPTY' : 'Present (' . strlen($api_key) . ' chars)'));
-		return !empty($api_key) && strlen($api_key) >= 20;
-	}
-
-	/**
-	 * Test API connection
-	 *
-	 * @return bool|WP_Error True if connection successful, WP_Error if failed.
-	 * @since 1.0.0
-	 */
-	public function test_connection() {
-		if ( ! $this->is_configured() ) {
-			return new WP_Error( 'not_configured', __( 'Claude API key is not configured.', 'ai-website-chatbot' ) );
-		}
-
-		// Test with a simple message
-		$test_response = $this->generate_response( 'Hello', '', array( 'max_tokens' => 10 ) );
-
-		if ( is_wp_error( $test_response ) ) {
-			return $test_response;
-		}
-
-		return true;
-	}
-
-	/**
 	 * Generate response from AI
+	 * Uses base class for common functionality, only implements Claude-specific logic
 	 *
 	 * @param string $message User message.
-	 * @param string $context Additional context from website.
+	 * @param string|array $context Additional context from website or conversation history.
 	 * @param array  $options Optional parameters.
-	 * @return string|WP_Error AI response or WP_Error if failed.
+	 * @return array|WP_Error AI response array or WP_Error if failed.
 	 * @since 1.0.0
 	 */
 	public function generate_response( $message, $context = '', $options = array() ) {
@@ -119,26 +66,27 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 			return new WP_Error( 'not_configured', __( 'Claude API key is not configured.', 'ai-website-chatbot' ) );
 		}
 
-		// Get or generate session ID
+		// Get or generate session and conversation IDs (from base class)
 		$session_id = $options['session_id'] ?? $this->get_or_generate_session_id();
-		
-		// Get or generate conversation ID
 		$conversation_id = $options['conversation_id'] ?? $this->generate_conversation_id($session_id);
 
-		
+		// Process training and cache checks (using base class methods correctly)
 		// Check training data first (exact match)
 		$training_response = $this->check_training_data($message);
 		if (!is_wp_error($training_response) && !empty($training_response)) {
 			error_log('Claude Provider: Found exact training match for: ' . $message);
 			
-			// Log the training response
+			// Log the training response (from base class)
 			$this->log_conversation($conversation_id, $message, $training_response, 0, 'training');
 			
 			return array(
 				'response' => $training_response,
 				'tokens_used' => 0,
 				'model' => 'training',
-				'source' => 'training'
+				'source' => 'training',
+				'session_id' => $session_id,
+				'conversation_id' => $conversation_id,
+				'response_time' => 0
 			);
 		}
 
@@ -156,7 +104,10 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 				'response' => $modified_response,
 				'tokens_used' => 0,
 				'model' => 'training_similar',
-				'source' => 'training'
+				'source' => 'training',
+				'session_id' => $session_id,
+				'conversation_id' => $conversation_id,
+				'response_time' => 0
 			);
 		}
 
@@ -169,75 +120,168 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 				'response' => $cached['response'],
 				'tokens_used' => 0,
 				'model' => 'cached',
-				'source' => 'cache'
+				'source' => 'cache',
+				'session_id' => $session_id,
+				'conversation_id' => $conversation_id,
+				'response_time' => 0
 			);
 		}
 
 		// Proceed with API call
 		error_log('Claude Provider: Making API call for: ' . $message);
 
-		// Validate message
+		// Validate message (from base class)
 		$validation = $this->validate_message( $message );
 		if ( is_wp_error( $validation ) ) {
 			return $validation;
 		}
 
-		// Build system prompt with enhanced context
-		$system_prompt = $this->build_system_message( $context );
+		// Get settings (from base class)
+		$model = $options['model'] ?? $this->get_model();
+		$max_tokens = $options['max_tokens'] ?? $this->get_max_tokens();
+		$temperature = $options['temperature'] ?? $this->get_temperature();
 
-		// Get conversation history
+		// Add debug logging
+		error_log('Claude Provider: Using model: ' . $model);
+		error_log('Claude Provider: Max tokens: ' . $max_tokens);
+		error_log('Claude Provider: Temperature: ' . $temperature);
+
+		// Build conversation history (from base class)
+		$conversation_history = $this->get_chat_conversation_history($conversation_id, 10);
 		$messages = array();
-		$conversation_history = $this->get_chat_conversation_history($conversation_id, 3);
-		
-		// Build conversation history
+
+		// Add conversation history in Claude format
 		foreach (array_reverse($conversation_history) as $history_item) {
-			$messages[] = array('role' => 'user', 'content' => $history_item['user_message']);
-			$messages[] = array('role' => 'assistant', 'content' => $history_item['ai_response']);
+			$user_msg = trim($history_item['user_message'] ?? '');
+			$ai_msg = trim($history_item['ai_response'] ?? '');
+			
+			if (!empty($user_msg) && !empty($ai_msg)) {
+				$messages[] = array(
+					'role' => 'user',
+					'content' => $user_msg
+				);
+				$messages[] = array(
+					'role' => 'assistant',
+					'content' => $ai_msg
+				);
+			}
 		}
 
 		// Add current message
-		$messages[] = array(
-			'role' => 'user',
-			'content' => $message,
-		);
+		$current_message = trim($message);
+		if (!empty($current_message)) {
+			$messages[] = array(
+				'role' => 'user',
+				'content' => $current_message
+			);
+		}
 
-		// Get model and settings
-		$model = $options['model'] ?? get_option( 'ai_chatbot_claude_model', 'claude-3-5-sonnet-20241022' );
-		$max_tokens = $options['max_tokens'] ?? get_option( 'ai_chatbot_claude_max_tokens', 300 );
-		$temperature = $options['temperature'] ?? 0.7;
+		// Ensure we have at least one message and it ends with user
+		if (empty($messages) || !isset($messages[count($messages) - 1]) || $messages[count($messages) - 1]['role'] !== 'user') {
+			$messages[] = array(
+				'role' => 'user',
+				'content' => $message
+			);
+		}
 
-		// Prepare request data
+		// Build system message (from base class)
+		$system_message = $this->build_system_message($context);
+
+		// Prepare request data for Claude
 		$data = array(
 			'model' => $model,
 			'max_tokens' => (int) $max_tokens,
 			'temperature' => (float) $temperature,
-			'system' => $system_prompt,
-			'messages' => $messages,
+			'messages' => $messages
 		);
 
-		// Make API request
-		$response = wp_remote_post( $this->api_base . 'messages', array(
+		// Add system message if available
+		if (!empty($system_message)) {
+			$data['system'] = $system_message;
+		}
+
+		error_log('Claude API Request Data: ' . wp_json_encode($data, JSON_PRETTY_PRINT));
+
+		// Make API request (Claude-specific implementation)
+		$response = $this->make_api_request( 'messages', $data );
+
+		if ( is_wp_error( $response ) ) {
+			error_log('Claude API Error: ' . $response->get_error_message());
+			return $response;
+		}
+
+		// Extract response text (Claude-specific)
+		$response_text = '';
+		if (isset($response['content'][0]['text'])) {
+			$response_text = $response['content'][0]['text'];
+		}
+
+		if (empty($response_text)) {
+			return new WP_Error('empty_response', __('Empty response from Claude API.', 'ai-website-chatbot'));
+		}
+
+		// Extract tokens and model
+		$tokens_used = $this->extract_tokens_from_response($response);
+		$model_used = $this->extract_model_from_response($response);
+		$response_time = isset($options['start_time']) ? (microtime(true) - $options['start_time']) * 1000 : 0;
+
+		// Log the API response (from base class)
+		$this->log_conversation($conversation_id, $message, $response_text, $response_time, 'api');
+
+		// Log usage statistics (from base class)
+		$this->log_usage( $response );
+
+		// Cache the response (from base class)
+		$this->cache_response($message, $response_text);
+
+		return array(
+			'response' => trim($response_text),
+			'tokens_used' => $tokens_used,
+			'model' => $model_used,
+			'source' => 'api',
+			'session_id' => $session_id,
+			'conversation_id' => $conversation_id,
+			'response_time' => $response_time
+		);
+	}
+
+	// ==========================================
+	// CLAUDE-SPECIFIC IMPLEMENTATIONS OF ABSTRACT METHODS
+	// ==========================================
+
+	/**
+	 * Make API request to Claude
+	 * Implementation of abstract method
+	 *
+	 * @param string $endpoint API endpoint
+	 * @param array  $data Request data
+	 * @return array|WP_Error API response or error
+	 * @since 1.0.0
+	 */
+	protected function make_api_request( $endpoint, $data ) {
+		$url = $this->api_base . $endpoint;
+
+		$response = wp_remote_post( $url, array(
 			'headers' => array(
-				'x-api-key' => $this->api_key,
 				'Content-Type' => 'application/json',
+				'x-api-key' => $this->api_key,
 				'anthropic-version' => '2023-06-01',
+				'User-Agent' => 'AI-Website-Chatbot/' . (defined('AI_CHATBOT_VERSION') ? AI_CHATBOT_VERSION : '1.0.0'),
 			),
 			'body' => wp_json_encode( $data ),
 			'timeout' => 60,
 		) );
 
 		if ( is_wp_error( $response ) ) {
-			error_log('Claude API Error: ' . $response->get_error_message());
-			return new WP_Error( 'api_error', __( 'Failed to connect to Claude API.', 'ai-website-chatbot' ) );
+			return new WP_Error( 'api_request_failed', __( 'Failed to connect to Claude API.', 'ai-website-chatbot' ) );
 		}
 
 		$response_code = wp_remote_retrieve_response_code( $response );
 		$response_body = wp_remote_retrieve_body( $response );
 
-		if ( 200 !== $response_code ) {
+		if ( $response_code !== 200 ) {
 			$error_data = json_decode( $response_body, true );
 			$error_message = $error_data['error']['message'] ?? __( 'Unknown API error.', 'ai-website-chatbot' );
-			error_log('Claude API Error ' . $response_code . ': ' . $error_message);
 			
 			return new WP_Error( 'api_error', sprintf( 
 				__( 'Claude API error (%d): %s', 'ai-website-chatbot' ), 
@@ -248,306 +292,80 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 
 		$data = json_decode( $response_body, true );
 
-		if ( ! isset( $data['content'][0]['text'] ) ) {
-			return new WP_Error( 'invalid_response', __( 'Invalid response from Claude API.', 'ai-website-chatbot' ) );
+		if ( json_last_error() !== JSON_ERROR_NONE ) {
+			return new WP_Error( 'invalid_json', __( 'Invalid JSON response from Claude API.', 'ai-website-chatbot' ) );
 		}
 
-		$response_text = trim( $data['content'][0]['text'] );
-		$tokens_used = $data['usage']['input_tokens'] + $data['usage']['output_tokens'] ?? 0;
+		return $data;
+	}
 
-		// Cache the response
-		$cache_key = 'ai_chatbot_claude_response_' . md5(strtolower(trim($message)));
-		set_transient($cache_key, $response_text, 3600); // Cache for 1 hour
+	/**
+	 * Build system message with context
+	 * Implementation of abstract method
+	 *
+	 * @param string $context Website context
+	 * @return string System message
+	 * @since 1.0.0
+	 */
+	protected function build_system_message( $context ) {
+		$system_parts = array();
 
-		// Log the conversation
-		$this->log_conversation($conversation_id, $message, $response_text, $tokens_used, 'api');
+		// Add system prompt if available
+		$system_prompt = get_option( 'ai_chatbot_system_prompt', '' );
+		if ( ! empty( $system_prompt ) ) {
+			$system_parts[] = $system_prompt;
+		}
 
-		return array(
-			'response' => $response_text,
-			'tokens_used' => $tokens_used,
-			'model' => $model,
-			'source' => 'api'
+		// Add website context
+		if ( ! empty( $context ) && is_string( $context ) ) {
+			$system_parts[] = __( 'Website information:', 'ai-website-chatbot' ) . "\n" . $context;
+		}
+
+		return implode( "\n\n", $system_parts );
+	}
+
+	/**
+	 * Get cost per 1K tokens for a model
+	 * Implementation of abstract method
+	 *
+	 * @param string $model Model name
+	 * @return float Cost per 1K tokens
+	 * @since 1.0.0
+	 */
+	protected function get_model_cost( $model ) {
+		$costs = array(
+			'claude-3-haiku-20240307' => 0.00025,
+			'claude-3-sonnet-20240229' => 0.003,
+			'claude-3-opus-20240229' => 0.015,
+			'claude-3-5-sonnet-20241022' => 0.003
 		);
+
+		return $costs[ $model ] ?? 0.003;
 	}
 
-	/**
-	 * Helper method for session ID management in providers
-	 */
-	private function get_or_generate_session_id() {
-		// Check if session ID exists in cookie
-		$session_id = isset($_COOKIE['ai_chatbot_session']) ? sanitize_text_field($_COOKIE['ai_chatbot_session']) : '';
-		
-		// Validate existing session ID
-		if (!empty($session_id) && strlen($session_id) >= 20) {
-			return $session_id;
-		}
-		
-		// Generate new session ID
-		$security = new AI_Chatbot_Security();
-		$session_id = $security->generate_session_id();
-		
-		// Set cookie (valid for 7 days)
-		if (!headers_sent()) {
-			setcookie('ai_chatbot_session', $session_id, time() + (7 * 24 * 60 * 60), '/');
-		}
-		
-		return $session_id;
-	}
-
-	/**
-	 * Helper method to generate conversation ID
-	 */
-	private function generate_conversation_id($session_id) {
-		return $session_id . '_conv_' . time() . '_' . wp_generate_password(8, false, false);
-	}
-
-	private function check_training_data($message) {
-		global $wpdb;
-		
-		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
-		
-		// First check exact match (case-insensitive)
-		$result = $wpdb->get_var($wpdb->prepare(
-			"SELECT response FROM $table_name WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) AND status = 'active' LIMIT 1",
-			$message
-		));
-		
-		if ($result) {
-			error_log('Found exact training match for: ' . $message);
-			return $result;
-		}
-		
-		return new WP_Error('no_training_match', 'No exact training match found');
-	}
-
-	/**
-	 * Find similar training data using fuzzy matching
-	 */
-	private function find_similar_training($message, $similarity_threshold = 0.7) {
-		global $wpdb;
-		
-		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
-		
-		$training_data = $wpdb->get_results(
-			"SELECT question, response FROM $table_name WHERE status = 'active'",
-			ARRAY_A
-		);
-		
-		$best_match = null;
-		$best_similarity = 0;
-		
-		foreach ($training_data as $training_item) {
-			$similarity = $this->calculate_similarity($message, $training_item['question']);
-			
-			if ($similarity > $best_similarity && $similarity >= $similarity_threshold) {
-				$best_similarity = $similarity;
-				$best_match = array(
-					'response' => $training_item['response'],
-					'similarity' => $similarity,
-					'original_question' => $training_item['question']
-				);
-			}
-		}
-		
-		return $best_match ? $best_match : new WP_Error('no_similar_match', 'No similar training match found');
-	}
-
-	/**
-	 * Calculate similarity between two strings
-	 */
-	private function calculate_similarity($str1, $str2) {
-		// Simple Levenshtein distance based similarity
-		$distance = levenshtein(strtolower($str1), strtolower($str2));
-		$max_length = max(strlen($str1), strlen($str2));
-		
-		if ($max_length == 0) return 1.0;
-		
-		return 1 - ($distance / $max_length);
-	}
-
-	/**
-	 * Adapt training response for similar questions
-	 */
-	private function adapt_training_response($response, $original_message) {
-		// Simple adaptation - could be enhanced with AI
-		return $response;
-	}
-
-	/**
-	 * Get conversation history
-	 */
-	private function get_chat_conversation_history($conversation_id, $limit = 3) {
-		global $wpdb;
-		
-		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
-		
-		return $wpdb->get_results($wpdb->prepare(
-			"SELECT user_message, ai_response, created_at 
-			FROM $table_name 
-			WHERE conversation_id = %s 
-			ORDER BY created_at DESC 
-			LIMIT %d",
-			$conversation_id,
-			$limit
-		), ARRAY_A);
-	}
-
-	/**
-	 * Check cached response
-	 */
-	private function check_cached_response($query, $similarity_threshold = 0.8) {
-		$cache_key = 'ai_chatbot_' . $this->get_name() . '_response_' . md5(strtolower(trim($query)));
-		$cached = get_transient($cache_key);
-		
-		if ($cached) {
-			return array(
-				'cached' => true,
-				'response' => $cached,
-				'similarity' => 1.0
-			);
-		}
-		
-		return array('cached' => false);
-	}
-
-	/**
-	 * Log conversation to database
-	 */
-	private function log_conversation($conversation_id, $user_message, $ai_response, $tokens_used, $source) {
-		global $wpdb;
-		
-		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
-		
-		$wpdb->insert(
-			$table_name,
-			array(
-				'conversation_id' => $conversation_id,
-				'user_message' => $user_message,
-				'ai_response' => $ai_response,
-				'tokens_used' => $tokens_used,
-				'source' => $source,
-				'provider' => $this->get_name(),
-				'created_at' => current_time('mysql')
-			),
-			array('%s', '%s', '%s', '%d', '%s', '%s', '%s')
-		);
-	}
-
-	/**
-	 * Build enhanced system message with context
-	 */
-	private function build_system_message( $context = '' ) {
-		$system_prompt = get_option( 'ai_chatbot_system_prompt', $this->get_default_system_prompt() );
-		
-		if ( ! empty( $context ) ) {
-			if ( is_array( $context ) ) {
-				$context = implode( "\n\n", $context );
-			}
-			$system_prompt .= "\n\nWebsite Context:\n" . $context;
-		}
-		
-		return $system_prompt;
-	}
-
-	/**
-	 * Get default system prompt
-	 */
-	private function get_default_system_prompt() {
-		return "You are a helpful AI assistant for this website. Provide accurate, helpful, and concise responses based on the website content and context provided. Be friendly and professional.";
-	}
-
-	/**
-	 * Validate user message
-	 */
-	private function validate_message( $message ) {
-		if ( empty( trim( $message ) ) ) {
-			return new WP_Error( 'empty_message', __( 'Message cannot be empty.', 'ai-website-chatbot' ) );
-		}
-		
-		if ( strlen( $message ) > 4000 ) {
-			return new WP_Error( 'message_too_long', __( 'Message is too long. Please keep it under 4000 characters.', 'ai-website-chatbot' ) );
-		}
-		
-		return true;
-	}
+	// ==========================================
+	// INTERFACE IMPLEMENTATIONS (Provider-specific)
+	// ==========================================
 
 	/**
 	 * Get available models
 	 *
-	 * @return array Available models.
+	 * @return array Available models
 	 * @since 1.0.0
 	 */
 	public function get_available_models() {
 		return array(
-			// Claude 3.5 models (Latest)
-			'claude-3-5-sonnet-20241022' => array(
-				'name' => 'Claude 3.5 Sonnet (New)',
-				'description' => __( 'Latest Claude 3.5 Sonnet with improved coding and reasoning capabilities', 'ai-website-chatbot' ),
-				'max_tokens' => 8192,
-				'context_length' => 200000,
-				'cost_per_1k_input' => 3.00,
-				'cost_per_1k_output' => 15.00,
-				'supports_vision' => true,
-				'supports_function_calling' => true,
-			),
-			'claude-3-5-sonnet-20240620' => array(
-				'name' => 'Claude 3.5 Sonnet',
-				'description' => __( 'Most intelligent model, combining top-tier performance with improved speed', 'ai-website-chatbot' ),
-				'max_tokens' => 8192,
-				'context_length' => 200000,
-				'cost_per_1k_input' => 3.00,
-				'cost_per_1k_output' => 15.00,
-				'supports_vision' => true,
-				'supports_function_calling' => true,
-			),
-			'claude-3-5-haiku-20241022' => array(
-				'name' => 'Claude 3.5 Haiku',
-				'description' => __( 'Fastest model with improved instruction following and coding capabilities', 'ai-website-chatbot' ),
-				'max_tokens' => 8192,
-				'context_length' => 200000,
-				'cost_per_1k_input' => 0.80,
-				'cost_per_1k_output' => 4.00,
-				'supports_vision' => false,
-				'supports_function_calling' => true,
-			),
-			// Claude 3 models
-			'claude-3-opus-20240229' => array(
-				'name' => 'Claude 3 Opus',
-				'description' => __( 'Most powerful model for highly complex tasks', 'ai-website-chatbot' ),
-				'max_tokens' => 4096,
-				'context_length' => 200000,
-				'cost_per_1k_input' => 15.00,
-				'cost_per_1k_output' => 75.00,
-				'supports_vision' => true,
-				'supports_function_calling' => true,
-			),
-			'claude-3-sonnet-20240229' => array(
-				'name' => 'Claude 3 Sonnet',
-				'description' => __( 'Balanced performance and speed for enterprise workloads', 'ai-website-chatbot' ),
-				'max_tokens' => 4096,
-				'context_length' => 200000,
-				'cost_per_1k_input' => 3.00,
-				'cost_per_1k_output' => 15.00,
-				'supports_vision' => true,
-				'supports_function_calling' => true,
-			),
-			'claude-3-haiku-20240307' => array(
-				'name' => 'Claude 3 Haiku',
-				'description' => __( 'Fastest and most compact model for near-instant responsiveness', 'ai-website-chatbot' ),
-				'max_tokens' => 4096,
-				'context_length' => 200000,
-				'cost_per_1k_input' => 0.25,
-				'cost_per_1k_output' => 1.25,
-				'supports_vision' => true,
-				'supports_function_calling' => true,
-			),
+			'claude-3-haiku-20240307' => 'Claude 3 Haiku',
+			'claude-3-sonnet-20240229' => 'Claude 3 Sonnet',
+			'claude-3-opus-20240229' => 'Claude 3 Opus',
+			'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet'
 		);
 	}
 
 	/**
 	 * Get default model
 	 *
-	 * @return string Default model identifier.
+	 * @return string Default model identifier
 	 * @since 1.0.0
 	 */
 	public function get_default_model() {
@@ -557,346 +375,57 @@ class AI_Chatbot_Claude implements AI_Chatbot_Provider_Interface {
 	/**
 	 * Get provider configuration fields
 	 *
-	 * @return array Configuration fields.
+	 * @return array Configuration fields
 	 * @since 1.0.0
 	 */
 	public function get_config_fields() {
 		return array(
-			'ai_chatbot_claude_api_key' => array(
-				'label' => __( 'API Key', 'ai-website-chatbot' ),
+			'api_key' => array(
+				'label' => __('Claude API Key', 'ai-website-chatbot'),
 				'type' => 'password',
-				'description' => __( 'Your Anthropic Claude API key (starts with sk-ant-)', 'ai-website-chatbot' ),
-				'required' => true,
+				'description' => __('Your Anthropic Claude API key. Get it from https://console.anthropic.com/', 'ai-website-chatbot'),
+				'required' => true
 			),
-			'ai_chatbot_claude_model' => array(
-				'label' => __( 'Model', 'ai-website-chatbot' ),
+			'model' => array(
+				'label' => __('Model', 'ai-website-chatbot'),
 				'type' => 'select',
-				'options' => wp_list_pluck( $this->get_available_models(), 'name' ),
-				'description' => __( 'Choose the Claude model to use', 'ai-website-chatbot' ),
-				'default' => 'claude-3-haiku-20240307',
+				'options' => $this->get_available_models(),
+				'default' => $this->get_default_model(),
+				'description' => __('Choose the Claude model to use for responses.', 'ai-website-chatbot')
 			),
-			'ai_chatbot_claude_max_tokens' => array(
-				'label' => __( 'Max Tokens', 'ai-website-chatbot' ),
+			'max_tokens' => array(
+				'label' => __('Max Tokens', 'ai-website-chatbot'),
 				'type' => 'number',
-				'min' => 1,
-				'max' => 8192,
-				'description' => __( 'Maximum length of the response', 'ai-website-chatbot' ),
 				'default' => 300,
+				'min' => 50,
+				'max' => 4000,
+				'description' => __('Maximum number of tokens in the response.', 'ai-website-chatbot')
 			),
+			'temperature' => array(
+				'label' => __('Temperature', 'ai-website-chatbot'),
+				'type' => 'range',
+				'default' => 0.7,
+				'min' => 0,
+				'max' => 1,
+				'step' => 0.1,
+				'description' => __('Controls randomness: 0 is focused, 1 is creative.', 'ai-website-chatbot')
+			)
 		);
 	}
 
 	/**
-	 * Validate configuration
+	 * Get rate limits for Claude
+	 * Override base class with Claude-specific limits
 	 *
-	 * @param array $config Configuration values.
-	 * @return bool|WP_Error True if valid, WP_Error if invalid.
-	 * @since 1.0.0
-	 */
-	public function validate_config( $config ) {
-		$errors = array();
-
-		// Validate API key
-		if ( empty( $config['ai_chatbot_claude_api_key'] ) ) {
-			$errors[] = __( 'API key is required.', 'ai-website-chatbot' );
-		} elseif ( ! preg_match( '/^sk-ant-[a-zA-Z0-9_-]+$/', $config['ai_chatbot_claude_api_key'] ) ) {
-			$errors[] = __( 'Invalid API key format.', 'ai-website-chatbot' );
-		}
-
-		// Validate model
-		$available_models = array_keys( $this->get_available_models() );
-		if ( ! empty( $config['ai_chatbot_claude_model'] ) && ! in_array( $config['ai_chatbot_claude_model'], $available_models, true ) ) {
-			$errors[] = __( 'Invalid model selected.', 'ai-website-chatbot' );
-		}
-
-		// Validate max tokens
-		if ( isset( $config['ai_chatbot_claude_max_tokens'] ) ) {
-			$tokens = intval( $config['ai_chatbot_claude_max_tokens'] );
-			if ( $tokens < 1 || $tokens > 8192 ) {
-				$errors[] = __( 'Max tokens must be between 1 and 8192.', 'ai-website-chatbot' );
-			}
-		}
-
-		if ( ! empty( $errors ) ) {
-			return new WP_Error( 'validation_failed', implode( ' ', $errors ) );
-		}
-
-		return true;
-	}
-
-	/**
-	 * Get usage statistics
-	 *
-	 * @return array Usage statistics.
-	 * @since 1.0.0
-	 */
-	public function get_usage_stats() {
-		$stats = get_option( 'ai_chatbot_claude_usage_stats', array(
-			'total_requests' => 0,
-			'total_tokens' => 0,
-			'total_cost' => 0,
-			'last_request' => null,
-		) );
-
-		return $stats;
-	}
-
-	/**
-	 * Get rate limits
-	 *
-	 * @return array Rate limit information.
+	 * @return array Rate limit information
 	 * @since 1.0.0
 	 */
 	public function get_rate_limits() {
 		return array(
-			'requests_per_minute' => array(
-				'claude-3-haiku' => 1000,
-				'claude-3-sonnet' => 1000,
-				'claude-3-opus' => 1000,
-				'claude-3-5-sonnet' => 1000,
-			),
-			'tokens_per_minute' => array(
-				'claude-3-haiku' => 100000,
-				'claude-3-sonnet' => 80000,
-				'claude-3-opus' => 40000,
-				'claude-3-5-sonnet' => 80000,
-			),
-			'requests_per_day' => array(
-				'claude-3-haiku' => 1000000,
-				'claude-3-sonnet' => 1000000,
-				'claude-3-opus' => 1000000,
-				'claude-3-5-sonnet' => 1000000,
-			),
+			'requests_per_minute' => 1000,
+			'tokens_per_minute' => 100000,
+			'requests_per_day' => 5000,
+			'current_usage' => 0
 		);
-	}
-
-	/**
-	 * Get model information
-	 *
-	 * @param string $model_id Model identifier.
-	 * @return array|null Model information.
-	 * @since 1.0.0
-	 */
-	public function get_model_info( $model_id ) {
-		$models = $this->get_available_models();
-		return $models[ $model_id ] ?? null;
-	}
-
-	/**
-	 * Get provider status
-	 *
-	 * @return array Provider status information.
-	 * @since 1.0.0
-	 */
-	public function get_status() {
-		$status = array(
-			'configured' => $this->is_configured(),
-			'connection' => false,
-			'last_error' => null,
-			'usage_stats' => $this->get_usage_stats(),
-		);
-
-		if ( $status['configured'] ) {
-			$connection_test = $this->test_connection();
-			if ( is_wp_error( $connection_test ) ) {
-				$status['last_error'] = $connection_test->get_error_message();
-			} else {
-				$status['connection'] = true;
-			}
-		}
-
-		return $status;
-	}
-
-	/**
-	 * Reset usage statistics
-	 *
-	 * @return bool True if reset successful.
-	 * @since 1.0.0
-	 */
-	public function reset_usage_stats() {
-		$default_stats = array(
-			'total_requests' => 0,
-			'total_tokens' => 0,
-			'total_cost' => 0,
-			'last_request' => null,
-		);
-
-		update_option( 'ai_chatbot_claude_usage_stats', $default_stats );
-		delete_option( 'ai_chatbot_claude_usage_log' );
-
-		return true;
-	}
-
-	/**
-	 * Make API request to Claude
-	 *
-	 * @param string $endpoint API endpoint.
-	 * @param array  $data Request data.
-	 * @param string $method HTTP method.
-	 * @return array|WP_Error Response data or WP_Error if failed.
-	 * @since 1.0.0
-	 */
-	private function make_request( $endpoint, $data = array(), $method = 'POST' ) {
-		$url = $this->api_base . $endpoint;
-
-		$args = array(
-			'method' => $method,
-			'headers' => array(
-				'x-api-key' => $this->api_key,
-				'Content-Type' => 'application/json',
-				'anthropic-version' => '2023-06-01',
-				'User-Agent' => 'WordPress-AI-Chatbot/' . ( defined( 'AI_CHATBOT_VERSION' ) ? AI_CHATBOT_VERSION : '1.0.0' ),
-			),
-			'timeout' => 30,
-			'sslverify' => true,
-		);
-
-		if ( $method === 'POST' && ! empty( $data ) ) {
-			$args['body'] = wp_json_encode( $data );
-		}
-
-		$response = wp_remote_request( $url, $args );
-
-		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'request_failed', $response->get_error_message() );
-		}
-
-		$status_code = wp_remote_retrieve_response_code( $response );
-		$body = wp_remote_retrieve_body( $response );
-		$decoded_body = json_decode( $body, true );
-
-		if ( $status_code !== 200 ) {
-			$error_message = isset( $decoded_body['error']['message'] ) 
-				? $decoded_body['error']['message'] 
-				: sprintf( __( 'HTTP %d error', 'ai-website-chatbot' ), $status_code );
-				
-			return new WP_Error( 'api_error', $error_message, array( 'status_code' => $status_code ) );
-		}
-
-		if ( json_last_error() !== JSON_ERROR_NONE ) {
-			return new WP_Error( 'invalid_json', __( 'Invalid JSON response from Claude.', 'ai-website-chatbot' ) );
-		}
-
-		return $decoded_body;
-	}
-
-
-	/**
-	 * Format conversation history for API
-	 *
-	 * @param array $history Conversation history.
-	 * @return array Formatted messages.
-	 * @since 1.0.0
-	 */
-	private function format_conversation_history( $history ) {
-		$messages = array();
-		
-		foreach ( $history as $item ) {
-			$messages[] = array(
-				'role' => 'user',
-				'content' => $item['user_message'],
-			);
-			$messages[] = array(
-				'role' => 'assistant',
-				'content' => $item['bot_response'],
-			);
-		}
-
-		return $messages;
-	}
-
-	/**
-	 * Log API usage statistics
-	 *
-	 * @param array $response API response.
-	 * @since 1.0.0
-	 */
-	private function log_usage( $response ) {
-		if ( ! isset( $response['usage'] ) ) {
-			return;
-		}
-
-		$usage = $response['usage'];
-		$stats = get_option( 'ai_chatbot_claude_usage_stats', array(
-			'total_requests' => 0,
-			'total_tokens' => 0,
-			'total_cost' => 0,
-			'last_request' => null,
-		) );
-
-		$stats['total_requests']++;
-		$stats['total_tokens'] += $usage['output_tokens'] + $usage['input_tokens'];
-		$stats['last_request'] = current_time( 'mysql' );
-
-		// Estimate cost based on model
-		$model = $response['model'] ?? 'claude-3-haiku-20240307';
-		$cost_per_1k = $this->get_model_cost( $model );
-		$total_tokens = $usage['output_tokens'] + $usage['input_tokens'];
-		$stats['total_cost'] += ( $total_tokens / 1000 ) * $cost_per_1k;
-
-		update_option( 'ai_chatbot_claude_usage_stats', $stats );
-
-		// Log detailed usage for analytics
-		$this->log_detailed_usage( $response );
-	}
-
-	/**
-	 * Get cost per 1K tokens for a model
-	 *
-	 * @param string $model Model name.
-	 * @return float Cost per 1K tokens.
-	 * @since 1.0.0
-	 */
-	private function get_model_cost( $model ) {
-		$models = $this->get_available_models();
-		return $models[ $model ]['cost_per_1k'] ?? 0.25;
-	}
-
-	/**
-	 * Log detailed usage for analytics
-	 *
-	 * @param array $response API response.
-	 * @since 1.0.0
-	 */
-	private function log_detailed_usage( $response ) {
-		$usage_log = get_option( 'ai_chatbot_claude_usage_log', array() );
-		
-		$log_entry = array(
-			'timestamp' => current_time( 'mysql' ),
-			'model' => $response['model'] ?? '',
-			'input_tokens' => $response['usage']['input_tokens'] ?? 0,
-			'output_tokens' => $response['usage']['output_tokens'] ?? 0,
-			'total_tokens' => ( $response['usage']['input_tokens'] ?? 0 ) + ( $response['usage']['output_tokens'] ?? 0 ),
-		);
-
-		$usage_log[] = $log_entry;
-
-		// Keep only last 100 entries
-		if ( count( $usage_log ) > 100 ) {
-			$usage_log = array_slice( $usage_log, -100 );
-		}
-
-		update_option( 'ai_chatbot_claude_usage_log', $usage_log );
-	}
-
-	private function get_model() {
-		$main_settings = get_option('ai_chatbot_settings', array());
-		
-		if (!empty($main_settings['model']) && $main_settings['ai_provider'] === 'claude') {
-			return $main_settings['model'];
-		}
-		
-		return get_option('ai_chatbot_claude_model', 'claude-3-haiku-20240307');
-	}
-
-	private function get_max_tokens() {
-		$main_settings = get_option('ai_chatbot_settings', array());
-		
-		if (isset($main_settings['max_tokens']) && $main_settings['ai_provider'] === 'claude') {
-			return intval($main_settings['max_tokens']);
-		}
-		
-		return intval(get_option('ai_chatbot_claude_max_tokens', 300));
 	}
 }

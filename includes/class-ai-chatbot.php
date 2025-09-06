@@ -104,6 +104,7 @@ class AI_Chatbot {
 
         // Load AI provider classes
         require_once AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-provider-interface.php';
+        require_once AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-provider-base.php';
         require_once AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-openai.php';
         require_once AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-claude.php';
         require_once AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-gemini.php';
