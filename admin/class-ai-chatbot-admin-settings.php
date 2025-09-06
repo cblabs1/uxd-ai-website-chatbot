@@ -547,6 +547,7 @@ class AI_Chatbot_Admin_Settings {
             $new_settings = $form_data['ai_chatbot_settings'];
             
             // Get current settings to merge with new ones
+            
             $current_settings = get_option('ai_chatbot_settings', array());
             
             // Merge current settings with new settings
@@ -588,6 +589,13 @@ class AI_Chatbot_Admin_Settings {
             error_log('AI Chatbot: Merged settings: ' . print_r($updated_settings, true));
             
             // Save the complete settings array as one option
+            $current_check = get_option('ai_chatbot_settings', array());
+            if ($current_check === $updated_settings) {
+                error_log('AI Chatbot: Settings unchanged, but counting as success');
+                wp_send_json_success(__('Settings are up to date!', 'ai-website-chatbot'));
+                return; // Add this return statement
+            }
+            
             $save_result = update_option('ai_chatbot_settings', $updated_settings);
             
             if ($save_result) {
