@@ -199,12 +199,15 @@ class AI_Chatbot_Activator {
 			intent varchar(255) DEFAULT '',
 			tags text DEFAULT '',
 			status varchar(20) DEFAULT 'active',
+			source varchar(20) DEFAULT 'manual',
+			source_id bigint(20) unsigned DEFAULT NULL,
 			user_id bigint(20) unsigned DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			KEY idx_status (status),
 			KEY idx_intent (intent),
+			KEY idx_source_id (source_id),
 			KEY idx_user_id (user_id),
 			KEY idx_created_at (created_at)
 		) $charset_collate;";
@@ -214,6 +217,7 @@ class AI_Chatbot_Activator {
 		dbDelta($sql_content);
 		dbDelta($sql_training);
 		dbDelta($sql_training_data);
+		dbDelta($sql_questions_data);
 
 		// Store database version for future upgrades
 		update_option('ai_chatbot_db_version', '1.2.0');

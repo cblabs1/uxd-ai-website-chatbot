@@ -125,6 +125,64 @@ class AI_Chatbot_Content_Sync {
 	}
 
 	/**
+	 * Train from synced content data
+	 */
+	public function train_from_synced_content($limit = 100) {
+		global $wpdb;
+		
+		$content_table = $wpdb->prefix . 'ai_chatbot_content';
+		$training_table = $wpdb->prefix . 'ai_chatbot_training_data';
+		
+		// Get synced content
+		$content = $wpdb->get_results($wpdb->prepare(
+			"SELECT * FROM {$content_table} ORDER BY updated_at DESC LIMIT %d",
+			$limit
+		));
+		
+		if (empty($content)) {
+			return new WP_Error('no_content', __('No synced content found. Please sync content first.', 'ai-website-chatbot'));
+		}
+		
+		$trained = 0;
+		
+		foreach ($content as $item) {
+			// Create single training entry per content
+			$question = $item->title;
+			$answer = $item->content . "\n\nSource: " . $item->url;
+			
+			// Check if already exists
+			$exists = $wpdb->get_var($wpdb->prepare(
+				"SELECT id FROM {$training_table} WHERE source = 'website_content' AND source_id = %d",
+				$item->id
+			));
+			
+			if ($exists) {
+				// Update existing
+				$wpdb->update($training_table, [
+					'question' => $question,
+					'answer' => $answer,
+					'intent' => 'website-information',
+					'updated_at' => current_time('mysql')
+				], ['id' => $exists]);
+			} else {
+				// Insert new
+				$wpdb->insert($training_table, [
+					'question' => $question,
+					'answer' => $answer,
+					'source' => 'website_content',
+					'source_id' => $item->id,
+					'status' => 'active',
+					'created_at' => current_time('mysql'),
+					'updated_at' => current_time('mysql')
+				]);
+			}
+			$trained++;
+		}
+		
+		return ['trained' => $trained, 'total' => count($content)];
+	}
+
+	/**
 	 * Sync single post content
 	 *
 	 * @param int     $post_id Post ID.

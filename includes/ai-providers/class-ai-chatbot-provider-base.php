@@ -222,47 +222,138 @@ abstract class AI_Chatbot_Provider_Base implements AI_Chatbot_Provider_Interface
      * @param string $message User message
      * @return array|WP_Error Similar training data or error
      */
-    protected function find_similar_training($message, $similarity_threshold = 0.7) {
+    protected function find_similar_training($message) {
         global $wpdb;
-		
-		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
-		
-		$training_data = $wpdb->get_results(
-			"SELECT question, answer FROM $table_name WHERE status = 'active'",
-			ARRAY_A
-		);
-		
-		$best_match = null;
-		$best_similarity = 0;
-		
-		foreach ($training_data as $training_item) {
-			$similarity = $this->calculate_similarity($message, $training_item['question']);
-			
-			if ($similarity > $best_similarity && $similarity >= $similarity_threshold) {
-				$best_similarity = $similarity;
-				$best_match = array(
-					'response' => $training_item['answer'],
-					'similarity' => $similarity,
-					'original_question' => $training_item['question']
-				);
-			}
-		}
-		
-		return $best_match ? $best_match : new WP_Error('no_similar_match', 'No similar training match found');
+    
+        $table_name = $wpdb->prefix . 'ai_chatbot_training_data';
+        
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+            return new WP_Error('no_training_table', 'Training table does not exist');
+        }
+        
+        // Get similarity threshold from settings
+        $settings = get_option('ai_chatbot_settings', array());
+        $similarity_threshold = floatval($settings['temperature'] ?? 0.3);
+        
+        error_log("AI Training: Using similarity threshold: $similarity_threshold");
+        
+        // Extract keywords from user message
+        $search_keywords = $this->extract_keywords($message);
+        
+        if (empty($search_keywords)) {
+            error_log("AI Training: No keywords extracted from: $message");
+            return new WP_Error('no_keywords', 'No searchable keywords found');
+        }
+        
+        error_log("AI Training: Extracted keywords: " . implode(', ', $search_keywords));
+        
+        // Get all training data for similarity comparison
+        $training_data = $wpdb->get_results(
+            "SELECT question, answer as response FROM {$table_name} WHERE status = 'active'",
+            ARRAY_A
+        );
+        
+        if (empty($training_data)) {
+            return new WP_Error('no_training_data', 'No active training data available');
+        }
+        
+        $best_match = null;
+        $best_similarity = 0;
+        
+        foreach ($training_data as $training_item) {
+            // Calculate similarity using both question and answer
+            $question_similarity = $this->calculate_enhanced_similarity($message, $training_item['question']);
+            $answer_similarity = $this->calculate_enhanced_similarity($message, $training_item['response']) * 0.5; // Weight answer less
+            
+            $combined_similarity = max($question_similarity, $answer_similarity);
+            
+            if ($combined_similarity > $best_similarity && $combined_similarity >= $similarity_threshold) {
+                $best_similarity = $combined_similarity;
+                $best_match = array(
+                    'response' => $training_item['response'],
+                    'similarity' => $combined_similarity,
+                    'original_question' => $training_item['question']
+                );
+            }
+        }
+        
+        if ($best_match) {
+            error_log("AI Training: Found match with similarity: {$best_match['similarity']} for question: {$best_match['original_question']}");
+            return $best_match;
+        }
+        
+        error_log("AI Training: No match found above threshold $similarity_threshold (best was $best_similarity)");
+        return new WP_Error('no_similar_match', 'No similar training match found');
     }
 
     /**
 	 * Calculate similarity between two strings
 	 */
-	private function calculate_similarity($str1, $str2) {
-		// Simple Levenshtein distance based similarity
-		$distance = levenshtein(strtolower($str1), strtolower($str2));
-		$max_length = max(strlen($str1), strlen($str2));
-		
-		if ($max_length == 0) return 1.0;
-		
-		return 1 - ($distance / $max_length);
+	private function calculate_enhanced_similarity($str1, $str2) {
+		$str1 = strtolower(trim($str1));
+        $str2 = strtolower(trim($str2));
+        
+        if ($str1 === $str2) {
+            return 1.0;
+        }
+        
+        // Method 1: Keyword overlap similarity
+        $keywords1 = $this->extract_keywords($str1);
+        $keywords2 = $this->extract_keywords($str2);
+        
+        if (empty($keywords1) || empty($keywords2)) {
+            $keyword_similarity = 0;
+        } else {
+            $common_keywords = array_intersect($keywords1, $keywords2);
+            $total_keywords = array_unique(array_merge($keywords1, $keywords2));
+            $keyword_similarity = count($common_keywords) / count($total_keywords);
+        }
+        
+        // Method 2: Substring matching
+        $substring_similarity = 0;
+        foreach ($keywords1 as $keyword) {
+            if (strpos($str2, $keyword) !== false) {
+                $substring_similarity += 0.2; // Each matching keyword adds 20%
+            }
+        }
+        $substring_similarity = min($substring_similarity, 1.0);
+        
+        // Method 3: Levenshtein distance (for exact phrase matching)
+        $distance = levenshtein($str1, $str2);
+        $max_length = max(strlen($str1), strlen($str2));
+        $levenshtein_similarity = $max_length > 0 ? 1 - ($distance / $max_length) : 1;
+        
+        // Combine all methods - prioritize keyword and substring matching
+        $combined_similarity = max(
+            $keyword_similarity * 0.6 + $substring_similarity * 0.4,  // Keyword-based (primary)
+            $levenshtein_similarity * 0.3                              // Exact matching (secondary)
+        );
+        
+        return $combined_similarity;
 	}
+
+    /**
+     * Extract meaningful keywords from text
+     */
+    protected function extract_keywords($text) {
+        // Enhanced stop words list
+        $stop_words = [
+            'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 
+            'about', 'tell', 'me', 'what', 'how', 'can', 'you', 'please', 'is', 'are', 'was', 
+            'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 
+            'could', 'should', 'may', 'might', 'must', 'this', 'that', 'these', 'those'
+        ];
+        
+        // Extract words (letters and numbers only)
+        $words = preg_split('/[^\w]+/', strtolower(trim($text)));
+        
+        // Filter meaningful keywords
+        $keywords = array_filter($words, function($word) use ($stop_words) {
+            return strlen($word) > 2 && !in_array($word, $stop_words) && !is_numeric($word);
+        });
+        
+        return array_values(array_unique($keywords));
+    }
 
     /**
      * Adapt training response to current message

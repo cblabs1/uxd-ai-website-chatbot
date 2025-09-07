@@ -34,6 +34,7 @@ class AI_Chatbot_Admin_Settings {
         add_action('wp_ajax_ai_chatbot_reset_settings', array($this, 'ajax_reset_settings'));
         add_action('wp_ajax_ai_chatbot_test_api_connection', array($this, 'ajax_test_api_connection'));
         add_action('wp_ajax_ai_chatbot_sync_content', array($this, 'ajax_sync_content'));
+        add_action('wp_ajax_ai_chatbot_train_website_data', array($this, 'ajax_train_website_data'));
     }
     
     /**
@@ -821,12 +822,39 @@ class AI_Chatbot_Admin_Settings {
         }
         
         $content_sync = new AI_Chatbot_Content_Sync();
-        $result = $content_sync->sync_content();
+        $result = $content_sync->sync_website_content();
         
         if ($result) {
             wp_send_json_success(__('Content synchronized successfully!', 'ai-website-chatbot'));
         } else {
             wp_send_json_error(__('Content synchronization failed', 'ai-website-chatbot'));
+        }
+    }
+
+    /**
+     * AJAX: Train from website data
+     */
+    public function ajax_train_website_data() {
+        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+        }
+        
+        if (!class_exists('AI_Chatbot_Content_Sync')) {
+            require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot-content-sync.php';
+        }
+        
+        $content_sync = new AI_Chatbot_Content_Sync();
+        $result = $content_sync->train_from_synced_content();
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(sprintf(
+                __('Training completed! Created %d training entries from website content.', 'ai-website-chatbot'),
+                $result['trained']
+            ));
         }
     }
     

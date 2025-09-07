@@ -393,7 +393,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                             <option value="daily" <?php selected($settings['content_sync']['sync_frequency'], 'daily'); ?>><?php _e('Daily', 'ai-website-chatbot'); ?></option>
                             <option value="weekly" <?php selected($settings['content_sync']['sync_frequency'], 'weekly'); ?>><?php _e('Weekly', 'ai-website-chatbot'); ?></option>
                         </select>
-                        <button type="button" class="button sync-content-now"><?php _e('Sync Now', 'ai-website-chatbot'); ?></button>
+                        <button type="button" class="button sync-content-now"><?php _e('Sync Content', 'ai-website-chatbot'); ?></button>
                         <p class="description">
                             <?php _e('How often to automatically sync content.', 'ai-website-chatbot'); ?>
                             <?php 
@@ -403,6 +403,14 @@ $settings = wp_parse_args($all_settings, $default_settings);
                             }
                             ?>
                         </p>
+                    </td>
+                </tr>
+
+                <tr class="content-sync-settings">
+                    <th scope="row"><?php _e('Website Data Training', 'ai-website-chatbot'); ?></th>
+                    <td>
+                        <button type="button" class="button button-primary train-website-data"><?php _e('Train from Website Data', 'ai-website-chatbot'); ?></button>
+                        <p class="description"><?php _e('First sync content, then train AI from synced website data.', 'ai-website-chatbot'); ?></p>
                     </td>
                 </tr>
                 

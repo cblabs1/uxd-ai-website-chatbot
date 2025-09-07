@@ -49,6 +49,9 @@
             
             // Sync content manually
             $(document).on('click', '.sync-content-now', this.syncContentNow);
+
+            // Train Website Manually
+            $(document).on('click', '.train-website-data', this.trainWebsiteNow);
             
             // Clear cache
             $(document).on('click', '.clear-cache', this.clearCache);
@@ -394,6 +397,34 @@
                 complete: function() {
                     $button.prop('disabled', false).text('Sync Now');
                 }
+            });
+        },
+
+        /**
+         * 
+         * Train Ai with website Data 
+         */
+        trainWebsiteNow:function(e){
+            e.preventDefault();
+            const $button = $(this);
+            $button.prop('disabled', true).text('Training...');
+            
+            $.post(ajaxurl, {
+                action: 'ai_chatbot_train_website_data',
+                nonce: aiChatbotAdmin.nonce
+            })
+            .done(function(response) {
+                if (response.success) {
+                    AIChatbotAdmin.showNotification(response.data, 'success');
+                } else {
+                    AIChatbotAdmin.showNotification(response.data, 'error');
+                }
+            })
+            .fail(function() {
+                AIChatbotAdmin.showNotification('Training failed', 'error');
+            })
+            .always(function() {
+                $button.prop('disabled', false).text('Train from Website Data');
             });
         },
         
