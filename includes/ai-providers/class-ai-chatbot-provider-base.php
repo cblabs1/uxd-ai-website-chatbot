@@ -201,158 +201,241 @@ abstract class AI_Chatbot_Provider_Base implements AI_Chatbot_Provider_Interface
         
         $table_name = $wpdb->prefix . 'ai_chatbot_training_data';
         
-        // First check exact match (case-insensitive)
-		$result = $wpdb->get_var($wpdb->prepare(
-			"SELECT answer FROM $table_name WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) AND status = 'active' LIMIT 1",
-			$message
-		));
-		
-		if ($result) {
-			error_log('Found exact training match for: ' . $message);
-			return $result;
-		}
-		
-		return new WP_Error('no_training_match', 'No exact training match found');
+        // Decode HTML entities in the user message
+        $decoded_message = $this->decode_html_entities($message);
         
+        // First check exact match with decoded message
+        $result = $wpdb->get_var($wpdb->prepare(
+            "SELECT answer FROM $table_name WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) AND status = 'active' LIMIT 1",
+            $decoded_message
+        ));
+        
+        if ($result) {
+            error_log('Found exact training match for decoded message: ' . $decoded_message);
+            // Decode HTML entities in the response too
+            return $this->decode_html_entities($result);
+        }
+        
+        // Also try with original message (in case training data doesn't have entities)
+        if ($decoded_message !== $message) {
+            $result = $wpdb->get_var($wpdb->prepare(
+                "SELECT answer FROM $table_name WHERE LOWER(TRIM(question)) = LOWER(TRIM(%s)) AND status = 'active' LIMIT 1",
+                $message
+            ));
+            
+            if ($result) {
+                error_log('Found exact training match for original message: ' . $message);
+                return $this->decode_html_entities($result);
+            }
+        }
+        
+        return new WP_Error('no_training_match', 'No exact training match found');
     }
-
     /**
      * Find similar training data
      *
      * @param string $message User message
      * @return array|WP_Error Similar training data or error
      */
-    protected function find_similar_training($message) {
+    protected function find_similar_training($message, $similarity_threshold = 0.6) {
         global $wpdb;
-    
+        
         $table_name = $wpdb->prefix . 'ai_chatbot_training_data';
         
-        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-            return new WP_Error('no_training_table', 'Training table does not exist');
-        }
+        // Decode HTML entities in the user message
+        $decoded_message = $this->decode_html_entities($message);
         
-        // Get similarity threshold from settings
-        $settings = get_option('ai_chatbot_settings', array());
-        $similarity_threshold = floatval($settings['temperature'] ?? 0.3);
-        
-        error_log("AI Training: Using similarity threshold: $similarity_threshold");
-        
-        // Extract keywords from user message
-        $search_keywords = $this->extract_keywords($message);
-        
-        if (empty($search_keywords)) {
-            error_log("AI Training: No keywords extracted from: $message");
-            return new WP_Error('no_keywords', 'No searchable keywords found');
-        }
-        
-        error_log("AI Training: Extracted keywords: " . implode(', ', $search_keywords));
-        
-        // Get all training data for similarity comparison
         $training_data = $wpdb->get_results(
-            "SELECT question, answer as response FROM {$table_name} WHERE status = 'active'",
+            "SELECT question, answer, intent FROM $table_name WHERE status = 'active'",
             ARRAY_A
         );
-        
-        if (empty($training_data)) {
-            return new WP_Error('no_training_data', 'No active training data available');
-        }
         
         $best_match = null;
         $best_similarity = 0;
         
         foreach ($training_data as $training_item) {
-            // Calculate similarity using both question and answer
-            $question_similarity = $this->calculate_enhanced_similarity($message, $training_item['question']);
-            $answer_similarity = $this->calculate_enhanced_similarity($message, $training_item['response']) * 0.5; // Weight answer less
+            // Decode HTML entities in training question
+            $decoded_question = $this->decode_html_entities($training_item['question']);
             
-            $combined_similarity = max($question_similarity, $answer_similarity);
+            // Calculate similarity with decoded text
+            $similarity = $this->calculate_semantic_similarity($decoded_message, $decoded_question);
             
-            if ($combined_similarity > $best_similarity && $combined_similarity >= $similarity_threshold) {
-                $best_similarity = $combined_similarity;
+            if ($similarity > $best_similarity && $similarity >= $similarity_threshold) {
+                $best_similarity = $similarity;
                 $best_match = array(
-                    'response' => $training_item['response'],
-                    'similarity' => $combined_similarity,
-                    'original_question' => $training_item['question']
+                    'response' => $this->decode_html_entities($training_item['answer']),
+                    'similarity' => $similarity,
+                    'original_question' => $decoded_question
                 );
             }
         }
         
-        if ($best_match) {
-            error_log("AI Training: Found match with similarity: {$best_match['similarity']} for question: {$best_match['original_question']}");
-            return $best_match;
-        }
-        
-        error_log("AI Training: No match found above threshold $similarity_threshold (best was $best_similarity)");
-        return new WP_Error('no_similar_match', 'No similar training match found');
+        return $best_match ? $best_match : new WP_Error('no_similar_match', 'No similar training match found');
     }
 
     /**
 	 * Calculate similarity between two strings
 	 */
-	private function calculate_enhanced_similarity($str1, $str2) {
-		$str1 = strtolower(trim($str1));
-        $str2 = strtolower(trim($str2));
-        
-        if ($str1 === $str2) {
-            return 1.0;
-        }
-        
-        // Method 1: Keyword overlap similarity
+    private function calculate_semantic_similarity($str1, $str2) {
+        // Extract keywords from both strings
         $keywords1 = $this->extract_keywords($str1);
         $keywords2 = $this->extract_keywords($str2);
         
         if (empty($keywords1) || empty($keywords2)) {
-            $keyword_similarity = 0;
-        } else {
-            $common_keywords = array_intersect($keywords1, $keywords2);
-            $total_keywords = array_unique(array_merge($keywords1, $keywords2));
-            $keyword_similarity = count($common_keywords) / count($total_keywords);
+            // Fallback to simple Levenshtein if no keywords
+            $distance = levenshtein(strtolower($str1), strtolower($str2));
+            $max_length = max(strlen($str1), strlen($str2));
+            return $max_length > 0 ? 1 - ($distance / $max_length) : 0;
         }
         
-        // Method 2: Substring matching
-        $substring_similarity = 0;
-        foreach ($keywords1 as $keyword) {
-            if (strpos($str2, $keyword) !== false) {
-                $substring_similarity += 0.2; // Each matching keyword adds 20%
-            }
-        }
-        $substring_similarity = min($substring_similarity, 1.0);
+        // Calculate keyword overlap
+        $common_keywords = array_intersect($keywords1, $keywords2);
+        $keyword_score = count($common_keywords) / max(count($keywords1), count($keywords2));
         
-        // Method 3: Levenshtein distance (for exact phrase matching)
-        $distance = levenshtein($str1, $str2);
-        $max_length = max(strlen($str1), strlen($str2));
-        $levenshtein_similarity = $max_length > 0 ? 1 - ($distance / $max_length) : 1;
+        // Check for synonyms
+        $synonym_score = $this->calculate_synonym_overlap($keywords1, $keywords2);
         
-        // Combine all methods - prioritize keyword and substring matching
-        $combined_similarity = max(
-            $keyword_similarity * 0.6 + $substring_similarity * 0.4,  // Keyword-based (primary)
-            $levenshtein_similarity * 0.3                              // Exact matching (secondary)
-        );
-        
-        return $combined_similarity;
-	}
+        // Combine scores
+        return max($keyword_score, $synonym_score);
+    }
 
     /**
-     * Extract meaningful keywords from text
+     * Extract keywords from text - ADD this NEW method
      */
-    protected function extract_keywords($text) {
-        // Enhanced stop words list
-        $stop_words = [
-            'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 
-            'about', 'tell', 'me', 'what', 'how', 'can', 'you', 'please', 'is', 'are', 'was', 
-            'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 
-            'could', 'should', 'may', 'might', 'must', 'this', 'that', 'these', 'those'
-        ];
+    private function extract_keywords($text) {
+        // Convert to lowercase and remove punctuation
+        $text = strtolower(preg_replace('/[^\w\s]/', ' ', $text));
         
-        // Extract words (letters and numbers only)
-        $words = preg_split('/[^\w]+/', strtolower(trim($text)));
+        // Split into words
+        $words = array_filter(explode(' ', $text));
         
-        // Filter meaningful keywords
+        // Remove common stop words
+        $stop_words = array('the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'but', 'in', 'with', 'to', 'for', 'of', 'as', 'by', 'that', 'this', 'it', 'from', 'are', 'was', 'will', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'can', 'could', 'would', 'should', 'what', 'where', 'when', 'how', 'why', 'who');
+        
         $keywords = array_filter($words, function($word) use ($stop_words) {
-            return strlen($word) > 2 && !in_array($word, $stop_words) && !is_numeric($word);
+            return strlen($word) > 2 && !in_array($word, $stop_words);
         });
         
-        return array_values(array_unique($keywords));
+        return array_values($keywords);
+    }
+
+    /**
+     * Calculate synonym overlap - ADD this NEW method
+     */
+    private function calculate_synonym_overlap($keywords1, $keywords2) {
+        $synonym_map = array(
+            'price' => array('cost', 'pricing', 'fee', 'rate', 'charge', 'amount', 'money'),
+            'cost' => array('price', 'pricing', 'fee', 'rate', 'charge', 'amount', 'money'),
+            'buy' => array('purchase', 'order', 'get', 'acquire'),
+            'help' => array('support', 'assistance', 'aid'),
+            'contact' => array('reach', 'connect', 'touch', 'call'),
+            'service' => array('offering', 'solution', 'product'),
+            'company' => array('business', 'organization', 'firm'),
+        );
+        
+        $synonym_matches = 0;
+        $total_comparisons = 0;
+        
+        foreach ($keywords1 as $keyword1) {
+            foreach ($keywords2 as $keyword2) {
+                $total_comparisons++;
+                
+                // Direct match
+                if ($keyword1 === $keyword2) {
+                    $synonym_matches++;
+                    continue;
+                }
+                
+                // Check synonyms
+                if (isset($synonym_map[$keyword1]) && in_array($keyword2, $synonym_map[$keyword1])) {
+                    $synonym_matches++;
+                } elseif (isset($synonym_map[$keyword2]) && in_array($keyword1, $synonym_map[$keyword2])) {
+                    $synonym_matches++;
+                }
+            }
+        }
+        
+        return $total_comparisons > 0 ? $synonym_matches / $total_comparisons : 0;
+    }
+
+    /**
+     * Get relevant website content - ADD this NEW method
+     */
+    protected function get_relevant_website_content($message, $limit = 3) {
+        global $wpdb;
+        
+        $content_table = $wpdb->prefix . 'ai_chatbot_content';
+        $keywords = $this->extract_keywords($message);
+        
+        if (empty($keywords)) {
+            return array();
+        }
+        
+        // Build search conditions
+        $search_conditions = array();
+        $search_values = array();
+        
+        foreach ($keywords as $keyword) {
+            $search_conditions[] = "(title LIKE %s OR content LIKE %s)";
+            $search_values[] = '%' . $wpdb->esc_like($keyword) . '%';
+            $search_values[] = '%' . $wpdb->esc_like($keyword) . '%';
+        }
+        
+        $search_query = "SELECT title, content, url 
+                         FROM $content_table 
+                         WHERE " . implode(' OR ', $search_conditions) . "
+                         ORDER BY updated_at DESC 
+                         LIMIT %d";
+        
+        $search_values[] = $limit;
+        
+        $relevant_content = $wpdb->get_results($wpdb->prepare($search_query, ...$search_values), ARRAY_A);
+        
+        return $relevant_content;
+    }
+
+    /**
+     * Build enhanced context for AI - ADD this NEW method
+     */
+    protected function build_enhanced_context($message, $additional_context = '') {
+        $context_parts = array();
+        
+        // Add website basic info
+        $context_parts[] = "WEBSITE: " . get_bloginfo('name');
+        $context_parts[] = "URL: " . home_url();
+        $context_parts[] = "DESCRIPTION: " . get_bloginfo('description');
+        $context_parts[] = "";
+        
+        // Get relevant website content
+        $relevant_content = $this->get_relevant_website_content($message, 2);
+        
+        if (!empty($relevant_content)) {
+            $context_parts[] = "RELEVANT WEBSITE CONTENT:";
+            foreach ($relevant_content as $content) {
+                $context_parts[] = "- " . $content['title'];
+                // Limit content to first 200 characters
+                $short_content = substr(strip_tags($content['content']), 0, 200);
+                if (strlen($content['content']) > 200) {
+                    $short_content .= '...';
+                }
+                $context_parts[] = $short_content;
+                $context_parts[] = "";
+            }
+        }
+        
+        // Add instructions
+        $context_parts[] = "INSTRUCTIONS:";
+        $context_parts[] = "- You are a helpful assistant for " . get_bloginfo('name');
+        $context_parts[] = "- Use the website content above to provide specific, accurate answers";
+        $context_parts[] = "- If asked about pricing/cost/price, refer to the website content for specific details";
+        $context_parts[] = "- Be friendly and professional";
+        $context_parts[] = "";
+        
+        if (!empty($additional_context)) {
+            $context_parts[] = $additional_context;
+        }
+        
+        return implode("\n", $context_parts);
     }
 
     /**
@@ -363,8 +446,21 @@ abstract class AI_Chatbot_Provider_Base implements AI_Chatbot_Provider_Interface
      * @return string Adapted response
      */
     protected function adapt_training_response($training_response, $current_message) {
-        // Simple adaptation - can be made more sophisticated
-        return $training_response;
+        // Simple adaptations for common scenarios
+        $adaptations = array(
+            'our product' => get_bloginfo('name') . "'s product",
+            'our service' => get_bloginfo('name') . "'s service", 
+            'our company' => get_bloginfo('name'),
+            'we offer' => get_bloginfo('name') . ' offers',
+            'contact us' => 'contact ' . get_bloginfo('name'),
+        );
+        
+        $adapted_response = $training_response;
+        foreach ($adaptations as $generic => $specific) {
+            $adapted_response = str_ireplace($generic, $specific, $adapted_response);
+        }
+        
+        return $adapted_response;
     }
 
     // ==========================================
@@ -504,6 +600,351 @@ abstract class AI_Chatbot_Provider_Base implements AI_Chatbot_Provider_Interface
         }
 
         update_option($stats_option, $stats);
+    }
+
+    /**
+     * Comprehensive HTML entity decoder
+     */
+    protected function decode_html_entities($text) {
+        // First use PHP's built-in decoder
+        $decoded = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        
+        // Comprehensive entity map for additional coverage
+        $entity_map = array(
+            // CURRENCY SYMBOLS
+            '&#8377;' => '₹',     // Indian Rupee
+            '&#36;'   => '$',     // Dollar
+            '&#8364;' => '€',     // Euro
+            '&#163;'  => '£',     // British Pound
+            '&#165;'  => '¥',     // Japanese Yen
+            '&#162;'  => '¢',     // Cent
+            '&#8359;' => '₧',     // Peseta
+            '&#8361;' => '₩',     // Korean Won
+            '&#8360;' => '₨',     // Rupee
+            '&#8362;' => '₪',     // Shekel
+            '&#8363;' => '₫',     // Vietnamese Dong
+            '&#8364;' => '€',     // Euro
+            '&#8365;' => '₭',     // Kip
+            '&#8366;' => '₮',     // Tugrik
+            '&#8367;' => '₯',     // Drachma
+            '&#8368;' => '₰',     // German Penny
+            '&#8369;' => '₱',     // Peso
+            '&#8370;' => '₲',     // Guarani
+            '&#8371;' => '₳',     // Austral
+            '&#8372;' => '₴',     // Hryvnia
+            '&#8373;' => '₵',     // Cedi
+            '&#8374;' => '₶',     // Livre Tournois
+            '&#8375;' => '₷',     // Spesmilo
+            '&#8376;' => '₸',     // Tenge
+            '&#8378;' => '₺',     // Turkish Lira
+            '&#8379;' => '₻',     // Nordic Mark
+            '&#8380;' => '₼',     // Manat
+            '&#8381;' => '₽',     // Russian Ruble
+            
+            // QUOTATION MARKS & APOSTROPHES
+            '&#8216;' => "'",     // Left single quotation mark  
+            '&#8217;' => "'",     // Right single quotation mark
+            '&#8218;' => '‚',     // Single low-9 quotation mark
+            '&#8219;' => '‛',     // Single high-reversed-9 quotation mark
+            '&#8220;' => '"',     // Left double quotation mark
+            '&#8221;' => '"',     // Right double quotation mark
+            '&#8222;' => '„',     // Double low-9 quotation mark
+            '&#8223;' => '‟',     // Double high-reversed-9 quotation mark
+            '&#171;'  => '«',     // Left-pointing double angle quotation mark
+            '&#187;'  => '»',     // Right-pointing double angle quotation mark
+            '&#8249;' => '‹',     // Single left-pointing angle quotation mark
+            '&#8250;' => '›',     // Single right-pointing angle quotation mark
+            
+            // DASHES & HYPHENS
+            '&#8208;' => '‐',     // Hyphen
+            '&#8209;' => '‑',     // Non-breaking hyphen
+            '&#8210;' => '‒',     // Figure dash
+            '&#8211;' => '–',     // En dash
+            '&#8212;' => '—',     // Em dash
+            '&#8213;' => '―',     // Horizontal bar
+            '&#45;'   => '-',     // Hyphen-minus
+            
+            // MATHEMATICAL SYMBOLS
+            '&#215;'  => '×',     // Multiplication sign
+            '&#247;'  => '÷',     // Division sign
+            '&#177;'  => '±',     // Plus-minus sign
+            '&#8722;' => '−',     // Minus sign
+            '&#8804;' => '≤',     // Less-than or equal to
+            '&#8805;' => '≥',     // Greater-than or equal to
+            '&#8800;' => '≠',     // Not equal to
+            '&#8776;' => '≈',     // Almost equal to
+            '&#8734;' => '∞',     // Infinity
+            '&#8730;' => '√',     // Square root
+            '&#8747;' => '∫',     // Integral
+            '&#8721;' => '∑',     // N-ary summation
+            '&#8719;' => '∏',     // N-ary product
+            '&#8706;' => '∂',     // Partial differential
+            '&#8710;' => '∆',     // Increment
+            '&#8711;' => '∇',     // Nabla
+            '&#8712;' => '∈',     // Element of
+            '&#8713;' => '∉',     // Not an element of
+            '&#8715;' => '∋',     // Contains as member
+            '&#8716;' => '∌',     // Does not contain as member
+            '&#8745;' => '∩',     // Intersection
+            '&#8746;' => '∪',     // Union
+            '&#8834;' => '⊂',     // Subset of
+            '&#8835;' => '⊃',     // Superset of
+            '&#8836;' => '⊄',     // Not a subset of
+            '&#8838;' => '⊆',     // Subset of or equal to
+            '&#8839;' => '⊇',     // Superset of or equal to
+            '&#8853;' => '⊕',     // Circled plus
+            '&#8855;' => '⊗',     // Circled times
+            '&#8869;' => '⊥',     // Up tack
+            '&#8901;' => '⋅',     // Bullet operator
+            
+            // ARROWS
+            '&#8592;' => '←',     // Leftwards arrow
+            '&#8593;' => '↑',     // Upwards arrow
+            '&#8594;' => '→',     // Rightwards arrow
+            '&#8595;' => '↓',     // Downwards arrow
+            '&#8596;' => '↔',     // Left right arrow
+            '&#8597;' => '↕',     // Up down arrow
+            '&#8598;' => '↖',     // North west arrow
+            '&#8599;' => '↗',     // North east arrow
+            '&#8600;' => '↘',     // South east arrow
+            '&#8601;' => '↙',     // South west arrow
+            '&#8629;' => '↵',     // Downwards arrow with corner leftwards
+            '&#8656;' => '⇐',     // Leftwards double arrow
+            '&#8657;' => '⇑',     // Upwards double arrow
+            '&#8658;' => '⇒',     // Rightwards double arrow
+            '&#8659;' => '⇓',     // Downwards double arrow
+            '&#8660;' => '⇔',     // Left right double arrow
+            
+            // SYMBOLS & PUNCTUATION
+            '&#8224;' => '†',     // Dagger
+            '&#8225;' => '‡',     // Double dagger
+            '&#8226;' => '•',     // Bullet
+            '&#8230;' => '…',     // Horizontal ellipsis
+            '&#8240;' => '‰',     // Per mille sign
+            '&#8242;' => '′',     // Prime
+            '&#8243;' => '″',     // Double prime
+            '&#8244;' => '‴',     // Triple prime
+            '&#8245;' => '‵',     // Reversed prime
+            '&#8254;' => '‾',     // Overline
+            '&#8260;' => '⁄',     // Fraction slash
+            '&#8364;' => '€',     // Euro sign
+            '&#8482;' => '™',     // Trade mark sign
+            '&#8501;' => 'ℵ',     // Alef symbol
+            '&#8476;' => 'ℜ',     // Black-letter capital R
+            '&#8472;' => '℘',     // Weierstrass elliptic function
+            '&#8465;' => 'ℑ',     // Black-letter capital I
+            '&#8450;' => 'ℂ',     // Double-struck capital C
+            '&#8461;' => 'ℍ',     // Double-struck capital H
+            '&#8469;' => 'ℕ',     // Double-struck capital N
+            '&#8473;' => 'ℙ',     // Double-struck capital P
+            '&#8474;' => 'ℚ',     // Double-struck capital Q
+            '&#8477;' => 'ℝ',     // Double-struck capital R
+            '&#8484;' => 'ℤ',     // Double-struck capital Z
+            
+            // GREEK LETTERS (commonly used)
+            '&#913;'  => 'Α',     // Alpha
+            '&#914;'  => 'Β',     // Beta
+            '&#915;'  => 'Γ',     // Gamma
+            '&#916;'  => 'Δ',     // Delta
+            '&#917;'  => 'Ε',     // Epsilon
+            '&#918;'  => 'Ζ',     // Zeta
+            '&#919;'  => 'Η',     // Eta
+            '&#920;'  => 'Θ',     // Theta
+            '&#921;'  => 'Ι',     // Iota
+            '&#922;'  => 'Κ',     // Kappa
+            '&#923;'  => 'Λ',     // Lambda
+            '&#924;'  => 'Μ',     // Mu
+            '&#925;'  => 'Ν',     // Nu
+            '&#926;'  => 'Ξ',     // Xi
+            '&#927;'  => 'Ο',     // Omicron
+            '&#928;'  => 'Π',     // Pi
+            '&#929;'  => 'Ρ',     // Rho
+            '&#931;'  => 'Σ',     // Sigma
+            '&#932;'  => 'Τ',     // Tau
+            '&#933;'  => 'Υ',     // Upsilon
+            '&#934;'  => 'Φ',     // Phi
+            '&#935;'  => 'Χ',     // Chi
+            '&#936;'  => 'Ψ',     // Psi
+            '&#937;'  => 'Ω',     // Omega
+            '&#945;'  => 'α',     // alpha
+            '&#946;'  => 'β',     // beta
+            '&#947;'  => 'γ',     // gamma
+            '&#948;'  => 'δ',     // delta
+            '&#949;'  => 'ε',     // epsilon
+            '&#950;'  => 'ζ',     // zeta
+            '&#951;'  => 'η',     // eta
+            '&#952;'  => 'θ',     // theta
+            '&#953;'  => 'ι',     // iota
+            '&#954;'  => 'κ',     // kappa
+            '&#955;'  => 'λ',     // lambda
+            '&#956;'  => 'μ',     // mu
+            '&#957;'  => 'ν',     // nu
+            '&#958;'  => 'ξ',     // xi
+            '&#959;'  => 'ο',     // omicron
+            '&#960;'  => 'π',     // pi
+            '&#961;'  => 'ρ',     // rho
+            '&#962;'  => 'ς',     // final sigma
+            '&#963;'  => 'σ',     // sigma
+            '&#964;'  => 'τ',     // tau
+            '&#965;'  => 'υ',     // upsilon
+            '&#966;'  => 'φ',     // phi
+            '&#967;'  => 'χ',     // chi
+            '&#968;'  => 'ψ',     // psi
+            '&#969;'  => 'ω',     // omega
+            
+            // ACCENTED CHARACTERS (common ones)
+            '&#192;'  => 'À',     // A with grave
+            '&#193;'  => 'Á',     // A with acute
+            '&#194;'  => 'Â',     // A with circumflex
+            '&#195;'  => 'Ã',     // A with tilde
+            '&#196;'  => 'Ä',     // A with diaeresis
+            '&#197;'  => 'Å',     // A with ring above
+            '&#198;'  => 'Æ',     // AE ligature
+            '&#199;'  => 'Ç',     // C with cedilla
+            '&#200;'  => 'È',     // E with grave
+            '&#201;'  => 'É',     // E with acute
+            '&#202;'  => 'Ê',     // E with circumflex
+            '&#203;'  => 'Ë',     // E with diaeresis
+            '&#204;'  => 'Ì',     // I with grave
+            '&#205;'  => 'Í',     // I with acute
+            '&#206;'  => 'Î',     // I with circumflex
+            '&#207;'  => 'Ï',     // I with diaeresis
+            '&#209;'  => 'Ñ',     // N with tilde
+            '&#210;'  => 'Ò',     // O with grave
+            '&#211;'  => 'Ó',     // O with acute
+            '&#212;'  => 'Ô',     // O with circumflex
+            '&#213;'  => 'Õ',     // O with tilde
+            '&#214;'  => 'Ö',     // O with diaeresis
+            '&#216;'  => 'Ø',     // O with stroke
+            '&#217;'  => 'Ù',     // U with grave
+            '&#218;'  => 'Ú',     // U with acute
+            '&#219;'  => 'Û',     // U with circumflex
+            '&#220;'  => 'Ü',     // U with diaeresis
+            '&#221;'  => 'Ý',     // Y with acute
+            '&#224;'  => 'à',     // a with grave
+            '&#225;'  => 'á',     // a with acute
+            '&#226;'  => 'â',     // a with circumflex
+            '&#227;'  => 'ã',     // a with tilde
+            '&#228;'  => 'ä',     // a with diaeresis
+            '&#229;'  => 'å',     // a with ring above
+            '&#230;'  => 'æ',     // ae ligature
+            '&#231;'  => 'ç',     // c with cedilla
+            '&#232;'  => 'è',     // e with grave
+            '&#233;'  => 'é',     // e with acute
+            '&#234;'  => 'ê',     // e with circumflex
+            '&#235;'  => 'ë',     // e with diaeresis
+            '&#236;'  => 'ì',     // i with grave
+            '&#237;'  => 'í',     // i with acute
+            '&#238;'  => 'î',     // i with circumflex
+            '&#239;'  => 'ï',     // i with diaeresis
+            '&#241;'  => 'ñ',     // n with tilde
+            '&#242;'  => 'ò',     // o with grave
+            '&#243;'  => 'ó',     // o with acute
+            '&#244;'  => 'ô',     // o with circumflex
+            '&#245;'  => 'õ',     // o with tilde
+            '&#246;'  => 'ö',     // o with diaeresis
+            '&#248;'  => 'ø',     // o with stroke
+            '&#249;'  => 'ù',     // u with grave
+            '&#250;'  => 'ú',     // u with acute
+            '&#251;'  => 'û',     // u with circumflex
+            '&#252;'  => 'ü',     // u with diaeresis
+            '&#253;'  => 'ý',     // y with acute
+            '&#255;'  => 'ÿ',     // y with diaeresis
+            
+            // BASIC HTML ENTITIES
+            '&#38;'   => '&',     // Ampersand
+            '&#60;'   => '<',     // Less than
+            '&#62;'   => '>',     // Greater than
+            '&#34;'   => '"',     // Quotation mark
+            '&#39;'   => "'",     // Apostrophe
+            '&#160;'  => ' ',     // Non-breaking space
+            '&#161;'  => '¡',     // Inverted exclamation mark
+            '&#162;'  => '¢',     // Cent sign
+            '&#163;'  => '£',     // Pound sign
+            '&#164;'  => '¤',     // Currency sign
+            '&#165;'  => '¥',     // Yen sign
+            '&#166;'  => '¦',     // Broken bar
+            '&#167;'  => '§',     // Section sign
+            '&#168;'  => '¨',     // Diaeresis
+            '&#169;'  => '©',     // Copyright sign
+            '&#170;'  => 'ª',     // Feminine ordinal indicator
+            '&#172;'  => '¬',     // Not sign
+            '&#173;'  => '­',     // Soft hyphen
+            '&#174;'  => '®',     // Registered sign
+            '&#175;'  => '¯',     // Macron
+            '&#176;'  => '°',     // Degree sign
+            '&#178;'  => '²',     // Superscript two
+            '&#179;'  => '³',     // Superscript three
+            '&#180;'  => '´',     // Acute accent
+            '&#181;'  => 'µ',     // Micro sign
+            '&#182;'  => '¶',     // Pilcrow sign
+            '&#183;'  => '·',     // Middle dot
+            '&#184;'  => '¸',     // Cedilla
+            '&#185;'  => '¹',     // Superscript one
+            '&#186;'  => 'º',     // Masculine ordinal indicator
+            '&#188;'  => '¼',     // Vulgar fraction one quarter
+            '&#189;'  => '½',     // Vulgar fraction one half
+            '&#190;'  => '¾',     // Vulgar fraction three quarters
+            '&#191;'  => '¿',     // Inverted question mark
+            
+            // NAMED ENTITIES (common ones)
+            '&nbsp;'  => ' ',     // Non-breaking space
+            '&amp;'   => '&',     // Ampersand
+            '&lt;'    => '<',     // Less than
+            '&gt;'    => '>',     // Greater than
+            '&quot;'  => '"',     // Quotation mark
+            '&apos;'  => "'",     // Apostrophe
+            '&copy;'  => '©',     // Copyright
+            '&reg;'   => '®',     // Registered trademark
+            '&trade;' => '™',     // Trademark
+            '&euro;'  => '€',     // Euro
+            '&pound;' => '£',     // Pound
+            '&yen;'   => '¥',     // Yen
+            '&cent;'  => '¢',     // Cent
+            '&deg;'   => '°',     // Degree
+            '&plusmn;'=> '±',     // Plus-minus
+            '&times;' => '×',     // Multiplication
+            '&divide;'=> '÷',     // Division
+            '&frac12;'=> '½',     // One half
+            '&frac14;'=> '¼',     // One quarter
+            '&frac34;'=> '¾',     // Three quarters
+            '&sup1;'  => '¹',     // Superscript 1
+            '&sup2;'  => '²',     // Superscript 2
+            '&sup3;'  => '³',     // Superscript 3
+            '&micro;' => 'µ',     // Micro
+            '&para;'  => '¶',     // Paragraph
+            '&sect;'  => '§',     // Section
+            '&middot;'=> '·',     // Middle dot
+            '&laquo;' => '«',     // Left angle quote
+            '&raquo;' => '»',     // Right angle quote
+            '&ldquo;' => '"',     // Left double quote
+            '&rdquo;' => '"',     // Right double quote
+            '&lsquo;' => "'",     // Left single quote
+            '&rsquo;' => "'",     // Right single quote
+            '&ndash;' => '–',     // En dash
+            '&mdash;' => '—',     // Em dash
+            '&hellip;'=> '…',     // Horizontal ellipsis
+            '&prime;' => '′',     // Prime
+            '&Prime;' => '″',     // Double prime
+            '&larr;'  => '←',     // Left arrow
+            '&uarr;'  => '↑',     // Up arrow
+            '&rarr;'  => '→',     // Right arrow
+            '&darr;'  => '↓',     // Down arrow
+            '&harr;'  => '↔',     // Left right arrow
+            '&crarr;' => '↵',     // Carriage return arrow
+            '&lArr;'  => '⇐',     // Left double arrow
+            '&uArr;'  => '⇑',     // Up double arrow
+            '&rArr;'  => '⇒',     // Right double arrow
+            '&dArr;'  => '⇓',     // Down double arrow
+            '&hArr;'  => '⇔',     // Left right double arrow
+        );
+        
+        // Apply manual replacements for entities that might not be caught by html_entity_decode
+        foreach ($entity_map as $entity => $replacement) {
+            $decoded = str_replace($entity, $replacement, $decoded);
+        }
+        
+        return trim($decoded);
     }
 
     /**

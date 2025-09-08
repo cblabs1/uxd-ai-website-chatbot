@@ -75,6 +75,8 @@ class AI_Chatbot_OpenAI extends AI_Chatbot_Provider_Base {
 	 * @since 1.0.0
 	 */
 	public function generate_response( $message, $context = '', $options = array() ) {
+		$start_time = microtime(true);
+		
 		if ( ! $this->is_configured() ) {
 			return new WP_Error( 'not_configured', __( 'OpenAI API key is not configured.', 'ai-website-chatbot' ) );
 		}
@@ -99,12 +101,12 @@ class AI_Chatbot_OpenAI extends AI_Chatbot_Provider_Base {
 				'source' => 'training',
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
 		// Check for partial training matches (similarity-based)
-		$partial_match = $this->find_similar_training($message);
+		$partial_match = $this->find_similar_training($message, 0.6);
 		if (!is_wp_error($partial_match) && !empty($partial_match['response'])) {
 			error_log('OpenAI Provider: Found similar training match for: ' . $message . ' (similarity: ' . $partial_match['similarity'] . ')');
 			
@@ -118,9 +120,10 @@ class AI_Chatbot_OpenAI extends AI_Chatbot_Provider_Base {
 				'tokens_used' => 0,
 				'model' => 'training_similar',
 				'source' => 'training',
+				'similarity' => $partial_match['similarity'],
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
@@ -136,7 +139,7 @@ class AI_Chatbot_OpenAI extends AI_Chatbot_Provider_Base {
 				'source' => 'cache',
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
@@ -159,101 +162,108 @@ class AI_Chatbot_OpenAI extends AI_Chatbot_Provider_Base {
 		error_log('OpenAI Provider: Max tokens: ' . $max_tokens);
 		error_log('OpenAI Provider: Temperature: ' . $temperature);
 
+		// Build enhanced context with website content
+		$enhanced_context = $this->build_enhanced_context($message, $context);
+
 		// Build conversation history (from base class)
-		$conversation_history = $this->get_chat_conversation_history($conversation_id, 10);
+		$conversation_history = $this->get_chat_conversation_history($conversation_id, 5);
 		$messages = array();
 
-		// Build system message with context (from base class)
-		$system_message = $this->build_system_message( $context );
-		if (!empty($system_message)) {
-			$messages[] = array(
-				'role' => 'system',
-				'content' => $system_message
-			);
-		}
+		// Add system message with enhanced context
+		$messages[] = array(
+			'role' => 'system',
+			'content' => $enhanced_context
+		);
 
-		// Add conversation history in OpenAI format
+		// Add conversation history
 		foreach (array_reverse($conversation_history) as $history_item) {
 			$user_msg = trim($history_item['user_message'] ?? '');
 			$ai_msg = trim($history_item['ai_response'] ?? '');
 			
-			if (!empty($user_msg) && !empty($ai_msg)) {
-				$messages[] = array(
-					'role' => 'user',
-					'content' => $user_msg
-				);
-				$messages[] = array(
-					'role' => 'assistant',
-					'content' => $ai_msg
-				);
+			if (!empty($user_msg) && $user_msg !== $message) {
+				$messages[] = array('role' => 'user', 'content' => $user_msg);
+				
+				if (!empty($ai_msg)) {
+					$messages[] = array('role' => 'assistant', 'content' => $ai_msg);
+				}
 			}
 		}
 
 		// Add current message
-		$current_message = trim($message);
-		if (!empty($current_message)) {
-			$messages[] = array(
-				'role' => 'user',
-				'content' => $current_message
-			);
-		}
-
-		// Ensure we have at least one message and it ends with user
-		if (empty($messages) || !isset($messages[count($messages) - 1]) || $messages[count($messages) - 1]['role'] !== 'user') {
-			$messages[] = array(
-				'role' => 'user',
-				'content' => $message
-			);
-		}
-
-		// Prepare request data for OpenAI
-		$data = array(
-			'model' => $model,
-			'messages' => $messages,
-			'max_tokens' => (int) $max_tokens,
-			'temperature' => (float) $temperature,
-			'stream' => false
+		$messages[] = array(
+			'role' => 'user',
+			'content' => $message
 		);
 
-		error_log('OpenAI API Request Data: ' . wp_json_encode($data, JSON_PRETTY_PRINT));
+		// Prepare request body
+		$request_body = array(
+			'model' => $model,
+			'messages' => $messages,
+			'max_tokens' => $max_tokens,
+			'temperature' => $temperature,
+			'top_p' => 1,
+			'frequency_penalty' => 0,
+			'presence_penalty' => 0
+		);
 
-		// Make API request (OpenAI-specific implementation)
-		$response = $this->make_api_request( 'chat/completions', $data );
+		// Add debug logging
+		error_log('OpenAI Provider: Request body: ' . wp_json_encode($request_body));
 
-		if ( is_wp_error( $response ) ) {
-			error_log('OpenAI API Error: ' . $response->get_error_message());
-			return $response;
+		// Make API request
+		$response = wp_remote_post($this->api_base . 'chat/completions', array(
+			'headers' => array(
+				'Authorization' => 'Bearer ' . $this->api_key,
+				'Content-Type' => 'application/json',
+			),
+			'body' => wp_json_encode($request_body),
+			'timeout' => 60,
+		));
+
+		if (is_wp_error($response)) {
+			error_log('OpenAI Provider: API request failed: ' . $response->get_error_message());
+			return new WP_Error('api_error', 'OpenAI API request failed: ' . $response->get_error_message());
 		}
 
-		// Extract response text (OpenAI-specific)
-		$response_text = $response['choices'][0]['message']['content'] ?? '';
+		$response_code = wp_remote_retrieve_response_code($response);
+		$response_body = wp_remote_retrieve_body($response);
 
-		if (empty($response_text)) {
-			return new WP_Error('empty_response', __('Empty response from OpenAI API.', 'ai-website-chatbot'));
+		error_log('OpenAI Provider: Response code: ' . $response_code);
+		error_log('OpenAI Provider: Response body: ' . $response_body);
+
+		if ($response_code !== 200) {
+			$error_data = json_decode($response_body, true);
+			$error_message = isset($error_data['error']['message']) ? 
+						$error_data['error']['message'] : 
+						'Unknown API error';
+			return new WP_Error('api_error', 'OpenAI API error: ' . $error_message);
 		}
 
-		// Extract tokens and model
-		$tokens_used = $this->extract_tokens_from_response($response);
-		$model_used = $this->extract_model_from_response($response);
-		$response_time = isset($options['start_time']) ? (microtime(true) - $options['start_time']) * 1000 : 0;
+		$data = json_decode($response_body, true);
 
-		// Log the API response (from base class)
-		$this->log_conversation($conversation_id, $message, $response_text, $response_time, 'api');
+		if (!isset($data['choices'][0]['message']['content'])) {
+			error_log('OpenAI Provider: Invalid response structure: ' . $response_body);
+			return new WP_Error('invalid_response', 'Invalid response from OpenAI API');
+		}
 
-		// Log usage statistics (from base class)
-		$this->log_usage( $response );
+		$ai_response = trim($data['choices'][0]['message']['content']);
+		$tokens_used = $data['usage']['total_tokens'] ?? 0;
 
 		// Cache the response (from base class)
-		$this->cache_response($message, $response_text);
+		$this->cache_response($message, $ai_response);
+
+		// Log conversation (from base class)
+		$response_time = microtime(true) - $start_time;
+		$this->log_conversation($conversation_id, $message, $ai_response, $tokens_used, 'ai');
 
 		return array(
-			'response' => trim($response_text),
+			'response' => $ai_response,
 			'tokens_used' => $tokens_used,
-			'model' => $model_used,
-			'source' => 'api',
+			'model' => $model,
+			'source' => 'ai',
 			'session_id' => $session_id,
 			'conversation_id' => $conversation_id,
-			'response_time' => $response_time
+			'response_time' => $response_time,
+			'finish_reason' => $data['choices'][0]['finish_reason'] ?? 'completed'
 		);
 	}
 

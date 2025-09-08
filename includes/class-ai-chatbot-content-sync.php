@@ -255,42 +255,172 @@ class AI_Chatbot_Content_Sync {
 	 * @return string Clean content.
 	 * @since 1.0.0
 	 */
-	private function extract_post_content( $post ) {
-		// Get post content
-		$content = $post->post_content;
-		
-		// Apply content filters (shortcodes, etc.)
-		$content = apply_filters( 'the_content', $content );
-		
-		// Remove HTML tags
-		$content = wp_strip_all_tags( $content );
-		
-		// Clean up whitespace
-		$content = preg_replace( '/\s+/', ' ', $content );
-		$content = trim( $content );
-		
-		// Limit content length
-		$max_length = get_option( 'ai_chatbot_max_content_length', 2000 );
-		if ( strlen( $content ) > $max_length ) {
-			$content = substr( $content, 0, $max_length );
-			
-			// Try to break at word boundary
-			$last_space = strrpos( $content, ' ' );
-			if ( $last_space > $max_length * 0.8 ) {
-				$content = substr( $content, 0, $last_space );
-			}
-			
-			$content .= '...';
-		}
-		
-		// Add excerpt if available and content is short
-		if ( strlen( $content ) < 500 && ! empty( $post->post_excerpt ) ) {
-			$excerpt = wp_strip_all_tags( $post->post_excerpt );
-			$content = $excerpt . ' ' . $content;
-		}
+	private function extract_post_content($post) {
+        // Get post content
+        $content = $post->post_content;
+        
+        // Apply content filters (shortcodes, etc.)
+        $content = apply_filters('the_content', $content);
+        
+        // Extract structured information
+        $structured_info = $this->extract_structured_information($content, $post);
+        
+        // Clean HTML but preserve structure
+        $content = $this->clean_content_intelligently($content);
+        
+        // Build enhanced content
+        $enhanced_content = $this->build_enhanced_content_structure($post, $content, $structured_info);
+        
+        return $enhanced_content;
+    }
 
-		return $content;
-	}
+	/**
+     * Extract structured information from content - ADD this NEW method
+     */
+    private function extract_structured_information($content, $post) {
+        $info = array();
+        
+        // Extract pricing information
+        $info['pricing'] = $this->extract_pricing_info($content);
+        
+        // Extract contact information
+        $info['contact'] = $this->extract_contact_info($content);
+        
+        // Extract features/benefits
+        $info['features'] = $this->extract_features($content);
+        
+        return $info;
+    }
+
+    /**
+     * Extract pricing information - ADD this NEW method
+     */
+    private function extract_pricing_info($content) {
+        $pricing_patterns = array(
+            '/\$[\d,]+\.?\d*/i',  // Dollar amounts
+            '/price[:\s]*\$?[\d,]+/i',
+            '/cost[:\s]*\$?[\d,]+/i',
+            '/starting\s+at[:\s]*\$?[\d,]+/i',
+            '/from[:\s]*\$?[\d,]+/i',
+        );
+        
+        $pricing_info = array();
+        foreach ($pricing_patterns as $pattern) {
+            if (preg_match_all($pattern, $content, $matches)) {
+                $pricing_info = array_merge($pricing_info, $matches[0]);
+            }
+        }
+        
+        return array_unique($pricing_info);
+    }
+
+    /**
+     * Extract contact information - ADD this NEW method
+     */
+    private function extract_contact_info($content) {
+        $contact_info = array();
+        
+        // Email addresses
+        if (preg_match_all('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $content, $emails)) {
+            $contact_info['emails'] = $emails[0];
+        }
+        
+        // Phone numbers
+        if (preg_match_all('/(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}/', $content, $phones)) {
+            $contact_info['phones'] = $phones[0];
+        }
+        
+        return $contact_info;
+    }
+
+    /**
+     * Extract features from content - ADD this NEW method
+     */
+    private function extract_features($content) {
+        $features = array();
+        
+        // Look for bullet points and lists
+        if (preg_match_all('/<li[^>]*>(.*?)<\/li>/s', $content, $list_items)) {
+            foreach ($list_items[1] as $item) {
+                $clean_item = strip_tags($item);
+                if (strlen($clean_item) > 10 && strlen($clean_item) < 200) {
+                    $features[] = trim($clean_item);
+                }
+            }
+        }
+        
+        return array_slice(array_unique($features), 0, 5);
+    }
+
+    /**
+     * Clean content intelligently - ADD this NEW method
+     */
+    private function clean_content_intelligently($content) {
+        // Remove script and style tags
+        $content = preg_replace('/<script[^>]*>.*?<\/script>/si', '', $content);
+        $content = preg_replace('/<style[^>]*>.*?<\/style>/si', '', $content);
+        
+        // Convert HTML elements to readable text
+        $content = str_replace(array('<br>', '<br/>', '<br />'), "\n", $content);
+        $content = str_replace(array('<p>', '</p>'), array('', "\n\n"), $content);
+        
+        // Strip remaining HTML
+        $content = wp_strip_all_tags($content);
+        
+        // Clean up whitespace
+        $content = preg_replace('/\s+/', ' ', $content);
+        
+        return trim($content);
+    }
+
+    /**
+     * Build enhanced content structure - ADD this NEW method
+     */
+    private function build_enhanced_content_structure($post, $content, $structured_info) {
+        $enhanced = array();
+        
+        // Add title and type
+        $enhanced[] = "TITLE: " . $post->post_title;
+        $enhanced[] = "TYPE: " . ucfirst($post->post_type);
+        $enhanced[] = "";
+        
+        // Add main content
+        $enhanced[] = "CONTENT:";
+        $enhanced[] = substr($content, 0, 1000) . (strlen($content) > 1000 ? '...' : '');
+        $enhanced[] = "";
+        
+        // Add pricing if found
+        if (!empty($structured_info['pricing'])) {
+            $enhanced[] = "PRICING:";
+            foreach (array_slice($structured_info['pricing'], 0, 3) as $price) {
+                $enhanced[] = "- " . $price;
+            }
+            $enhanced[] = "";
+        }
+        
+        // Add contact info if found
+        if (!empty($structured_info['contact'])) {
+            $enhanced[] = "CONTACT:";
+            if (isset($structured_info['contact']['emails'])) {
+                $enhanced[] = "Email: " . implode(', ', $structured_info['contact']['emails']);
+            }
+            if (isset($structured_info['contact']['phones'])) {
+                $enhanced[] = "Phone: " . implode(', ', $structured_info['contact']['phones']);
+            }
+            $enhanced[] = "";
+        }
+        
+        // Add features if found
+        if (!empty($structured_info['features'])) {
+            $enhanced[] = "FEATURES:";
+            foreach ($structured_info['features'] as $feature) {
+                $enhanced[] = "- " . $feature;
+            }
+            $enhanced[] = "";
+        }
+        
+        return implode("\n", $enhanced);
+    }
 
 	/**
 	 * Sync custom post types

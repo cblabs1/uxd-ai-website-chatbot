@@ -62,6 +62,8 @@ class AI_Chatbot_Gemini extends AI_Chatbot_Provider_Base {
 	 * @since 1.0.0
 	 */
 	public function generate_response( $message, $context = '', $options = array() ) {
+		$start_time = microtime(true);
+		
 		if ( ! $this->is_configured() ) {
 			return new WP_Error( 'not_configured', __( 'Gemini API key is not configured.', 'ai-website-chatbot' ) );
 		}
@@ -86,12 +88,12 @@ class AI_Chatbot_Gemini extends AI_Chatbot_Provider_Base {
 				'source' => 'training',
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
 		// Check for partial training matches (similarity-based)
-		$partial_match = $this->find_similar_training($message);
+		$partial_match = $this->find_similar_training($message, 0.6);
 		if (!is_wp_error($partial_match) && !empty($partial_match['response'])) {
 			error_log('Gemini Provider: Found similar training match for: ' . $message . ' (similarity: ' . $partial_match['similarity'] . ')');
 			
@@ -105,9 +107,10 @@ class AI_Chatbot_Gemini extends AI_Chatbot_Provider_Base {
 				'tokens_used' => 0,
 				'model' => 'training_similar',
 				'source' => 'training',
+				'similarity' => $partial_match['similarity'],
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
@@ -123,7 +126,7 @@ class AI_Chatbot_Gemini extends AI_Chatbot_Provider_Base {
 				'source' => 'cache',
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
@@ -146,6 +149,9 @@ class AI_Chatbot_Gemini extends AI_Chatbot_Provider_Base {
 		error_log('Gemini Provider: Max tokens: ' . $max_tokens);
 		error_log('Gemini Provider: Temperature: ' . $temperature);
 
+		// Build enhanced context with website content
+		$enhanced_context = $this->build_enhanced_context($message, $context);
+
 		// Build conversation history (from base class)
 		$conversation_history = $this->get_chat_conversation_history($conversation_id, 3);
 		$contents = array();
@@ -155,96 +161,137 @@ class AI_Chatbot_Gemini extends AI_Chatbot_Provider_Base {
 			$user_msg = trim($history_item['user_message'] ?? '');
 			$ai_msg = trim($history_item['ai_response'] ?? '');
 			
-			if (!empty($user_msg) && !empty($ai_msg)) {
+			if (!empty($user_msg) && $user_msg !== $message) {
 				$contents[] = array(
 					'role' => 'user',
 					'parts' => array(array('text' => $user_msg))
 				);
-				$contents[] = array(
-					'role' => 'model',
-					'parts' => array(array('text' => $ai_msg))
-				);
+				
+				if (!empty($ai_msg)) {
+					$contents[] = array(
+						'role' => 'model',
+						'parts' => array(array('text' => $ai_msg))
+					);
+				}
 			}
 		}
 
-		// Add current message
-		$current_message = trim($message);
-		if (!empty($current_message)) {
-			$contents[] = array(
-				'role' => 'user',
-				'parts' => array(array('text' => $current_message))
-			);
-		}
-
-		// Ensure we have at least one content item
-		if (empty($contents)) {
-			$contents[] = array(
-				'role' => 'user',
-				'parts' => array(array('text' => $message))
-			);
-		}
-
-		// Build system instruction (from base class)
-		$system_instruction = $this->build_system_message($context);
-
-		// Prepare request data for Gemini
-		$data = array(
-			'contents' => $contents,
-			'generationConfig' => array(
-				'maxOutputTokens' => (int) $max_tokens,
-				'temperature' => (float) $temperature,
-			),
+		// Add enhanced context as system instruction
+		$system_instruction = array(
+			'parts' => array(array('text' => $enhanced_context))
 		);
 
-		// Add system instruction if available
-		if (!empty($system_instruction)) {
-			$data['systemInstruction'] = array(
-				'parts' => array(array('text' => $system_instruction))
-			);
+		// Add current message
+		$contents[] = array(
+			'role' => 'user',
+			'parts' => array(array('text' => $message))
+		);
+
+		// Prepare generation config
+		$generation_config = array(
+			'temperature' => floatval($temperature),
+			'maxOutputTokens' => intval($max_tokens),
+			'topP' => 0.8,
+			'topK' => 40
+		);
+
+		// Prepare request body for Gemini API
+		$request_body = array(
+			'systemInstruction' => $system_instruction,
+			'contents' => $contents,
+			'generationConfig' => $generation_config,
+			'safetySettings' => array(
+				array(
+					'category' => 'HARM_CATEGORY_HARASSMENT',
+					'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'
+				),
+				array(
+					'category' => 'HARM_CATEGORY_HATE_SPEECH',
+					'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'
+				),
+				array(
+					'category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+					'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'
+				),
+				array(
+					'category' => 'HARM_CATEGORY_DANGEROUS_CONTENT',
+					'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'
+				)
+			)
+		);
+
+		// Build API URL
+		$api_url = $this->api_base . 'models/' . $model . ':generateContent?key=' . $this->api_key;
+
+		// Add debug logging
+		error_log('Gemini Provider: API URL: ' . $api_url);
+		error_log('Gemini Provider: Request body: ' . wp_json_encode($request_body));
+
+		// Make API request to Gemini
+		$response = wp_remote_post($api_url, array(
+			'headers' => array(
+				'Content-Type' => 'application/json',
+			),
+			'body' => wp_json_encode($request_body),
+			'timeout' => 60,
+		));
+
+		if (is_wp_error($response)) {
+			error_log('Gemini Provider: API request failed: ' . $response->get_error_message());
+			return new WP_Error('api_error', 'Gemini API request failed: ' . $response->get_error_message());
 		}
 
-		error_log('Gemini API Request Data: ' . wp_json_encode($data, JSON_PRETTY_PRINT));
+		$response_code = wp_remote_retrieve_response_code($response);
+		$response_body = wp_remote_retrieve_body($response);
 
-		// Make API request (Gemini-specific implementation)
-		$endpoint = 'models/' . $model . ':generateContent?key=' . $this->api_key;
-		$response = $this->make_api_request( $endpoint, $data );
+		error_log('Gemini Provider: Response code: ' . $response_code);
+		error_log('Gemini Provider: Response body: ' . $response_body);
 
-		if ( is_wp_error( $response ) ) {
-			error_log('Gemini API Error: ' . $response->get_error_message());
-			return $response;
+		if ($response_code !== 200) {
+			$error_data = json_decode($response_body, true);
+			$error_message = isset($error_data['error']['message']) ? 
+						$error_data['error']['message'] : 
+						'Unknown Gemini API error';
+			return new WP_Error('api_error', 'Gemini API error: ' . $error_message);
 		}
 
-		// Extract response text (Gemini-specific)
-		$response_text = '';
-		if (isset($response['candidates'][0]['content']['parts'][0]['text'])) {
-			$response_text = $response['candidates'][0]['content']['parts'][0]['text'];
+		$data = json_decode($response_body, true);
+
+		// Check for safety blocks
+		if (isset($data['promptFeedback']['blockReason'])) {
+			return new WP_Error('content_blocked', 'Content was blocked by Gemini safety filters: ' . $data['promptFeedback']['blockReason']);
 		}
 
-		if (empty($response_text)) {
-			return new WP_Error('empty_response', __('Empty response from Gemini API.', 'ai-website-chatbot'));
+		// Extract response
+		if (!isset($data['candidates'][0]['content']['parts'][0]['text'])) {
+			error_log('Gemini Provider: Invalid response structure: ' . $response_body);
+			return new WP_Error('invalid_response', 'Invalid response from Gemini API');
 		}
 
-		// Calculate tokens and response time
-		$tokens_used = $this->extract_tokens_from_response($response);
-		$response_time = isset($options['start_time']) ? (microtime(true) - $options['start_time']) * 1000 : 0;
+		$ai_response = trim($data['candidates'][0]['content']['parts'][0]['text']);
+		$finish_reason = $data['candidates'][0]['finishReason'] ?? 'STOP';
 
-		// Log the API response (from base class)
-		$this->log_conversation($conversation_id, $message, $response_text, $response_time, 'api');
-
-		// Log usage statistics (from base class)
-		$this->log_usage( $response );
+		// Calculate tokens (Gemini doesn't always return token count)
+		$tokens_used = isset($data['usageMetadata']['totalTokenCount']) ? 
+					$data['usageMetadata']['totalTokenCount'] : 
+					intval(strlen($message . $ai_response) / 4); // Rough estimate
 
 		// Cache the response (from base class)
-		$this->cache_response($message, $response_text);
+		$this->cache_response($message, $ai_response);
+
+		// Log conversation (from base class)
+		$response_time = microtime(true) - $start_time;
+		$this->log_conversation($conversation_id, $message, $ai_response, $tokens_used, 'ai');
 
 		return array(
-			'response' => trim($response_text),
+			'response' => $ai_response,
 			'tokens_used' => $tokens_used,
 			'model' => $model,
-			'source' => 'api',
+			'source' => 'ai',
 			'session_id' => $session_id,
 			'conversation_id' => $conversation_id,
-			'response_time' => $response_time
+			'response_time' => $response_time,
+			'finish_reason' => $finish_reason
 		);
 	}
 

@@ -62,6 +62,8 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 	 * @since 1.0.0
 	 */
 	public function generate_response( $message, $context = '', $options = array() ) {
+		$start_time = microtime(true);
+		
 		if ( ! $this->is_configured() ) {
 			return new WP_Error( 'not_configured', __( 'Claude API key is not configured.', 'ai-website-chatbot' ) );
 		}
@@ -86,12 +88,12 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 				'source' => 'training',
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
 		// Check for partial training matches (similarity-based)
-		$partial_match = $this->find_similar_training($message);
+		$partial_match = $this->find_similar_training($message, 0.6);
 		if (!is_wp_error($partial_match) && !empty($partial_match['response'])) {
 			error_log('Claude Provider: Found similar training match for: ' . $message . ' (similarity: ' . $partial_match['similarity'] . ')');
 			
@@ -105,9 +107,10 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 				'tokens_used' => 0,
 				'model' => 'training_similar',
 				'source' => 'training',
+				'similarity' => $partial_match['similarity'],
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
@@ -123,7 +126,7 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 				'source' => 'cache',
 				'session_id' => $session_id,
 				'conversation_id' => $conversation_id,
-				'response_time' => 0
+				'response_time' => microtime(true) - $start_time
 			);
 		}
 
@@ -146,6 +149,9 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 		error_log('Claude Provider: Max tokens: ' . $max_tokens);
 		error_log('Claude Provider: Temperature: ' . $temperature);
 
+		// Build enhanced context with website content
+		$enhanced_context = $this->build_enhanced_context($message, $context);
+
 		// Build conversation history (from base class)
 		$conversation_history = $this->get_chat_conversation_history($conversation_id, 10);
 		$messages = array();
@@ -155,93 +161,90 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 			$user_msg = trim($history_item['user_message'] ?? '');
 			$ai_msg = trim($history_item['ai_response'] ?? '');
 			
-			if (!empty($user_msg) && !empty($ai_msg)) {
-				$messages[] = array(
-					'role' => 'user',
-					'content' => $user_msg
-				);
-				$messages[] = array(
-					'role' => 'assistant',
-					'content' => $ai_msg
-				);
+			if (!empty($user_msg) && $user_msg !== $message) {
+				$messages[] = array('role' => 'user', 'content' => $user_msg);
+				
+				if (!empty($ai_msg)) {
+					$messages[] = array('role' => 'assistant', 'content' => $ai_msg);
+				}
 			}
 		}
 
 		// Add current message
-		$current_message = trim($message);
-		if (!empty($current_message)) {
-			$messages[] = array(
-				'role' => 'user',
-				'content' => $current_message
-			);
-		}
+		$messages[] = array(
+			'role' => 'user',
+			'content' => $message
+		);
 
-		// Ensure we have at least one message and it ends with user
-		if (empty($messages) || !isset($messages[count($messages) - 1]) || $messages[count($messages) - 1]['role'] !== 'user') {
-			$messages[] = array(
-				'role' => 'user',
-				'content' => $message
-			);
-		}
-
-		// Build system message (from base class)
-		$system_message = $this->build_system_message($context);
-
-		// Prepare request data for Claude
-		$data = array(
+		// Prepare request body for Claude API
+		$request_body = array(
 			'model' => $model,
-			'max_tokens' => (int) $max_tokens,
-			'temperature' => (float) $temperature,
+			'max_tokens' => $max_tokens,
+			'temperature' => $temperature,
+			'system' => $enhanced_context,  // Claude uses separate system field
 			'messages' => $messages
 		);
 
-		// Add system message if available
-		if (!empty($system_message)) {
-			$data['system'] = $system_message;
+		// Add debug logging
+		error_log('Claude Provider: Request body: ' . wp_json_encode($request_body));
+
+		// Make API request to Claude
+		$response = wp_remote_post($this->api_base . 'messages', array(
+			'headers' => array(
+				'Authorization' => 'Bearer ' . $this->api_key,
+				'Content-Type' => 'application/json',
+				'anthropic-version' => '2023-06-01',
+				'anthropic-beta' => 'messages-2023-12-15'
+			),
+			'body' => wp_json_encode($request_body),
+			'timeout' => 60,
+		));
+
+		if (is_wp_error($response)) {
+			error_log('Claude Provider: API request failed: ' . $response->get_error_message());
+			return new WP_Error('api_error', 'Claude API request failed: ' . $response->get_error_message());
 		}
 
-		error_log('Claude API Request Data: ' . wp_json_encode($data, JSON_PRETTY_PRINT));
+		$response_code = wp_remote_retrieve_response_code($response);
+		$response_body = wp_remote_retrieve_body($response);
 
-		// Make API request (Claude-specific implementation)
-		$response = $this->make_api_request( 'messages', $data );
+		error_log('Claude Provider: Response code: ' . $response_code);
+		error_log('Claude Provider: Response body: ' . $response_body);
 
-		if ( is_wp_error( $response ) ) {
-			error_log('Claude API Error: ' . $response->get_error_message());
-			return $response;
+		if ($response_code !== 200) {
+			$error_data = json_decode($response_body, true);
+			$error_message = isset($error_data['error']['message']) ? 
+						$error_data['error']['message'] : 
+						'Unknown Claude API error';
+			return new WP_Error('api_error', 'Claude API error: ' . $error_message);
 		}
 
-		// Extract response text (Claude-specific)
-		$response_text = '';
-		if (isset($response['content'][0]['text'])) {
-			$response_text = $response['content'][0]['text'];
+		$data = json_decode($response_body, true);
+
+		if (!isset($data['content'][0]['text'])) {
+			error_log('Claude Provider: Invalid response structure: ' . $response_body);
+			return new WP_Error('invalid_response', 'Invalid response from Claude API');
 		}
 
-		if (empty($response_text)) {
-			return new WP_Error('empty_response', __('Empty response from Claude API.', 'ai-website-chatbot'));
-		}
-
-		// Extract tokens and model
-		$tokens_used = $this->extract_tokens_from_response($response);
-		$model_used = $this->extract_model_from_response($response);
-		$response_time = isset($options['start_time']) ? (microtime(true) - $options['start_time']) * 1000 : 0;
-
-		// Log the API response (from base class)
-		$this->log_conversation($conversation_id, $message, $response_text, $response_time, 'api');
-
-		// Log usage statistics (from base class)
-		$this->log_usage( $response );
+		$ai_response = trim($data['content'][0]['text']);
+		$tokens_used = $data['usage']['output_tokens'] ?? 0;
 
 		// Cache the response (from base class)
-		$this->cache_response($message, $response_text);
+		$this->cache_response($message, $ai_response);
+
+		// Log conversation (from base class)
+		$response_time = microtime(true) - $start_time;
+		$this->log_conversation($conversation_id, $message, $ai_response, $tokens_used, 'ai');
 
 		return array(
-			'response' => trim($response_text),
+			'response' => $ai_response,
 			'tokens_used' => $tokens_used,
-			'model' => $model_used,
-			'source' => 'api',
+			'model' => $model,
+			'source' => 'ai',
 			'session_id' => $session_id,
 			'conversation_id' => $conversation_id,
-			'response_time' => $response_time
+			'response_time' => $response_time,
+			'finish_reason' => $data['stop_reason'] ?? 'completed'
 		);
 	}
 
