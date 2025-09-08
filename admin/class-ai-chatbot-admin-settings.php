@@ -35,6 +35,7 @@ class AI_Chatbot_Admin_Settings {
         add_action('wp_ajax_ai_chatbot_test_api_connection', array($this, 'ajax_test_api_connection'));
         add_action('wp_ajax_ai_chatbot_sync_content', array($this, 'ajax_sync_content'));
         add_action('wp_ajax_ai_chatbot_train_website_data', array($this, 'ajax_train_website_data'));
+        add_action('wp_ajax_ai_chatbot_clear_cache', array($this, 'ajax_clear_cache'));
     }
     
     /**
@@ -897,6 +898,42 @@ class AI_Chatbot_Admin_Settings {
                 'models' => array()
             )
         );
+    }
+
+    /**
+     * AJAX: Clear cache - ADD this method
+     */
+    public function ajax_clear_cache() {
+        check_ajax_referer('ai_chatbot_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions', 'ai-website-chatbot'));
+        }
+        
+        global $wpdb;
+        
+        // Delete all AI chatbot response cache
+        $deleted = $wpdb->query(
+            "DELETE FROM {$wpdb->options} 
+            WHERE option_name LIKE '_transient_ai_chatbot_response_%' 
+            OR option_name LIKE '_transient_timeout_ai_chatbot_response_%'"
+        );
+        
+        // Also clear rate limiting cache
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options} 
+            WHERE option_name LIKE '_transient_ai_chatbot_rate_limit_%' 
+            OR option_name LIKE '_transient_timeout_ai_chatbot_rate_limit_%'"
+        );
+        
+        // Clear object cache if available
+        if (function_exists('wp_cache_flush')) {
+            wp_cache_flush();
+        }
+        
+        error_log('AI Chatbot: Cleared ' . $deleted . ' cached responses');
+        
+        wp_send_json_success(sprintf(__('Cache cleared successfully! Removed %d cached responses.', 'ai-website-chatbot'), $deleted));
     }
     
     /**

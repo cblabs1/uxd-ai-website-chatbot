@@ -15,6 +15,11 @@ if (!defined('ABSPATH')) {
 $all_settings = $this->get_settings();
 $default_settings = array(
     'enabled' => false,
+    'cache_responses' => false,
+    'show_typing_indicator' => true,
+    'show_timestamp' => false,
+    'show_on_pages' => array('all'),
+    'custom_css' => '',
     'gdpr' => array(
         'enabled' => false,
         'cookie_consent' => false,
@@ -28,7 +33,6 @@ $default_settings = array(
     ),
     'debug_mode' => false,
     'log_conversations' => true,
-    'cache_responses' => false,
 );
 $providers = $this->get_available_providers();
 $post_types = $this->get_available_post_types();
@@ -66,7 +70,8 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" id="chatbot_enabled" name="ai_chatbot_settings[enabled]" value="1" <?php checked(isset($settings['enabled']) && $settings['enabled']); ?>>                            <span class="slider"></span>
+                            <input type="checkbox" id="chatbot_enabled" name="ai_chatbot_settings[enabled]" value="1" <?php checked($settings['enabled'] ?? false); ?>>                            
+                            <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Enable or disable the AI chatbot on your website.', 'ai-website-chatbot'); ?></p>
                     </td>
@@ -247,7 +252,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Show Typing Indicator', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="ai_chatbot_settings[show_typing_indicator]" value="1" <?php checked($settings['show_typing_indicator']); ?>>
+                            <input type="checkbox" name="ai_chatbot_settings[show_typing_indicator]" value="1" <?php checked($settings['show_typing_indicator'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Show a typing indicator while the AI is generating a response.', 'ai-website-chatbot'); ?></p>
@@ -258,7 +263,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Show Timestamps', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="ai_chatbot_settings[show_timestamp]" value="1" <?php checked($settings['show_timestamp']); ?>>
+                            <input type="checkbox" name="ai_chatbot_settings[show_timestamp]" value="1" <?php checked($settings['show_timestamp'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Display timestamps for each message in the chat.', 'ai-website-chatbot'); ?></p>
@@ -360,14 +365,14 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Enable Content Sync', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" id="content_sync_enabled" name="ai_chatbot_settings[content_sync][enabled]" value="1" <?php checked(!$settings['content_sync']['enabled']); ?>>
+                            <input type="checkbox" id="content_sync_enabled" name="ai_chatbot_settings[content_sync][enabled]" value="1" <?php checked(empty($settings['content_sync']['enabled'] ?? false)); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Automatically sync your website content for better AI responses.', 'ai-website-chatbot'); ?></p>
                     </td>
                 </tr>
-                
-                <tr class="content-sync-settings" <?php if (!$settings['content_sync']['enabled']) echo 'style="display: none;"'; ?>>
+
+                <tr class="content-sync-settings" <?php if (empty($settings['content_sync']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
                     <th scope="row">
                         <label for="sync_post_types"><?php _e('Post Types to Sync', 'ai-website-chatbot'); ?></label>
                     </th>
@@ -383,7 +388,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </td>
                 </tr>
                 
-                <tr class="content-sync-settings" <?php if (!$settings['content_sync']['enabled']) echo 'style="display: none;"'; ?>>
+                <tr class="content-sync-settings" <?php if (empty($settings['content_sync']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
                     <th scope="row">
                         <label for="sync_frequency"><?php _e('Sync Frequency', 'ai-website-chatbot'); ?></label>
                     </th>
@@ -479,14 +484,14 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Enable GDPR Features', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" id="gdpr_enabled" name="ai_chatbot_settings[gdpr][enabled]" value="1" <?php checked(isset($settings['gdpr']['enabled']) && $settings['gdpr']['enabled']); ?>>
+                            <input type="checkbox" id="gdpr_enabled" name="ai_chatbot_settings[gdpr][enabled]" value="1" <?php checked($settings['gdpr']['enabled'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Enable GDPR compliance features for data protection.', 'ai-website-chatbot'); ?></p>
                     </td>
                 </tr>
                 
-                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'])) echo 'style="display: none;"'; ?>>
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
                     <th scope="row">
                         <label for="data_retention_days"><?php _e('Data Retention (days)', 'ai-website-chatbot'); ?></label>
                     </th>
@@ -497,7 +502,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </td>
                 </tr>
                 
-                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'])) echo 'style="display: none;"'; ?>>
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
                     <th scope="row">
                         <label for="privacy_policy_url"><?php _e('Privacy Policy URL', 'ai-website-chatbot'); ?></label>
                     </th>
@@ -507,22 +512,22 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </td>
                 </tr>
                 
-                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'])) echo 'style="display: none;"'; ?>>
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
                     <th scope="row"><?php _e('Cookie Consent', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="ai_chatbot_settings[gdpr][cookie_consent]" value="1" <?php checked(isset($settings['gdpr']['cookie_consent']) && $settings['gdpr']['cookie_consent']); ?>>
+                            <input type="checkbox" name="ai_chatbot_settings[gdpr][cookie_consent]" value="1" <?php checked(empty($settings['gdpr']['cookie_consent'] ?? false)); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Require user consent before storing any data or cookies.', 'ai-website-chatbot'); ?></p>
                     </td>
                 </tr>
                 
-                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'])) echo 'style="display: none;"'; ?>>
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
                     <th scope="row"><?php _e('Anonymize Data', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="ai_chatbot_settings[gdpr][anonymize_data]" value="1" <?php checked(isset($settings['gdpr']['anonymize_data']) && $settings['gdpr']['anonymize_data']); ?>>
+                            <input type="checkbox" name="ai_chatbot_settings[gdpr][anonymize_data]" value="1" <?php checked($settings['gdpr']['anonymize_data'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Automatically anonymize personal data in conversations.', 'ai-website-chatbot'); ?></p>

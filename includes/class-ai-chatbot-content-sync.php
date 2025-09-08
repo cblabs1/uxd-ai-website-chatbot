@@ -207,7 +207,8 @@ class AI_Chatbot_Content_Sync {
 
 		// Skip if content is too short
 		$content = $this->extract_post_content( $post );
-		if ( strlen( $content ) < 100 ) {
+		$content = $this->decode_html_entities($content);
+		if ( strlen( $content ) < 50 ) {
 			return false;
 		}
 

@@ -229,9 +229,9 @@ class AI_Chatbot_Ajax {
             'source' => $source
         ));
 
-        // Send successful response
+       // Send successful response
         wp_send_json_success(array(
-            'response' => $response_text,
+            'response' => $$response_text,
             'session_id' => $session_id,
             'conversation_id' => $conversation_id,
             'message_id' => $message_id,
@@ -239,7 +239,7 @@ class AI_Chatbot_Ajax {
             'response_time' => round($response_time, 3),
             'source' => $source,
             'model' => $model
-        ));
+        ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -408,6 +408,40 @@ class AI_Chatbot_Ajax {
      * Get AI provider instance
      */
     private function get_ai_provider($provider_name) {
+        if (!$provider_name) {
+            $settings = get_option('ai_chatbot_settings', array());
+            $provider_name = $settings['ai_provider'] ?? 'openai';
+        }
+        try{
+
+            switch ($provider_name) {
+                case 'openai':
+                    if (class_exists('AI_Chatbot_OpenAI')) {
+                        return new AI_Chatbot_OpenAI();
+                    }
+                    break;
+                case 'claude':
+                    if (class_exists('AI_Chatbot_Claude')) {
+                        return new AI_Chatbot_Claude();
+                    }
+                    break;
+                case 'gemini':
+                    if (class_exists('AI_Chatbot_Gemini')) {
+                        return new AI_Chatbot_Gemini();
+                    }
+                    break;
+                case 'custom':
+                    if (class_exists('AI_Chatbot_Custom')) {
+                        return new AI_Chatbot_Custom();
+                    }
+                    break;
+            }
+            
+
+        }catch (Exception $e){
+            error_log('AI Chatbot: Failed to create provider instance: ' . $e->getMessage());
+            return null;
+        }
         switch ($provider_name) {
             case 'openai':
                 if (class_exists('AI_Chatbot_OpenAI')) {
