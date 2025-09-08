@@ -365,7 +365,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Enable Content Sync', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" id="content_sync_enabled" name="ai_chatbot_settings[content_sync][enabled]" value="1" <?php checked(empty($settings['content_sync']['enabled'] ?? false)); ?>>
+                            <input type="checkbox" id="content_sync_enabled" name="ai_chatbot_settings[content_sync][enabled]" value="1" <?php checked($settings['content_sync']['enabled'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Automatically sync your website content for better AI responses.', 'ai-website-chatbot'); ?></p>
@@ -516,7 +516,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Cookie Consent', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="ai_chatbot_settings[gdpr][cookie_consent]" value="1" <?php checked(empty($settings['gdpr']['cookie_consent'] ?? false)); ?>>
+                            <input type="checkbox" name="ai_chatbot_settings[gdpr][cookie_consent]" value="1" <?php checked($settings['gdpr']['cookie_consent'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Require user consent before storing any data or cookies.', 'ai-website-chatbot'); ?></p>

@@ -516,7 +516,6 @@ class AI_Chatbot_Admin_Settings {
      * Properly handles checkbox values
      */
     public function ajax_save_settings() {
-        // Debug logging
         error_log('AI Chatbot: ajax_save_settings called');
         
         // Verify nonce
@@ -554,11 +553,10 @@ class AI_Chatbot_Admin_Settings {
             // Get default settings for structure
             $defaults = $this->get_default_settings();
             
-            // Process checkbox fields - FIXED VERSION
-            $processed_settings = $this->process_all_checkboxes($new_settings, $defaults, $current_settings);
+            // Process settings with proper checkbox handling
+            $processed_settings = $this->process_settings_with_checkboxes($new_settings, $defaults, $current_settings);
             
-            // Add debug logging
-            $this->debug_checkbox_processing($new_settings, $processed_settings);
+            error_log('AI Chatbot: Final processed settings: ' . print_r($processed_settings, true));
             
             // Save the complete settings array
             $save_result = update_option('ai_chatbot_settings', $processed_settings);
@@ -578,100 +576,59 @@ class AI_Chatbot_Admin_Settings {
     }
 
     /**
-     * Process all checkboxes recursively
-     * Ensures all checkbox fields are properly set to true/false
+     * Process settings with proper checkbox handling - NEW METHOD
      * 
      * @param array $new_settings New settings from form
      * @param array $defaults Default settings structure
      * @param array $current_settings Current saved settings
      * @return array Processed settings
      */
-    private function process_all_checkboxes($new_settings, $defaults, $current_settings) {
-    
-        // Define ALL checkbox fields and their locations (UPDATED)
-        $checkbox_map = array(
+    private function process_settings_with_checkboxes($new_settings, $defaults, $current_settings) {
+        // Start with defaults, then merge current settings to preserve existing data
+        $processed = wp_parse_args($current_settings, $defaults);
+        
+        // Define all actual form checkboxes
+        $checkboxes = array(
             // Top-level checkboxes
-            'enabled' => 'boolean',
-            'debug_mode' => 'boolean',
-            'log_conversations' => 'boolean',
-            'cache_responses' => 'boolean',
-            'show_typing_indicator' => 'boolean',
-            'show_timestamp' => 'boolean',  // ADDED - was missing
+            'enabled',
+            'debug_mode', 
+            'log_conversations',
+            'cache_responses',
+            'show_typing_indicator',
+            'show_timestamp',
             
             // Nested checkboxes
-            'gdpr' => array(
-                'enabled' => 'boolean',
-                'cookie_consent' => 'boolean',
-                'anonymize_data' => 'boolean'
-            ),
-            'rate_limiting' => array(
-                'enabled' => 'boolean'
-            ),
-            'content_sync' => array(
-                'enabled' => 'boolean',
-            )
+            'gdpr.enabled',
+            'gdpr.cookie_consent', 
+            'gdpr.anonymize_data',
+            'rate_limiting.enabled',
+            'content_sync.enabled'
         );
         
-        // Start with current settings as base
-        $processed = $current_settings;
+        // Process each checkbox
+        foreach ($checkboxes as $checkbox_path) {
+            $this->set_checkbox_value($processed, $new_settings, $checkbox_path);
+        }
         
-        // Process each field according to the map
-        foreach ($checkbox_map as $key => $type) {
-            if (is_array($type)) {
-                // Handle nested settings
+        // Copy all non-checkbox values from new settings
+        foreach ($new_settings as $key => $value) {
+            if (is_array($value)) {
+                // Handle nested arrays
                 if (!isset($processed[$key])) {
                     $processed[$key] = array();
                 }
                 
-                foreach ($type as $nested_key => $nested_type) {
-                    // Check if the nested checkbox was submitted
-                    if (isset($new_settings[$key][$nested_key])) {
-                        // Convert to boolean using helper method - FIXED
-                        $value = $new_settings[$key][$nested_key];
-                        $processed[$key][$nested_key] = $this->convert_to_boolean($value);
-                    } else {
-                        // Not submitted = unchecked = false
-                        $processed[$key][$nested_key] = false;
-                    }
-                }
-                
-                // Copy other non-checkbox nested values
-                if (isset($new_settings[$key])) {
-                    foreach ($new_settings[$key] as $nested_key => $value) {
-                        if (!isset($type[$nested_key])) {
-                            // This is not a checkbox, preserve the value
-                            $processed[$key][$nested_key] = $value;
-                        }
+                foreach ($value as $nested_key => $nested_value) {
+                    $checkbox_path = $key . '.' . $nested_key;
+                    
+                    // Only copy if it's not a checkbox (checkboxes already processed above)
+                    if (!in_array($checkbox_path, $checkboxes)) {
+                        $processed[$key][$nested_key] = $nested_value;
                     }
                 }
             } else {
-                // Handle top-level checkbox - FIXED LOGIC
-                if (isset($new_settings[$key])) {
-                    // Convert to boolean using helper method
-                    $value = $new_settings[$key];
-                    $processed[$key] = $this->convert_to_boolean($value);
-                } else {
-                    // Not submitted = unchecked = false
-                    $processed[$key] = false;
-                }
-            }
-        }
-        
-        // Process all other non-checkbox fields from new_settings
-        foreach ($new_settings as $key => $value) {
-            if (!isset($checkbox_map[$key])) {
-                // This is not a checkbox field, just copy it
-                if (is_array($value)) {
-                    // For arrays, merge with existing
-                    if (!isset($processed[$key])) {
-                        $processed[$key] = array();
-                    }
-                    $processed[$key] = array_merge(
-                        is_array($processed[$key]) ? $processed[$key] : array(),
-                        $value
-                    );
-                } else {
-                    // Simple scalar value
+                // Only copy if it's not a top-level checkbox
+                if (!in_array($key, $checkboxes)) {
                     $processed[$key] = $value;
                 }
             }
@@ -681,39 +638,43 @@ class AI_Chatbot_Admin_Settings {
     }
 
     /**
-     * Helper method to properly convert values to boolean
+     * Set checkbox value in processed array - HELPER METHOD
      * 
-     * @param mixed $value The value to convert
-     * @return bool True or false
+     * @param array &$processed Reference to processed settings array
+     * @param array $new_settings New settings from form
+     * @param string $checkbox_path Dot notation path (e.g., 'gdpr.enabled')
      */
-    private function convert_to_boolean($value) {
-        // Handle string representations
-        if (is_string($value)) {
-            $value = strtolower(trim($value));
-            
-            // Explicitly false values (CRITICAL FIX)
-            if (in_array($value, array('0', 'false', 'off', 'no', ''))) {
-                return false;
+    private function set_checkbox_value(&$processed, $new_settings, $checkbox_path) {
+        $path_parts = explode('.', $checkbox_path);
+        
+        if (count($path_parts) === 1) {
+            // Top-level checkbox
+            $key = $path_parts[0];
+            if (isset($new_settings[$key])) {
+                $processed[$key] = ($new_settings[$key] === '1' || $new_settings[$key] === 1 || $new_settings[$key] === true);
+            } else {
+                $processed[$key] = false;
             }
             
-            // Explicitly true values
-            if (in_array($value, array('1', 'true', 'on', 'yes'))) {
-                return true;
+            error_log("Checkbox {$key}: " . ($processed[$key] ? 'TRUE' : 'FALSE'));
+            
+        } elseif (count($path_parts) === 2) {
+            // Nested checkbox
+            $section = $path_parts[0];
+            $key = $path_parts[1];
+            
+            if (!isset($processed[$section])) {
+                $processed[$section] = array();
             }
+            
+            if (isset($new_settings[$section][$key])) {
+                $processed[$section][$key] = ($new_settings[$section][$key] === '1' || $new_settings[$section][$key] === 1 || $new_settings[$section][$key] === true);
+            } else {
+                $processed[$section][$key] = false;
+            }
+            
+            error_log("Checkbox {$section}.{$key}: " . ($processed[$section][$key] ? 'TRUE' : 'FALSE'));
         }
-        
-        // Handle boolean values
-        if (is_bool($value)) {
-            return $value;
-        }
-        
-        // Handle numeric values
-        if (is_numeric($value)) {
-            return (bool) intval($value);
-        }
-        
-        // Default: convert to boolean using PHP's rules
-        return (bool) $value;
     }
 
     
@@ -1080,15 +1041,6 @@ class AI_Chatbot_Admin_Settings {
             'bounce' => __('Bounce', 'ai-website-chatbot'),
             'none' => __('None', 'ai-website-chatbot')
         );
-    }
-
-    private function debug_checkbox_processing($new_settings, $processed_settings) {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('=== AI Chatbot Checkbox Debug ===');
-            error_log('NEW SETTINGS: ' . print_r($new_settings, true));
-            error_log('PROCESSED SETTINGS: ' . print_r($processed_settings, true));
-            error_log('=== End Debug ===');
-        }
     }
     
 }

@@ -184,46 +184,24 @@
          * This ensures unchecked checkboxes are included as false values
          */
         serializeFormWithCheckboxes: function($form) {
-            // Get all form data using jQuery's built-in serialization
-            var formArray = $form.serializeArray();
-            var submittedFields = {};
-            var allCheckboxes = {};
+            // Start with standard form serialization
+            var serialized = $form.serialize();
             
-            // Collect all submitted form fields
-            $.each(formArray, function(i, field) {
-                submittedFields[field.name] = field.value;
-            });
-            
-            // Find all checkboxes in the form
-            $form.find('input[type="checkbox"]').each(function() {
+            // Add unchecked checkboxes
+            var uncheckedBoxes = [];
+            $form.find('input[type="checkbox"]:not(:checked)').each(function() {
                 var name = $(this).attr('name');
                 if (name) {
-                    allCheckboxes[name] = false; // Default to unchecked
+                    uncheckedBoxes.push(encodeURIComponent(name) + '=0');
                 }
             });
             
-            // Mark submitted checkboxes as checked
-            $.each(submittedFields, function(name, value) {
-                if (allCheckboxes.hasOwnProperty(name)) {
-                    allCheckboxes[name] = true;
-                }
-            });
+            // Append unchecked checkboxes to serialized string
+            if (uncheckedBoxes.length > 0) {
+                serialized += (serialized ? '&' : '') + uncheckedBoxes.join('&');
+            }
             
-            // Add unchecked checkboxes to the form array
-            var finalFormArray = formArray.slice(); // Copy existing form data
-            
-            $.each(allCheckboxes, function(name, isChecked) {
-                if (!isChecked) {
-                    // Add unchecked checkbox with value '0'
-                    finalFormArray.push({
-                        name: name,
-                        value: '0'
-                    });
-                }
-            });
-            
-            // Convert back to proper serialized string format
-            return $.param(finalFormArray);
+            return serialized;
         },
         
         /**
