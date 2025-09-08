@@ -231,7 +231,7 @@ class AI_Chatbot_Ajax {
 
        // Send successful response
         wp_send_json_success(array(
-            'response' => $$response_text,
+            'response' => $response_text,
             'session_id' => $session_id,
             'conversation_id' => $conversation_id,
             'message_id' => $message_id,

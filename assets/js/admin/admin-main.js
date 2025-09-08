@@ -116,7 +116,10 @@
             
             var $form = $(this);
             
+            // Use the fixed serialization method
             var formData = AIChatbotAdmin.serializeFormWithCheckboxes($form);
+            
+            console.log('Serialized form data:', formData); // Debug log
             
             AIChatbotAdmin.showNotification('Saving settings...', 'info');
             
@@ -126,7 +129,7 @@
                 data: {
                     action: 'ai_chatbot_save_settings',
                     nonce: aiChatbotAdmin.nonce,
-                    settings: formData
+                    settings: formData  // This should now be a proper string
                 },
                 success: function(response) {
                     if (response.success) {
@@ -154,7 +157,7 @@
             var $form = $('.ai-chatbot-settings-form');
             if ($form.length === 0) return;
             
-            // Use the same checkbox-aware serialization
+            // Use the fixed serialization method
             var formData = AIChatbotAdmin.serializeFormWithCheckboxes($form);
             
             $.ajax({
@@ -181,38 +184,46 @@
          * This ensures unchecked checkboxes are included as false values
          */
         serializeFormWithCheckboxes: function($form) {
-            // Get all form data
+            // Get all form data using jQuery's built-in serialization
             var formArray = $form.serializeArray();
-            var checkboxes = {};
+            var submittedFields = {};
+            var allCheckboxes = {};
+            
+            // Collect all submitted form fields
+            $.each(formArray, function(i, field) {
+                submittedFields[field.name] = field.value;
+            });
             
             // Find all checkboxes in the form
             $form.find('input[type="checkbox"]').each(function() {
                 var name = $(this).attr('name');
                 if (name) {
-                    // Mark this as a checkbox field
-                    checkboxes[name] = false;
+                    allCheckboxes[name] = false; // Default to unchecked
                 }
             });
             
-            // Update checkbox values for checked ones
-            $.each(formArray, function(i, field) {
-                if (checkboxes.hasOwnProperty(field.name)) {
-                    checkboxes[field.name] = true;
+            // Mark submitted checkboxes as checked
+            $.each(submittedFields, function(name, value) {
+                if (allCheckboxes.hasOwnProperty(name)) {
+                    allCheckboxes[name] = true;
                 }
             });
             
-            // Add unchecked checkboxes to form data
-            $.each(checkboxes, function(name, value) {
-                if (!value) {
-                    formArray.push({
+            // Add unchecked checkboxes to the form array
+            var finalFormArray = formArray.slice(); // Copy existing form data
+            
+            $.each(allCheckboxes, function(name, isChecked) {
+                if (!isChecked) {
+                    // Add unchecked checkbox with value '0'
+                    finalFormArray.push({
                         name: name,
-                        value: '0' // Send '0' for unchecked
+                        value: '0'
                     });
                 }
             });
             
-            // Convert back to serialized string
-            return $.param(formArray);
+            // Convert back to proper serialized string format
+            return $.param(finalFormArray);
         },
         
         /**

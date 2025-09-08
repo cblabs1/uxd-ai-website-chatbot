@@ -541,7 +541,7 @@ class AI_Chatbot_Admin_Settings {
         // Parse the serialized form data
         parse_str($_POST['settings'], $form_data);
         
-        error_log('AI Chatbot: Parsed form data: ' . print_r($form_data, true));
+        error_log('AI Chatbot: Raw form data: ' . print_r($form_data, true));
         
         // Get the settings array from form data
         if (isset($form_data['ai_chatbot_settings']) && is_array($form_data['ai_chatbot_settings'])) {
@@ -554,15 +554,15 @@ class AI_Chatbot_Admin_Settings {
             // Get default settings for structure
             $defaults = $this->get_default_settings();
             
-            // Process checkbox fields - CRITICAL FIX
+            // Process checkbox fields - FIXED VERSION
             $processed_settings = $this->process_all_checkboxes($new_settings, $defaults, $current_settings);
             
-            error_log('AI Chatbot: Processed settings: ' . print_r($processed_settings, true));
+            // Add debug logging
+            $this->debug_checkbox_processing($new_settings, $processed_settings);
             
             // Save the complete settings array
             $save_result = update_option('ai_chatbot_settings', $processed_settings);
 
-            
             if ($save_result || get_option('ai_chatbot_settings') === $processed_settings) {
                 error_log('AI Chatbot: Settings saved successfully');
                 wp_send_json_success(__('Settings saved successfully!', 'ai-website-chatbot'));
@@ -587,9 +587,8 @@ class AI_Chatbot_Admin_Settings {
      * @return array Processed settings
      */
     private function process_all_checkboxes($new_settings, $defaults, $current_settings) {
-        $processed = array();
-        
-        // Define all checkbox fields and their locations
+    
+        // Define ALL checkbox fields and their locations (UPDATED)
         $checkbox_map = array(
             // Top-level checkboxes
             'enabled' => 'boolean',
@@ -597,6 +596,7 @@ class AI_Chatbot_Admin_Settings {
             'log_conversations' => 'boolean',
             'cache_responses' => 'boolean',
             'show_typing_indicator' => 'boolean',
+            'show_timestamp' => 'boolean',  // ADDED - was missing
             
             // Nested checkboxes
             'gdpr' => array(
@@ -608,7 +608,7 @@ class AI_Chatbot_Admin_Settings {
                 'enabled' => 'boolean'
             ),
             'content_sync' => array(
-                'enabled' => 'boolean'f
+                'enabled' => 'boolean',
             )
         );
         
@@ -626,9 +626,9 @@ class AI_Chatbot_Admin_Settings {
                 foreach ($type as $nested_key => $nested_type) {
                     // Check if the nested checkbox was submitted
                     if (isset($new_settings[$key][$nested_key])) {
-                        // Convert to boolean (handle '1', 'on', true)
+                        // Convert to boolean using helper method - FIXED
                         $value = $new_settings[$key][$nested_key];
-                        $processed[$key][$nested_key] = ($value === '1' || $value === 'on' || $value === true);
+                        $processed[$key][$nested_key] = $this->convert_to_boolean($value);
                     } else {
                         // Not submitted = unchecked = false
                         $processed[$key][$nested_key] = false;
@@ -645,19 +645,13 @@ class AI_Chatbot_Admin_Settings {
                     }
                 }
             } else {
-                // Handle top-level checkbox
+                // Handle top-level checkbox - FIXED LOGIC
                 if (isset($new_settings[$key])) {
-                    // Convert to boolean
+                    // Convert to boolean using helper method
                     $value = $new_settings[$key];
-                    $processed[$key] = ($value === '1' || $value === 'on' || $value === true || $value === '0');
-                    
-                    // Special handling for '0' sent from JS for unchecked
-                    if ($value === '0') {
-                        $processed[$key] = false;
-                    }
+                    $processed[$key] = $this->convert_to_boolean($value);
                 } else {
-                    // Check if this field was in the form (even if unchecked)
-                    // If it's a known checkbox field, set to false
+                    // Not submitted = unchecked = false
                     $processed[$key] = false;
                 }
             }
@@ -677,60 +671,51 @@ class AI_Chatbot_Admin_Settings {
                         $value
                     );
                 } else {
-                    // Simple value, just copy
+                    // Simple scalar value
                     $processed[$key] = $value;
-                }
-            }
-        }
-        
-        // Sanitize specific fields
-        if (isset($processed['api_key'])) {
-            $processed['api_key'] = sanitize_text_field($processed['api_key']);
-        }
-        if (isset($processed['model'])) {
-            $processed['model'] = sanitize_text_field($processed['model']);
-        }
-        if (isset($processed['gdpr']['privacy_policy_url'])) {
-            $processed['gdpr']['privacy_policy_url'] = esc_url_raw($processed['gdpr']['privacy_policy_url']);
-        }
-        if (isset($processed['custom_css'])) {
-            $processed['custom_css'] = wp_strip_all_tags($processed['custom_css']);
-        }
-        if (isset($processed['custom_js'])) {
-            $processed['custom_js'] = wp_strip_all_tags($processed['custom_js']);
-        }
-        
-        // Ensure numeric fields are properly typed
-        $numeric_fields = array(
-            'max_tokens' => 500,
-            'temperature' => 0.7,
-            'rate_limit' => 10,
-            'rate_limit_window' => 60,
-            'gdpr' => array(
-                'data_retention_days' => 30
-            )
-        );
-        
-        foreach ($numeric_fields as $key => $default) {
-            if (is_array($default)) {
-                foreach ($default as $nested_key => $nested_default) {
-                    if (isset($processed[$key][$nested_key])) {
-                        $processed[$key][$nested_key] = is_numeric($processed[$key][$nested_key]) 
-                            ? floatval($processed[$key][$nested_key]) 
-                            : $nested_default;
-                    }
-                }
-            } else {
-                if (isset($processed[$key])) {
-                    $processed[$key] = is_numeric($processed[$key]) 
-                        ? floatval($processed[$key]) 
-                        : $default;
                 }
             }
         }
         
         return $processed;
     }
+
+    /**
+     * Helper method to properly convert values to boolean
+     * 
+     * @param mixed $value The value to convert
+     * @return bool True or false
+     */
+    private function convert_to_boolean($value) {
+        // Handle string representations
+        if (is_string($value)) {
+            $value = strtolower(trim($value));
+            
+            // Explicitly false values (CRITICAL FIX)
+            if (in_array($value, array('0', 'false', 'off', 'no', ''))) {
+                return false;
+            }
+            
+            // Explicitly true values
+            if (in_array($value, array('1', 'true', 'on', 'yes'))) {
+                return true;
+            }
+        }
+        
+        // Handle boolean values
+        if (is_bool($value)) {
+            return $value;
+        }
+        
+        // Handle numeric values
+        if (is_numeric($value)) {
+            return (bool) intval($value);
+        }
+        
+        // Default: convert to boolean using PHP's rules
+        return (bool) $value;
+    }
+
     
     /**
      * AJAX: Reset settings to defaults
@@ -1096,4 +1081,14 @@ class AI_Chatbot_Admin_Settings {
             'none' => __('None', 'ai-website-chatbot')
         );
     }
+
+    private function debug_checkbox_processing($new_settings, $processed_settings) {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('=== AI Chatbot Checkbox Debug ===');
+            error_log('NEW SETTINGS: ' . print_r($new_settings, true));
+            error_log('PROCESSED SETTINGS: ' . print_r($processed_settings, true));
+            error_log('=== End Debug ===');
+        }
+    }
+    
 }
