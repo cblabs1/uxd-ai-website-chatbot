@@ -46,10 +46,7 @@
             $(document).on('change', '.select-all', this.selectAllItems);
             $(document).on('submit', '.bulk-action-form', this.handleBulkAction);
             
-            // Auto-save settings on change (with debounce)
-            $(document).on('change', '.auto-save', this.debounce(this.autoSaveSettings, 1000));
-            
-            // Tab navigation
+                // Tab navigation
             $(document).on('click', '.nav-tab', this.switchTab);
             
             // AJAX loading states
@@ -57,6 +54,15 @@
                 $('.ai-chatbot-loading').show();
             }).ajaxStop(function() {
                 $('.ai-chatbot-loading').hide();
+            });
+
+            // Auto-save settings on change (with debounce)
+            var autoSaveTimer;
+            $(document).on('change', '.ai-chatbot-settings-form input, .ai-chatbot-settings-form select, .ai-chatbot-settings-form textarea', function() {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(function() {
+                    AIChatbotAdmin.autoSaveSettings();
+                }, 1500);
             });
         },
         
@@ -109,28 +115,28 @@
             e.preventDefault();
             
             var $form = $(this);
-            var formData = $form.serialize();
+            
+            var formData = AIChatbotAdmin.serializeFormWithCheckboxes($form);
             
             AIChatbotAdmin.showNotification('Saving settings...', 'info');
             
-            // FIXED: Send form data as 'settings' parameter instead of direct data
             $.ajax({
                 url: aiChatbotAdmin.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'ai_chatbot_save_settings',
                     nonce: aiChatbotAdmin.nonce,
-                    settings: formData  // FIXED: Pass serialized form data as 'settings' parameter
+                    settings: formData
                 },
                 success: function(response) {
                     if (response.success) {
-                        AIChatbotAdmin.showNotification(response.data, 'success');
+                        AIChatbotAdmin.showNotification(response.data || 'Settings saved successfully!', 'success');
                         $form.find('.save-indicator').addClass('saved').text('Saved!');
                         setTimeout(function() {
                             $form.find('.save-indicator').removeClass('saved').text('');
                         }, 3000);
                     } else {
-                        AIChatbotAdmin.showNotification(response.data, 'error');
+                        AIChatbotAdmin.showNotification(response.data || 'Failed to save settings', 'error');
                     }
                 },
                 error: function(xhr, status, error) {
@@ -140,7 +146,7 @@
                 }
             });
         },
-        
+
         /**
          * Auto-save settings - FIXED VERSION
          */
@@ -148,16 +154,16 @@
             var $form = $('.ai-chatbot-settings-form');
             if ($form.length === 0) return;
             
-            var formData = $form.serialize();
+            // Use the same checkbox-aware serialization
+            var formData = AIChatbotAdmin.serializeFormWithCheckboxes($form);
             
-            // FIXED: Send form data as 'settings' parameter
             $.ajax({
                 url: aiChatbotAdmin.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'ai_chatbot_save_settings',
                     nonce: aiChatbotAdmin.nonce,
-                    settings: formData  // FIXED: Pass serialized form data as 'settings' parameter
+                    settings: formData
                 },
                 success: function(response) {
                     if (response.success) {
@@ -168,6 +174,45 @@
                     }
                 }
             });
+        },
+
+        /**
+         * Serialize form with proper checkbox handling
+         * This ensures unchecked checkboxes are included as false values
+         */
+        serializeFormWithCheckboxes: function($form) {
+            // Get all form data
+            var formArray = $form.serializeArray();
+            var checkboxes = {};
+            
+            // Find all checkboxes in the form
+            $form.find('input[type="checkbox"]').each(function() {
+                var name = $(this).attr('name');
+                if (name) {
+                    // Mark this as a checkbox field
+                    checkboxes[name] = false;
+                }
+            });
+            
+            // Update checkbox values for checked ones
+            $.each(formArray, function(i, field) {
+                if (checkboxes.hasOwnProperty(field.name)) {
+                    checkboxes[field.name] = true;
+                }
+            });
+            
+            // Add unchecked checkboxes to form data
+            $.each(checkboxes, function(name, value) {
+                if (!value) {
+                    formArray.push({
+                        name: name,
+                        value: '0' // Send '0' for unchecked
+                    });
+                }
+            });
+            
+            // Convert back to serialized string
+            return $.param(formArray);
         },
         
         /**

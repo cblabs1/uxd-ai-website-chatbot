@@ -512,12 +512,12 @@ class AI_Chatbot_Admin_Settings {
     }
     
     /**
-     * AJAX: Save settings
+     * AJAX: Save settings - FIXED VERSION
+     * Properly handles checkbox values
      */
     public function ajax_save_settings() {
         // Debug logging
         error_log('AI Chatbot: ajax_save_settings called');
-        error_log('AI Chatbot: POST data keys: ' . implode(', ', array_keys($_POST)));
         
         // Verify nonce
         if (!check_ajax_referer('ai_chatbot_admin_nonce', 'nonce', false)) {
@@ -543,82 +543,193 @@ class AI_Chatbot_Admin_Settings {
         
         error_log('AI Chatbot: Parsed form data: ' . print_r($form_data, true));
         
-        // CORRECT: Save the entire ai_chatbot_settings array as one option
+        // Get the settings array from form data
         if (isset($form_data['ai_chatbot_settings']) && is_array($form_data['ai_chatbot_settings'])) {
             
             $new_settings = $form_data['ai_chatbot_settings'];
             
-            // Get current settings to merge with new ones
-            
+            // Get current settings to preserve unsubmitted values
             $current_settings = get_option('ai_chatbot_settings', array());
             
-            // Merge current settings with new settings
-            $checkbox_fields = array(
-                'enabled',
-                'debug_mode', 
-                'log_conversations',
-                'show_on_mobile',
-                'show_typing_indicator'
-            );
+            // Get default settings for structure
+            $defaults = $this->get_default_settings();
+            
+            // Process checkbox fields - CRITICAL FIX
+            $processed_settings = $this->process_all_checkboxes($new_settings, $defaults, $current_settings);
+            
+            error_log('AI Chatbot: Processed settings: ' . print_r($processed_settings, true));
+            
+            // Save the complete settings array
+            $save_result = update_option('ai_chatbot_settings', $processed_settings);
 
-            $checkbox_nested_fields = array(
-                'gdpr' => array('enabled', 'cookie_consent', 'anonymize_data'),
-                'rate_limiting' => array('enabled')
-            );
-
-            // Set missing checkboxes to false
-            foreach ($checkbox_fields as $field) {
-                if (!isset($new_settings[$field])) {
-                    $new_settings[$field] = false;
-                }
-            }
-
-            // Handle nested checkbox fields
-            foreach ($checkbox_nested_fields as $parent => $fields) {
-                if (!isset($new_settings[$parent])) {
-                    $new_settings[$parent] = array();
-                }
-                foreach ($fields as $field) {
-                    if (!isset($new_settings[$parent][$field])) {
-                        $new_settings[$parent][$field] = false;
-                    }
-                }
-            }
-            $updated_settings = array_merge($current_settings, $new_settings);
             
-            error_log('AI Chatbot: Current settings: ' . print_r($current_settings, true));
-            error_log('AI Chatbot: New settings: ' . print_r($new_settings, true));
-            error_log('AI Chatbot: Merged settings: ' . print_r($updated_settings, true));
-            
-            // Save the complete settings array as one option
-            $current_check = get_option('ai_chatbot_settings', array());
-            if ($current_check === $updated_settings) {
-                error_log('AI Chatbot: Settings unchanged, but counting as success');
-                wp_send_json_success(__('Settings are up to date!', 'ai-website-chatbot'));
-                return; // Add this return statement
-            }
-            
-            $save_result = update_option('ai_chatbot_settings', $updated_settings);
-            
-            if ($save_result) {
+            if ($save_result || get_option('ai_chatbot_settings') === $processed_settings) {
                 error_log('AI Chatbot: Settings saved successfully');
-                wp_send_json_success(sprintf(__('%d settings saved successfully!', 'ai-website-chatbot'), count($new_settings)));
+                wp_send_json_success(__('Settings saved successfully!', 'ai-website-chatbot'));
             } else {
-                // Check if settings are the same (update_option returns false if no change)
-                $current_check = get_option('ai_chatbot_settings', array());
-                if ($current_check === $updated_settings) {
-                    error_log('AI Chatbot: Settings unchanged, but counting as success');
-                    wp_send_json_success(__('Settings are up to date!', 'ai-website-chatbot'));
-                } else {
-                    error_log('AI Chatbot: Failed to save settings');
-                    wp_send_json_error(__('Failed to save settings', 'ai-website-chatbot'));
-                }
+                error_log('AI Chatbot: Failed to save settings');
+                wp_send_json_error(__('Failed to save settings. Please try again.', 'ai-website-chatbot'));
             }
             
         } else {
-            error_log('AI Chatbot: No ai_chatbot_settings array found in form data');
-            wp_send_json_error(__('Invalid settings data structure', 'ai-website-chatbot'));
+            error_log('AI Chatbot: Invalid settings structure');
+            wp_send_json_error(__('Invalid settings data', 'ai-website-chatbot'));
         }
+    }
+
+    /**
+     * Process all checkboxes recursively
+     * Ensures all checkbox fields are properly set to true/false
+     * 
+     * @param array $new_settings New settings from form
+     * @param array $defaults Default settings structure
+     * @param array $current_settings Current saved settings
+     * @return array Processed settings
+     */
+    private function process_all_checkboxes($new_settings, $defaults, $current_settings) {
+        $processed = array();
+        
+        // Define all checkbox fields and their locations
+        $checkbox_map = array(
+            // Top-level checkboxes
+            'enabled' => 'boolean',
+            'debug_mode' => 'boolean',
+            'log_conversations' => 'boolean',
+            'cache_responses' => 'boolean',
+            'show_typing_indicator' => 'boolean',
+            
+            // Nested checkboxes
+            'gdpr' => array(
+                'enabled' => 'boolean',
+                'cookie_consent' => 'boolean',
+                'anonymize_data' => 'boolean'
+            ),
+            'rate_limiting' => array(
+                'enabled' => 'boolean'
+            ),
+            'content_sync' => array(
+                'enabled' => 'boolean'f
+            )
+        );
+        
+        // Start with current settings as base
+        $processed = $current_settings;
+        
+        // Process each field according to the map
+        foreach ($checkbox_map as $key => $type) {
+            if (is_array($type)) {
+                // Handle nested settings
+                if (!isset($processed[$key])) {
+                    $processed[$key] = array();
+                }
+                
+                foreach ($type as $nested_key => $nested_type) {
+                    // Check if the nested checkbox was submitted
+                    if (isset($new_settings[$key][$nested_key])) {
+                        // Convert to boolean (handle '1', 'on', true)
+                        $value = $new_settings[$key][$nested_key];
+                        $processed[$key][$nested_key] = ($value === '1' || $value === 'on' || $value === true);
+                    } else {
+                        // Not submitted = unchecked = false
+                        $processed[$key][$nested_key] = false;
+                    }
+                }
+                
+                // Copy other non-checkbox nested values
+                if (isset($new_settings[$key])) {
+                    foreach ($new_settings[$key] as $nested_key => $value) {
+                        if (!isset($type[$nested_key])) {
+                            // This is not a checkbox, preserve the value
+                            $processed[$key][$nested_key] = $value;
+                        }
+                    }
+                }
+            } else {
+                // Handle top-level checkbox
+                if (isset($new_settings[$key])) {
+                    // Convert to boolean
+                    $value = $new_settings[$key];
+                    $processed[$key] = ($value === '1' || $value === 'on' || $value === true || $value === '0');
+                    
+                    // Special handling for '0' sent from JS for unchecked
+                    if ($value === '0') {
+                        $processed[$key] = false;
+                    }
+                } else {
+                    // Check if this field was in the form (even if unchecked)
+                    // If it's a known checkbox field, set to false
+                    $processed[$key] = false;
+                }
+            }
+        }
+        
+        // Process all other non-checkbox fields from new_settings
+        foreach ($new_settings as $key => $value) {
+            if (!isset($checkbox_map[$key])) {
+                // This is not a checkbox field, just copy it
+                if (is_array($value)) {
+                    // For arrays, merge with existing
+                    if (!isset($processed[$key])) {
+                        $processed[$key] = array();
+                    }
+                    $processed[$key] = array_merge(
+                        is_array($processed[$key]) ? $processed[$key] : array(),
+                        $value
+                    );
+                } else {
+                    // Simple value, just copy
+                    $processed[$key] = $value;
+                }
+            }
+        }
+        
+        // Sanitize specific fields
+        if (isset($processed['api_key'])) {
+            $processed['api_key'] = sanitize_text_field($processed['api_key']);
+        }
+        if (isset($processed['model'])) {
+            $processed['model'] = sanitize_text_field($processed['model']);
+        }
+        if (isset($processed['gdpr']['privacy_policy_url'])) {
+            $processed['gdpr']['privacy_policy_url'] = esc_url_raw($processed['gdpr']['privacy_policy_url']);
+        }
+        if (isset($processed['custom_css'])) {
+            $processed['custom_css'] = wp_strip_all_tags($processed['custom_css']);
+        }
+        if (isset($processed['custom_js'])) {
+            $processed['custom_js'] = wp_strip_all_tags($processed['custom_js']);
+        }
+        
+        // Ensure numeric fields are properly typed
+        $numeric_fields = array(
+            'max_tokens' => 500,
+            'temperature' => 0.7,
+            'rate_limit' => 10,
+            'rate_limit_window' => 60,
+            'gdpr' => array(
+                'data_retention_days' => 30
+            )
+        );
+        
+        foreach ($numeric_fields as $key => $default) {
+            if (is_array($default)) {
+                foreach ($default as $nested_key => $nested_default) {
+                    if (isset($processed[$key][$nested_key])) {
+                        $processed[$key][$nested_key] = is_numeric($processed[$key][$nested_key]) 
+                            ? floatval($processed[$key][$nested_key]) 
+                            : $nested_default;
+                    }
+                }
+            } else {
+                if (isset($processed[$key])) {
+                    $processed[$key] = is_numeric($processed[$key]) 
+                        ? floatval($processed[$key]) 
+                        : $default;
+                }
+            }
+        }
+        
+        return $processed;
     }
     
     /**

@@ -328,7 +328,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Enable Rate Limiting', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" id="rate_limiting_enabled" name="ai_chatbot_settings[rate_limiting][enabled]" value="1" <?php checked($settings['rate_limiting']['enabled']); ?>>
+                            <input type="checkbox" id="rate_limiting_enabled" name="ai_chatbot_settings[rate_limiting][enabled]" value="1" <?php checked($settings['rate_limiting']['enabled'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Limit the number of requests per user to prevent abuse.', 'ai-website-chatbot'); ?></p>
@@ -429,7 +429,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Debug Mode', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="ai_chatbot_settings[debug_mode]" value="1" <?php checked($settings['debug_mode']); ?>>
+                            <input type="checkbox" name="ai_chatbot_settings[debug_mode]" value="1" <?php checked($settings['debug_mode'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Enable debug mode to log detailed information (for troubleshooting).', 'ai-website-chatbot'); ?></p>
@@ -440,7 +440,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Log Conversations', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="ai_chatbot_settings[log_conversations]" value="1" <?php checked($settings['log_conversations']); ?>>
+                            <input type="checkbox" name="ai_chatbot_settings[log_conversations]" value="1" <?php checked($settings['log_conversations'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <p class="description"><?php _e('Store conversations in the database for analytics and training.', 'ai-website-chatbot'); ?></p>
@@ -451,7 +451,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <th scope="row"><?php _e('Cache Responses', 'ai-website-chatbot'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="ai_chatbot_settings[cache_responses]" value="1" <?php checked($settings['cache_responses']); ?>>
+                            <input type="checkbox" name="ai_chatbot_settings[cache_responses]" value="1" <?php checked($settings['cache_responses'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                         <button type="button" class="button clear-cache"><?php _e('Clear Cache', 'ai-website-chatbot'); ?></button>
