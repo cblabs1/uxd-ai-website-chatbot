@@ -64,12 +64,15 @@ class AI_Chatbot_Shortcodes {
      * @since 1.0.0
      */
     public function chatbot_shortcode($atts, $content = null) {
+
+        $saved_settings = get_option('ai_chatbot_settings', array());
+
         // Parse shortcode attributes
         $atts = shortcode_atts(array(
             'type' => 'inline',
             'width' => '100%',
             'height' => '400px',
-            'title' => get_option('ai_chatbot_widget_title', __('AI Assistant', 'ai-website-chatbot')),
+            'title' => $saved_settings['title'],
             'theme' => get_option('ai_chatbot_theme', 'default'),
             'welcome_message' => get_option('ai_chatbot_welcome_message', ''),
             'position' => 'static',

@@ -98,6 +98,24 @@ class AI_Chatbot_Frontend {
                 'minimize' => __('Minimize', 'ai-website-chatbot'),
                 'maximize' => __('Maximize', 'ai-website-chatbot'),
                 'close' => __('Close', 'ai-website-chatbot'),
+                'pre_chat_title' => __('Welcome to AI Chat', 'ai-website-chatbot'),
+                'pre_chat_subtitle' => __('Let\'s get started with your conversation', 'ai-website-chatbot'),
+                'pre_chat_description' => __('To provide you with the best assistance, we\'d like to know a bit about you. Your information helps us give more personalized responses.', 'ai-website-chatbot'),
+                'email_label' => __('Email Address', 'ai-website-chatbot'),
+                'email_placeholder' => __('your.email@example.com', 'ai-website-chatbot'),
+                'email_error' => __('Please enter a valid email address', 'ai-website-chatbot'),
+                'name_label' => __('Your Name (Optional)', 'ai-website-chatbot'),
+                'name_placeholder' => __('John Doe', 'ai-website-chatbot'),
+                'name_error' => __('Name should be between 2-50 characters', 'ai-website-chatbot'),
+                'privacy_text' => __('Your information is secure and will only be used to improve your chat experience. We respect your privacy and follow GDPR guidelines.', 'ai-website-chatbot'),
+                'learn_more' => __('Learn more', 'ai-website-chatbot'),
+                'start_chat' => __('Start Chatting', 'ai-website-chatbot'),
+            ),
+            'settings' => array(
+                'user_collection_enabled' => get_option('ai_chatbot_user_collection_enabled', true),
+                'require_email' => get_option('ai_chatbot_require_email', true),
+                'require_name' => get_option('ai_chatbot_require_name', false),
+                'max_message_length' => get_option('ai_chatbot_max_message_length', 1000),
             )
         ));
     }

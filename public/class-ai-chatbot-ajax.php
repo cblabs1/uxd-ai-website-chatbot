@@ -31,6 +31,9 @@ class AI_Chatbot_Ajax {
         // Main chat message handler - both logged in and non-logged in users
         add_action('wp_ajax_ai_chatbot_send_message', array($this, 'handle_send_message'));
         add_action('wp_ajax_nopriv_ai_chatbot_send_message', array($this, 'handle_send_message'));
+
+        add_action('wp_ajax_ai_chatbot_save_user_data', array($this, 'ajax_save_user_data'));
+        add_action('wp_ajax_nopriv_ai_chatbot_save_user_data', array($this, 'ajax_save_user_data'));
         
         // Additional AJAX handlers
         add_action('wp_ajax_ai_chatbot_rating', array($this, 'handle_rating'));
@@ -50,24 +53,36 @@ class AI_Chatbot_Ajax {
      * Handle chat message AJAX request
      */
     public function handle_send_message() {
-        // Start timing for performance tracking
         $start_time = microtime(true);
-        
-        // Log the request for debugging
-        error_log('AI Chatbot: Received chat message request');
-        
-        // Check nonce for security
-        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'ai_chatbot_nonce')) {
+    
+        // Verify nonce
+        if (!check_ajax_referer('ai_chatbot_nonce', 'nonce', false)) {
             wp_send_json_error(array(
-                'message' => __('Security check failed.', 'ai-website-chatbot'),
-                'code' => 'SECURITY_ERROR'
+                'message' => __('Security check failed', 'ai-website-chatbot'),
+                'code' => 'NONCE_FAILED'
             ));
             return;
         }
 
-        // Check rate limiting
-        $user_identifier = $this->get_user_identifier();
-        if (!$this->check_rate_limit($user_identifier)) {
+        // Get and validate input
+        $message = sanitize_textarea_field($_POST['message'] ?? '');
+        $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
+        $page_url = esc_url_raw($_POST['page_url'] ?? '');
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+
+        // Get user ID from session (if user was identified via pre-chat form)
+        $user_id = $this->get_current_user_id();
+
+        if (empty($message)) {
+            wp_send_json_error(array(
+                'message' => __('Message cannot be empty', 'ai-website-chatbot'),
+                'code' => 'EMPTY_MESSAGE'
+            ));
+            return;
+        }
+
+        // Rate limiting check
+        if (!$this->check_rate_limits()) {
             wp_send_json_error(array(
                 'message' => __('Too many requests. Please wait a moment.', 'ai-website-chatbot'),
                 'code' => 'RATE_LIMITED'
@@ -75,61 +90,21 @@ class AI_Chatbot_Ajax {
             return;
         }
 
-        // Get and sanitize input
-        $message = sanitize_textarea_field($_POST['message'] ?? '');
-        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
-        $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
-        $page_url = esc_url_raw($_POST['page_url'] ?? '');
-
-        // Validate input
-        if (empty($message)) {
-            wp_send_json_error(array(
-                'message' => __('Message cannot be empty.', 'ai-website-chatbot'),
-                'code' => 'EMPTY_MESSAGE'
-            ));
-            return;
-        }
-
-        if (strlen($message) > 4000) {
-            wp_send_json_error(array(
-                'message' => __('Message is too long. Please keep it under 4000 characters.', 'ai-website-chatbot'),
-                'code' => 'MESSAGE_TOO_LONG'
-            ));
-            return;
-        }
-
-        // Generate session ID if not provided or invalid
-        if (empty($session_id) || strlen($session_id) < 20) {
-            $session_id = $this->get_session_id();
-        }
-
-        // Generate conversation ID if not provided
+        // Generate IDs if not provided
         if (empty($conversation_id)) {
-            $conversation_id = $this->generate_conversation_id();
+            $conversation_id = 'conv_' . wp_generate_uuid4();
+        }
+        if (empty($session_id)) {
+            $session_id = $this->generate_session_id();
         }
 
-        // Store session in cookie for future requests
-        if (!headers_sent()) {
-            setcookie('ai_chatbot_session', $session_id, time() + (7 * 24 * 60 * 60), '/', '', is_ssl(), true);
-        }
-
-        // Check for spam/security issues
-        if ($this->is_message_spam($message)) {
-            wp_send_json_error(array(
-                'message' => __('Message appears to be spam. Please try again.', 'ai-website-chatbot'),
-                'code' => 'SPAM_DETECTED'
-            ));
-            return;
-        }
-
-        error_log('AI Chatbot: Processing message - Session: ' . $session_id . ', Conv: ' . $conversation_id);
+        error_log('AI Chatbot: Processing message - Session: ' . $session_id . 
+                ', Conv: ' . $conversation_id . ', User: ' . ($user_id ?: 'anonymous'));
 
         // Get AI provider and settings
         $settings = get_option('ai_chatbot_settings', array());
         $provider_name = $settings['ai_provider'] ?? 'openai';
         
-        error_log('AI Chatbot: Using provider - ' . $provider_name);
-
         // Load the AI provider
         $provider = $this->get_ai_provider($provider_name);
         
@@ -141,12 +116,23 @@ class AI_Chatbot_Ajax {
             return;
         }
 
-        // Save user message to database first
+        // Get user data for context if available
+        $user_data = null;
+        if ($user_id) {
+            $user_data = $this->get_user_data($user_id);
+            // Increment user message count
+            $this->increment_user_message_count($user_id);
+        }
+
+        // Save user message to database
         $user_message_data = array(
             'session_id' => $session_id,
             'conversation_id' => $conversation_id,
+            'user_id' => $user_id, // This will be null for anonymous users
             'user_message' => $message,
             'ai_response' => null,
+            'user_name' => $user_data['name'] ?? '',
+            'user_email' => $user_data['email'] ?? '',
             'user_ip' => $this->get_client_ip(),
             'page_url' => $page_url,
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
@@ -162,11 +148,29 @@ class AI_Chatbot_Ajax {
 
         // Get website content for context
         $context = $this->get_website_context($page_url);
+        
+        // Add user context if available
+        if ($user_data) {
+            $user_context = "\n\nUser Information:\n";
+            $user_context .= "- Name: " . ($user_data['name'] ?: 'Not provided') . "\n";
+            $user_context .= "- Email: " . $user_data['email'] . "\n";
+            $user_context .= "- Previous conversations: " . $user_data['total_conversations'] . "\n";
+            $user_context .= "- Total messages: " . $user_data['total_messages'] . "\n";
+            
+            if ($user_data['total_conversations'] > 0) {
+                $user_context .= "\nThis is a returning user. You can reference their previous interactions for context.";
+            } else {
+                $user_context .= "\nThis is a new user's first conversation.";
+            }
+            
+            $context .= $user_context;
+        }
 
         // Generate AI response
         $ai_response = $provider->generate_response($message, $context, array(
             'session_id' => $session_id,
             'conversation_id' => $conversation_id,
+            'user_id' => $user_id,
             'max_tokens' => intval($settings['max_tokens'] ?? 300),
             'temperature' => floatval($settings['temperature'] ?? 0.7)
         ));
@@ -196,50 +200,28 @@ class AI_Chatbot_Ajax {
         $source = $ai_response['source'] ?? 'api';
         $model = $ai_response['model'] ?? 'unknown';
 
-        error_log('AI Chatbot: Got AI response - Tokens: ' . $tokens_used . ', Source: ' . $source);
-
-        // Update database with complete conversation
+        // Update message with AI response
         if ($message_id) {
-            $this->update_message_with_response($message_id, $response_text, array(
-                'tokens_used' => $tokens_used,
-                'response_time' => $response_time,
-                'model' => $model,
-                'source' => $source,
-                'status' => 'completed'
-            ));
-        } else {
-            // Save complete conversation if initial save failed
-            $complete_data = array_merge($user_message_data, array(
-                'ai_response' => $response_text,
-                'tokens_used' => $tokens_used,
-                'response_time' => $response_time,
-                'model' => $model,
-                'source' => $source,
-                'status' => 'completed'
-            ));
-            $message_id = $this->save_message($complete_data);
+            $this->update_message_with_response($message_id, $response_text, $tokens_used, $response_time, $model);
         }
 
-        // Track analytics
-        $this->track_conversation_analytics($session_id, $conversation_id, array(
-            'tokens_used' => $tokens_used,
-            'response_time' => $response_time,
-            'provider' => $provider_name,
-            'model' => $model,
-            'source' => $source
-        ));
+        // Cache response if enabled
+        if ($settings['cache_responses'] ?? false) {
+            $this->cache_response($message, $response_text);
+        }
 
-       // Send successful response
+        // Send success response
         wp_send_json_success(array(
             'response' => $response_text,
-            'session_id' => $session_id,
             'conversation_id' => $conversation_id,
-            'message_id' => $message_id,
+            'session_id' => $session_id,
+            'user_id' => $user_id,
             'tokens_used' => $tokens_used,
             'response_time' => round($response_time, 3),
             'source' => $source,
-            'model' => $model
-        ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            'model' => $model,
+            'user_name' => $user_data['name'] ?? null
+        ));
     }
 
     /**
@@ -1185,6 +1167,493 @@ class AI_Chatbot_Ajax {
         );
         
         wp_mail($admin_email, $subject, $message);
+    }
+    /**
+     * Handle user data collection from pre-chat form
+     */
+    public function ajax_save_user_data() {
+        try {
+            // Verify nonce
+            if (!check_ajax_referer('ai_chatbot_nonce', 'nonce', false)) {
+                wp_send_json_error(array(
+                    'message' => __('Security check failed', 'ai-website-chatbot'),
+                    'code' => 'NONCE_FAILED'
+                ));
+                return;
+            }
+
+            // Get form data
+            $user_email = sanitize_email($_POST['user_email'] ?? '');
+            $user_name = sanitize_text_field($_POST['user_name'] ?? '');
+            $page_url = esc_url_raw($_POST['page_url'] ?? '');
+            $user_agent = sanitize_text_field($_POST['user_agent'] ?? '');
+
+            // Validate required fields
+            if (empty($user_email) || !is_email($user_email)) {
+                wp_send_json_error(array(
+                    'message' => __('Please enter a valid email address', 'ai-website-chatbot'),
+                    'code' => 'INVALID_EMAIL'
+                ));
+                return;
+            }
+
+            // Validate optional name field
+            if (!empty($user_name) && (strlen($user_name) < 2 || strlen($user_name) > 50)) {
+                wp_send_json_error(array(
+                    'message' => __('Name should be between 2-50 characters', 'ai-website-chatbot'),
+                    'code' => 'INVALID_NAME'
+                ));
+                return;
+            }
+
+            // Check if user collection is enabled
+            $settings = get_option('ai_chatbot_settings', array());
+            $user_collection_enabled = isset($settings['user_collection']['enabled']) ? 
+                                    (bool) $settings['user_collection']['enabled'] : true;
+
+            if (!$user_collection_enabled) {
+                wp_send_json_error(array(
+                    'message' => __('User collection is currently disabled', 'ai-website-chatbot'),
+                    'code' => 'FEATURE_DISABLED'
+                ));
+                return;
+            }
+
+            // Save or update user data
+            $user_data = $this->save_user_data($user_email, $user_name, $page_url, $user_agent);
+
+            if (is_wp_error($user_data)) {
+                wp_send_json_error(array(
+                    'message' => $user_data->get_error_message(),
+                    'code' => $user_data->get_error_code()
+                ));
+                return;
+            }
+
+            // Generate session ID for this interaction
+            $session_id = $this->generate_session_id();
+            
+            // Store user ID in session for this conversation
+            if (!session_id()) {
+                session_start();
+            }
+            $_SESSION['ai_chatbot_user_id'] = $user_data['user_id'];
+            $_SESSION['ai_chatbot_session_id'] = $session_id;
+
+            // Return success response
+            wp_send_json_success(array(
+                'user_id' => $user_data['user_id'],
+                'session_id' => $session_id,
+                'message' => __('User information saved successfully', 'ai-website-chatbot')
+            ));
+
+        } catch (Exception $e) {
+            error_log('AI Chatbot: User data save error - ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('An error occurred while saving your information', 'ai-website-chatbot'),
+                'code' => 'SERVER_ERROR'
+            ));
+        }
+    }
+
+    /**
+     * Save user data to database
+     *
+     * @param string $email User email
+     * @param string $name User name
+     * @param string $page_url Current page URL
+     * @param string $user_agent User agent string
+     * @return array|WP_Error User data or error
+     */
+    private function save_user_data($email, $name, $page_url, $user_agent) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        $current_time = current_time('mysql');
+        $user_ip = $this->get_client_ip();
+
+        // Check if user already exists
+        $existing_user = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$users_table} WHERE email = %s",
+            $email
+        ));
+
+        if ($existing_user) {
+            // Update existing user
+            $update_data = array(
+                'last_seen' => $current_time,
+                'session_count' => $existing_user->session_count + 1,
+                'updated_at' => $current_time
+            );
+
+            // Update name if provided and different
+            if (!empty($name) && $name !== $existing_user->name) {
+                $update_data['name'] = $name;
+            }
+
+            $updated = $wpdb->update(
+                $users_table,
+                $update_data,
+                array('id' => $existing_user->id),
+                array('%s', '%d', '%s', '%s'),
+                array('%d')
+            );
+
+            if ($updated === false) {
+                return new WP_Error('update_failed', __('Failed to update user information', 'ai-website-chatbot'));
+            }
+
+            return array(
+                'user_id' => $existing_user->id,
+                'is_returning' => true,
+                'session_count' => $existing_user->session_count + 1
+            );
+        } else {
+            // Create new user
+            $insert_data = array(
+                'email' => $email,
+                'name' => $name,
+                'first_seen' => $current_time,
+                'last_seen' => $current_time,
+                'session_count' => 1,
+                'total_messages' => 0,
+                'total_conversations' => 0,
+                'status' => 'active',
+                'created_at' => $current_time,
+                'updated_at' => $current_time
+            );
+
+            $inserted = $wpdb->insert(
+                $users_table,
+                $insert_data,
+                array('%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s')
+            );
+
+            if ($inserted === false) {
+                return new WP_Error('insert_failed', __('Failed to save user information', 'ai-website-chatbot'));
+            }
+
+            $user_id = $wpdb->insert_id;
+
+            return array(
+                'user_id' => $user_id,
+                'is_returning' => false,
+                'session_count' => 1
+            );
+        }
+    }
+
+    /**
+     * Get user data by ID
+     *
+     * @param int $user_id User ID
+     * @return array|null User data or null if not found
+     */
+    public function get_user_data($user_id) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        
+        $user = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$users_table} WHERE id = %d AND status = 'active'",
+            $user_id
+        ), ARRAY_A);
+
+        return $user;
+    }
+
+    /**
+     * Get user data by email
+     *
+     * @param string $email User email
+     * @return array|null User data or null if not found
+     */
+    public function get_user_by_email($email) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        
+        $user = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$users_table} WHERE email = %s AND status = 'active'",
+            $email
+        ), ARRAY_A);
+
+        return $user;
+    }
+
+    /**
+     * Update user message count
+     *
+     * @param int $user_id User ID
+     * @return bool Success status
+     */
+    public function increment_user_message_count($user_id) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE {$users_table} 
+            SET total_messages = total_messages + 1, 
+                last_seen = %s,
+                updated_at = %s 
+            WHERE id = %d",
+            current_time('mysql'),
+            current_time('mysql'),
+            $user_id
+        ));
+
+        return $updated !== false;
+    }
+
+    /**
+     * Update user conversation count
+     *
+     * @param int $user_id User ID
+     * @return bool Success status
+     */
+    public function increment_user_conversation_count($user_id) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE {$users_table} 
+            SET total_conversations = total_conversations + 1,
+                updated_at = %s 
+            WHERE id = %d",
+            current_time('mysql'),
+            $user_id
+        ));
+
+        return $updated !== false;
+    }
+
+    /**
+     * Generate session ID
+     *
+     * @return string Session ID
+     */
+    private function generate_session_id() {
+        return 'sess_' . wp_generate_uuid4();
+    }
+
+    /**
+     * Get current user ID from session
+     *
+     * @return int|null User ID or null if not found
+     */
+    private function get_current_user_id() {
+        if (!session_id()) {
+            session_start();
+        }
+        
+        return isset($_SESSION['ai_chatbot_user_id']) ? 
+            (int) $_SESSION['ai_chatbot_user_id'] : null;
+    }
+
+    /**
+     * Get user conversation history for context
+     *
+     * @param int $user_id User ID
+     * @param int $limit Number of recent conversations to fetch
+     * @return array Conversation history
+     */
+    public function get_user_conversation_history($user_id, $limit = 5) {
+        global $wpdb;
+
+        $conversations_table = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        $history = $wpdb->get_results($wpdb->prepare(
+            "SELECT conversation_id, user_message, ai_response, created_at 
+            FROM {$conversations_table} 
+            WHERE user_id = %d AND status = 'completed' 
+            ORDER BY created_at DESC 
+            LIMIT %d",
+            $user_id,
+            $limit
+        ), ARRAY_A);
+
+        return $history;
+    }
+
+    /**
+     * Get user statistics
+     *
+     * @param int $user_id User ID
+     * @return array User statistics
+     */
+    public function get_user_statistics($user_id) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        $conversations_table = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        // Get basic user stats
+        $user_stats = $wpdb->get_row($wpdb->prepare(
+            "SELECT total_messages, total_conversations, session_count, first_seen, last_seen 
+            FROM {$users_table} 
+            WHERE id = %d",
+            $user_id
+        ), ARRAY_A);
+
+        if (!$user_stats) {
+            return null;
+        }
+
+        // Get conversation stats
+        $conversation_stats = $wpdb->get_row($wpdb->prepare(
+            "SELECT 
+                COUNT(*) as total_interactions,
+                COUNT(DISTINCT conversation_id) as unique_conversations,
+                AVG(response_time) as avg_response_time,
+                MAX(created_at) as last_interaction
+            FROM {$conversations_table} 
+            WHERE user_id = %d",
+            $user_id
+        ), ARRAY_A);
+
+        return array_merge($user_stats, $conversation_stats ?: array());
+    }
+
+    /**
+     * Update user preferences
+     *
+     * @param int $user_id User ID
+     * @param array $preferences User preferences
+     * @return bool Success status
+     */
+    public function update_user_preferences($user_id, $preferences) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        
+        $updated = $wpdb->update(
+            $users_table,
+            array(
+                'preferences' => wp_json_encode($preferences),
+                'updated_at' => current_time('mysql')
+            ),
+            array('id' => $user_id),
+            array('%s', '%s'),
+            array('%d')
+        );
+
+        return $updated !== false;
+    }
+
+    /**
+     * Anonymize user data (for GDPR compliance)
+     *
+     * @param int $user_id User ID
+     * @return bool Success status
+     */
+    public function anonymize_user_data($user_id) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        $conversations_table = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        // Anonymize user table
+        $anonymized_email = 'anonymous_' . $user_id . '@deleted.com';
+        $anonymized_name = 'Deleted User';
+        
+        $user_updated = $wpdb->update(
+            $users_table,
+            array(
+                'email' => $anonymized_email,
+                'name' => $anonymized_name,
+                'status' => 'anonymized',
+                'updated_at' => current_time('mysql')
+            ),
+            array('id' => $user_id),
+            array('%s', '%s', '%s', '%s'),
+            array('%d')
+        );
+
+        // Anonymize conversations
+        $conversations_updated = $wpdb->update(
+            $conversations_table,
+            array(
+                'user_name' => $anonymized_name,
+                'user_email' => $anonymized_email,
+                'user_ip' => '0.0.0.0',
+                'user_agent' => 'Anonymized'
+            ),
+            array('user_id' => $user_id),
+            array('%s', '%s', '%s', '%s'),
+            array('%d')
+        );
+
+        return $user_updated !== false && $conversations_updated !== false;
+    }
+
+    /**
+     * Delete user data completely (for GDPR compliance)
+     *
+     * @param int $user_id User ID
+     * @return bool Success status
+     */
+    public function delete_user_data($user_id) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        $conversations_table = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        // Delete conversations
+        $conversations_deleted = $wpdb->delete(
+            $conversations_table,
+            array('user_id' => $user_id),
+            array('%d')
+        );
+
+        // Delete user
+        $user_deleted = $wpdb->delete(
+            $users_table,
+            array('id' => $user_id),
+            array('%d')
+        );
+
+        return $user_deleted !== false;
+    }
+
+    /**
+     * Export user data (for GDPR compliance)
+     *
+     * @param int $user_id User ID
+     * @return array|null User data export or null if user not found
+     */
+    public function export_user_data($user_id) {
+        global $wpdb;
+
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        $conversations_table = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        // Get user data
+        $user_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$users_table} WHERE id = %d",
+            $user_id
+        ), ARRAY_A);
+
+        if (!$user_data) {
+            return null;
+        }
+
+        // Get conversation data
+        $conversations = $wpdb->get_results($wpdb->prepare(
+            "SELECT conversation_id, user_message, ai_response, created_at, page_url 
+            FROM {$conversations_table} 
+            WHERE user_id = %d 
+            ORDER BY created_at DESC",
+            $user_id
+        ), ARRAY_A);
+
+        return array(
+            'user_information' => $user_data,
+            'conversations' => $conversations,
+            'export_date' => current_time('mysql'),
+            'total_conversations' => count($conversations)
+        );
     }
 
 } // End of AI_Chatbot_Ajax class

@@ -212,14 +212,41 @@ class AI_Chatbot_Activator {
 			KEY idx_created_at (created_at)
 		) $charset_collate;";
 
+		$users_table = $wpdb->prefix . 'ai_chatbot_users';
+		$sql_users = "CREATE TABLE $users_table (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			email varchar(255) NOT NULL,
+			name varchar(255) DEFAULT '',
+			company varchar(255) DEFAULT '',
+			phone varchar(50) DEFAULT '',
+			first_seen datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			last_seen datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			session_count int(10) unsigned DEFAULT 1,
+			total_messages int(10) unsigned DEFAULT 0,
+			total_conversations int(10) unsigned DEFAULT 0,
+			preferences longtext DEFAULT NULL,
+			status varchar(20) DEFAULT 'active',
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY unique_email (email),
+			KEY idx_email (email),
+			KEY idx_status (status),
+			KEY idx_first_seen (first_seen),
+			KEY idx_last_seen (last_seen),
+			KEY idx_total_messages (total_messages)
+		) $charset_collate;";
+
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta($sql_conversations);
 		dbDelta($sql_content);
 		dbDelta($sql_training);
 		dbDelta($sql_training_data);
+		dbDelta($sql_users);
+
 		
 		// Store database version for future upgrades
-		update_option('ai_chatbot_db_version', '1.2.0');
+		update_option('ai_chatbot_db_version', '1.3.0');
 	}
 
 	/**
@@ -368,7 +395,11 @@ class AI_Chatbot_Activator {
 				'model' => array(
 					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN model varchar(100) DEFAULT NULL',
 					'check' => 'model'
-				)
+				),
+				'user_id' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN user_id bigint(20) unsigned DEFAULT NULL AFTER session_id',
+					'check' => 'user_id'
+				),
 			);
 
 			foreach ($columns_to_add as $column => $config) {
@@ -384,11 +415,14 @@ class AI_Chatbot_Activator {
 				}
 			}
 
+			
+
 			// Add indexes for better performance
 			$indexes_to_add = array(
 				'idx_conversation_id' => 'ALTER TABLE ' . $table_name . ' ADD INDEX idx_conversation_id (conversation_id)',
 				'idx_timestamp' => 'ALTER TABLE ' . $table_name . ' ADD INDEX idx_timestamp (timestamp)',
-				'idx_sender' => 'ALTER TABLE ' . $table_name . ' ADD INDEX idx_sender (sender)'
+				'idx_sender' => 'ALTER TABLE ' . $table_name . ' ADD INDEX idx_sender (sender)',
+				'idx_user_id' => 'ALTER TABLE ' . $table_name . ' ADD INDEX idx_user_id (user_id)'
 			);
 
 			foreach ($indexes_to_add as $index_name => $sql) {
