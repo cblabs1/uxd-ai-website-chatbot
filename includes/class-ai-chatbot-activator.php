@@ -121,7 +121,7 @@ class AI_Chatbot_Activator {
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             session_id varchar(255) NOT NULL,
             conversation_id varchar(255) NOT NULL,
-			user_id bigint(20) unsigned NOT NULL,
+			user_id bigint(20) unsigned DEFAULT NULL,
             user_message longtext NOT NULL,
             ai_response longtext DEFAULT NULL,
             user_name varchar(255) DEFAULT '',

@@ -54,7 +54,7 @@ class AI_Chatbot_Ajax {
      */
     public function handle_send_message() {
         $start_time = microtime(true);
-    
+
         // Verify nonce
         if (!check_ajax_referer('ai_chatbot_nonce', 'nonce', false)) {
             wp_send_json_error(array(
@@ -66,19 +66,40 @@ class AI_Chatbot_Ajax {
 
         // Get and validate input
         $message = sanitize_textarea_field($_POST['message'] ?? '');
-        $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
-        $page_url = esc_url_raw($_POST['page_url'] ?? '');
-        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
-
-        // Get user ID from session (if user was identified via pre-chat form)
-        $user_id = $this->get_current_user_id();
-
+        
         if (empty($message)) {
             wp_send_json_error(array(
                 'message' => __('Message cannot be empty', 'ai-website-chatbot'),
                 'code' => 'EMPTY_MESSAGE'
             ));
             return;
+        }
+
+        // Get user ID from session
+        $user_id = $this->get_current_user_id();
+        
+        // IMPORTANT: Block messages if user is not identified
+        if (!$user_id) {
+            wp_send_json_error(array(
+                'message' => __('Please provide your email to start chatting', 'ai-website-chatbot'),
+                'code' => 'USER_IDENTIFICATION_REQUIRED',
+                'require_user_data' => true,
+                'show_form' => true
+            ));
+            return;
+        }
+
+        // Continue with rest of your existing code...
+        $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
+        $page_url = esc_url_raw($_POST['page_url'] ?? '');
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+
+        // Generate IDs if not provided
+        if (empty($conversation_id)) {
+            $conversation_id = 'conv_' . time() . '_' . wp_generate_password(12, false);
+        }
+        if (empty($session_id)) {
+            $session_id = $this->generate_session_id();
         }
 
         // Rate limiting check
@@ -90,16 +111,15 @@ class AI_Chatbot_Ajax {
             return;
         }
 
-        // Generate IDs if not provided
-        if (empty($conversation_id)) {
-            $conversation_id = 'conv_' . wp_generate_uuid4();
+        // Get user data
+        $user_data = $this->get_user_data($user_id);
+        if (!$user_data) {
+            wp_send_json_error(array(
+                'message' => __('User data not found. Please refresh and try again.', 'ai-website-chatbot'),
+                'code' => 'USER_DATA_NOT_FOUND'
+            ));
+            return;
         }
-        if (empty($session_id)) {
-            $session_id = $this->generate_session_id();
-        }
-
-        error_log('AI Chatbot: Processing message - Session: ' . $session_id . 
-                ', Conv: ' . $conversation_id . ', User: ' . ($user_id ?: 'anonymous'));
 
         // Get AI provider and settings
         $settings = get_option('ai_chatbot_settings', array());
@@ -116,19 +136,14 @@ class AI_Chatbot_Ajax {
             return;
         }
 
-        // Get user data for context if available
-        $user_data = null;
-        if ($user_id) {
-            $user_data = $this->get_user_data($user_id);
-            // Increment user message count
-            $this->increment_user_message_count($user_id);
-        }
+        // Increment user message count
+        $this->increment_user_message_count($user_id);
 
-        // Save user message to database
+        // Save user message to database - NOW WITH VALID USER_ID
         $user_message_data = array(
             'session_id' => $session_id,
             'conversation_id' => $conversation_id,
-            'user_id' => $user_id, // This will be null for anonymous users
+            'user_id' => $user_id, // This is now guaranteed to be valid
             'user_message' => $message,
             'ai_response' => null,
             'user_name' => $user_data['name'] ?? '',
@@ -139,6 +154,17 @@ class AI_Chatbot_Ajax {
             'provider' => $provider_name,
             'status' => 'processing'
         );
+
+        $message_id = $this->save_message($user_message_data);
+        
+        if (!$message_id) {
+            wp_send_json_error(array(
+                'message' => __('Failed to save message. Please try again.', 'ai-website-chatbot'),
+                'code' => 'SAVE_FAILED'
+            ));
+            return;
+        }
+
 
         $message_id = $this->save_message($user_message_data);
         
@@ -511,28 +537,57 @@ class AI_Chatbot_Ajax {
     /**
      * Update message with AI response
      */
-    private function update_message_with_response($message_id, $response, $additional_data = array()) {
+    private function update_message_with_response($message_id, $response, $tokens_used = 0, $response_time = 0, $model = '') {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
         
         $update_data = array(
             'ai_response' => $response,
+            'status' => 'completed',
             'updated_at' => current_time('mysql')
         );
         
-        // Add any additional data
-        if (!empty($additional_data)) {
-            $update_data = array_merge($update_data, $additional_data);
+        // Add tokens used if provided
+        if (!empty($tokens_used) && is_numeric($tokens_used)) {
+            $update_data['tokens_used'] = intval($tokens_used);
         }
         
-        return $wpdb->update(
+        // Add response time if provided
+        if (!empty($response_time) && is_numeric($response_time)) {
+            $update_data['response_time'] = floatval($response_time);
+        }
+        
+        // Add model if provided
+        if (!empty($model)) {
+            $update_data['model'] = sanitize_text_field($model);
+        }
+        
+        // Build format array dynamically
+        $format_array = array();
+        foreach ($update_data as $value) {
+            if (is_int($value)) {
+                $format_array[] = '%d';
+            } elseif (is_float($value)) {
+                $format_array[] = '%f';
+            } else {
+                $format_array[] = '%s';
+            }
+        }
+        
+        $result = $wpdb->update(
             $table_name,
             $update_data,
             array('id' => $message_id),
-            array('%s', '%s'),
+            $format_array,
             array('%d')
         );
+        
+        if ($result === false) {
+            error_log('AI Chatbot: Failed to update message. Database error: ' . $wpdb->last_error);
+        }
+        
+        return $result;
     }
 
     /**
