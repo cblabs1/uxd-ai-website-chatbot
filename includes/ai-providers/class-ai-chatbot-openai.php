@@ -378,12 +378,15 @@ class AI_Chatbot_OpenAI extends AI_Chatbot_Provider_Base {
 	 */
 	public function get_available_models() {
 		return array(
-			'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
-			'gpt-3.5-turbo-16k' => 'GPT-3.5 Turbo 16K',
-			'gpt-4' => 'GPT-4',
-			'gpt-4-turbo' => 'GPT-4 Turbo',
-			'gpt-4o' => 'GPT-4o',
-			'gpt-4o-mini' => 'GPT-4o Mini'
+			'o1-preview'=> 'o1-preview (GPT-5 level reasoning)',
+			'o1-mini'=> 'o1-mini (GPT-5 level, faster)',
+			// GPT-4 models
+			'gpt-4o'=> 'GPT-4o (Latest flagship)',
+			'gpt-4o-mini'=> 'GPT-4o Mini (Recommended)',
+			'gpt-4-turbo'=> 'GPT-4 Turbo',
+			'gpt-4'=> 'GPT-4',
+			// GPT-3.5
+			'gpt-3.5-turbo'=> 'GPT-3.5 Turbo (Budget)'
 		);
 	}
 

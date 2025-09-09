@@ -53,61 +53,65 @@ class AI_Chatbot_Settings {
 	private function init_defaults() {
 		$this->defaults = array(
 			// General settings
-			'ai_chatbot_enabled'                => false,
-			'ai_chatbot_ai_provider'           => 'openai',
-			'ai_chatbot_position'              => 'bottom-right',
-			'ai_chatbot_theme_color'           => '#0073aa',
-			'ai_chatbot_welcome_message'       => __( 'Hello! How can I help you today?', 'ai-website-chatbot' ),
-			'ai_chatbot_placeholder_text'      => __( 'Type your message...', 'ai-website-chatbot' ),
-			'ai_chatbot_send_button_text'      => __( 'Send', 'ai-website-chatbot' ),
+			'enabled'                => false,
+			'ai_provider'           => 'openai',
+			'position'              => 'bottom-right',
+			'theme_color'           => '#0073aa',
+			'welcome_message'       => __( 'Hello! How can I help you today?', 'ai-website-chatbot' ),
+			'placeholder_text'      => __( 'Type your message...', 'ai-website-chatbot' ),
+			'send_button_text'      => __( 'Send', 'ai-website-chatbot' ),
 			
 			// Display settings
-			'ai_chatbot_widget_title'          => __( 'AI Assistant', 'ai-website-chatbot' ),
-			'ai_chatbot_show_on_mobile'        => true,
-			'ai_chatbot_show_on_pages'         => array(),
-			'ai_chatbot_hide_on_pages'         => array(),
-			'ai_chatbot_show_to_logged_users'  => true,
-			'ai_chatbot_show_to_guests'        => true,
+			'widget_title'          => __( 'AI Assistant', 'ai-website-chatbot' ),
+			'show_on_mobile'        => true,
+			'show_on_pages'         => array(),
+			'hide_on_pages'         => array(),
+			'show_to_logged_users'  => true,
+			'show_to_guests'        => true,
 			
 			// AI Provider settings
-			'ai_chatbot_openai_api_key'        => '',
-			'ai_chatbot_openai_model'          => 'gpt-3.5-turbo',
-			'ai_chatbot_openai_temperature'    => 0.7,
-			'ai_chatbot_openai_max_tokens'     => 300,
+			'openai_api_key'        => '',
+			'openai_model'          => 'gpt-3.5-turbo',
+			'openai_temperature'    => 0.7,
+			'openai_max_tokens'     => 300,
 			
-			'ai_chatbot_claude_api_key'        => '',
-			'ai_chatbot_claude_model'          => 'claude-3-haiku-20240307',
-			'ai_chatbot_claude_max_tokens'     => 300,
+			'claude_api_key'        => '',
+			'claude_model'          => 'claude-3-haiku-20240307',
+			'claude_max_tokens'     => 300,
 			
-			'ai_chatbot_gemini_api_key'        => '',
-			'ai_chatbot_gemini_model'          => 'gemini-pro',
-			'ai_chatbot_gemini_temperature'    => 0.7,
+			'gemini_api_key'        => '',
+			'gemini_model'          => 'gemini-pro',
+			'gemini_temperature'    => 0.7,
 			
 			// Training settings
-			'ai_chatbot_auto_train'            => false,
-			'ai_chatbot_allowed_post_types'    => array( 'post', 'page' ),
-			'ai_chatbot_training_frequency'    => 'daily',
-			'ai_chatbot_max_content_length'    => 2000,
+			'auto_train'            => false,
+			'allowed_post_types'    => array( 'post', 'page' ),
+			'training_frequency'    => 'daily',
+			'max_content_length'    => 2000,
 			
 			// Security & Privacy
-			'ai_chatbot_collect_ip'            => false,
-			'ai_chatbot_collect_user_agent'    => false,
-			'ai_chatbot_data_retention_days'   => 30,
-			'ai_chatbot_rate_limit_per_minute' => 10,
-			'ai_chatbot_rate_limit_per_hour'   => 50,
-			'ai_chatbot_max_message_length'    => 1000,
-			'ai_chatbot_blocked_words'         => '',
+			'collect_ip'            => false,
+			'collect_user_agent'    => false,
+			'data_retention_days'   => 30,
+			'rate_limit_per_minute' => 10,
+			'rate_limit_per_hour'   => 50,
+			'max_message_length'    => 1000,
+			'blocked_words'         => '',
 			
 			// Analytics
-			'ai_chatbot_enable_analytics'      => true,
-			'ai_chatbot_enable_rating'         => true,
-			'ai_chatbot_track_conversations'   => true,
+			'enable_analytics'      => true,
+			'enable_rating'         => true,
+			'track_conversations'   => true,
+
+			'debug_mode' => false,
+            'log_conversations' => true,
+            'cache_responses' => false,
 			
 			// Advanced
-			'ai_chatbot_custom_css'            => '',
-			'ai_chatbot_custom_prompt'         => '',
-			'ai_chatbot_fallback_message'      => __( "I'm sorry, I couldn't understand that. Could you please rephrase your question?", 'ai-website-chatbot' ),
-			'ai_chatbot_error_message'         => __( "I'm experiencing some technical difficulties. Please try again later.", 'ai-website-chatbot' ),
+			'custom_css'            => '',
+			'custom_prompt'         => '',
+			'fallback_message'      => __( "I'm sorry, I couldn't understand that. Could you please rephrase your question?", 'ai-website-chatbot' ),
+			'error_message'         => __( "I'm experiencing some technical difficulties. Please try again later.", 'ai-website-chatbot' ),
 		);
 	}
 
@@ -328,73 +332,79 @@ class AI_Chatbot_Settings {
 	 */
 	private function sanitize_setting( $option_name, $value ) {
 		switch ( $option_name ) {
-			case 'ai_chatbot_enabled':
-			case 'ai_chatbot_auto_train':
-			case 'ai_chatbot_collect_ip':
-			case 'ai_chatbot_collect_user_agent':
-			case 'ai_chatbot_enable_analytics':
-			case 'ai_chatbot_enable_rating':
-			case 'ai_chatbot_show_on_mobile':
-			case 'ai_chatbot_show_to_logged_users':
-			case 'ai_chatbot_show_to_guests':
-			case 'ai_chatbot_track_conversations':
-				return (bool) $value;
-				
-			case 'ai_chatbot_theme_color':
-				return sanitize_hex_color( $value );
-				
-			case 'ai_chatbot_welcome_message':
-			case 'ai_chatbot_placeholder_text':
-			case 'ai_chatbot_send_button_text':
-			case 'ai_chatbot_widget_title':
-			case 'ai_chatbot_fallback_message':
-			case 'ai_chatbot_error_message':
-				return sanitize_textarea_field( $value );
-				
-			case 'ai_chatbot_openai_api_key':
-			case 'ai_chatbot_claude_api_key':
-			case 'ai_chatbot_gemini_api_key':
-				return sanitize_text_field( $value );
-				
-			case 'ai_chatbot_ai_provider':
-				$valid_providers = array( 'openai', 'claude', 'gemini' );
-				return in_array( $value, $valid_providers, true ) ? $value : 'openai';
-				
-			case 'ai_chatbot_position':
-				$valid_positions = array( 'bottom-right', 'bottom-left', 'top-right', 'top-left' );
-				return in_array( $value, $valid_positions, true ) ? $value : 'bottom-right';
-				
-			case 'ai_chatbot_data_retention_days':
-			case 'ai_chatbot_rate_limit_per_minute':
-			case 'ai_chatbot_rate_limit_per_hour':
-			case 'ai_chatbot_max_message_length':
-			case 'ai_chatbot_max_content_length':
-			case 'ai_chatbot_openai_max_tokens':
-			case 'ai_chatbot_claude_max_tokens':
-				$int_value = intval( $value );
-				return $int_value >= 0 ? $int_value : 0;
-				
-			case 'ai_chatbot_openai_temperature':
-			case 'ai_chatbot_gemini_temperature':
-				$float_value = floatval( $value );
-				return max( 0, min( 2, $float_value ) ); // Clamp between 0 and 2
-				
-			case 'ai_chatbot_allowed_post_types':
-			case 'ai_chatbot_show_on_pages':
-			case 'ai_chatbot_hide_on_pages':
-				return is_array( $value ) ? array_map( 'sanitize_text_field', $value ) : array();
-				
-			case 'ai_chatbot_custom_css':
-				return wp_strip_all_tags( $value );
-				
-			case 'ai_chatbot_custom_prompt':
-				return sanitize_textarea_field( $value );
-				
-			case 'ai_chatbot_blocked_words':
-				return sanitize_textarea_field( $value );
-				
-			default:
-				return sanitize_text_field( $value );
+			// API Keys
+            case 'api_key':
+            case 'openai_api_key':
+            case 'claude_api_key':
+            case 'gemini_api_key':
+                return sanitize_text_field($value);
+                
+            // Text areas with HTML
+            case 'welcome_message':
+            case 'offline_message':
+            case 'system_prompt':
+            case 'blocked_message':
+                return sanitize_textarea_field($value);
+                
+            // Boolean/checkbox fields
+            case 'enabled':
+            case 'debug_mode':
+            case 'log_conversations':
+            case 'cache_responses':
+            case 'show_on_mobile':
+            case 'show_typing_indicator':
+            case 'show_timestamp':
+            case 'rate_limit_enabled':
+            case 'gdpr_anonymize_data':
+                return !empty($value) ? 1 : 0;
+                
+            // Numeric fields
+            case 'max_tokens':
+            case 'max_message_length':
+            case 'max_requests':
+            case 'time_window':
+            case 'retention_days':
+                return max(1, intval($value));
+                
+            // Float fields
+            case 'temperature':
+                return max(0, min(2, floatval($value)));
+                
+            // Color fields
+            case 'widget_color':
+            case 'theme_color':
+                return sanitize_hex_color($value) ?: '#0073aa';
+                
+            // URL fields
+            case 'privacy_policy_url':
+                return esc_url_raw($value);
+                
+            // Select/dropdown fields
+            case 'ai_provider':
+            case 'model':
+            case 'widget_position':
+            case 'widget_size':
+            case 'animation_style':
+            case 'content_sync_frequency':
+                return sanitize_text_field($value);
+
+            // Decimals
+            case 'temperature':
+                return floatval($value);
+
+            // CSS/JS
+            case 'custom_css':
+            case 'custom_js':
+                return wp_strip_all_tags($value);
+                
+            // Array fields
+            case 'post_types':
+            case 'show_on_pages':
+            case 'hide_on_pages':
+                return is_array($value) ? array_map('sanitize_text_field', $value) : array();
+             
+            default:
+                return sanitize_text_field($value);
 		}
 	}
 

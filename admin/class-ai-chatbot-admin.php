@@ -250,9 +250,7 @@ class AI_Chatbot_Admin {
      */
     public function admin_init() {
         // Register settings
-        register_setting('ai_chatbot_settings', 'ai_chatbot_settings', array(
-            'sanitize_callback' => array($this, 'sanitize_settings')
-        ));
+        register_setting('ai_chatbot_settings', 'ai_chatbot_settings');
         
         // Add settings sections and fields
         $this->add_settings_sections();
@@ -458,93 +456,6 @@ class AI_Chatbot_Admin {
                 <?php
             });
         }
-    }
-    
-    /**
-     * Sanitize settings
-     */
-    public function sanitize_settings($input) {
-        $sanitized = array();
-        
-        if (isset($input['enabled'])) {
-            $sanitized['enabled'] = (bool) $input['enabled'];
-        }
-        
-        if (isset($input['ai_provider'])) {
-            $sanitized['ai_provider'] = sanitize_text_field($input['ai_provider']);
-        }
-        
-        if (isset($input['api_key'])) {
-            $sanitized['api_key'] = sanitize_text_field($input['api_key']);
-        }
-        
-        if (isset($input['model'])) {
-            $sanitized['model'] = sanitize_text_field($input['model']);
-        }
-        
-        if (isset($input['max_tokens'])) {
-            $sanitized['max_tokens'] = absint($input['max_tokens']);
-        }
-        
-        if (isset($input['temperature'])) {
-            $sanitized['temperature'] = floatval($input['temperature']);
-        }
-        
-        if (isset($input['widget_position'])) {
-            $sanitized['widget_position'] = sanitize_text_field($input['widget_position']);
-        }
-        
-        if (isset($input['widget_color'])) {
-            $sanitized['widget_color'] = sanitize_hex_color($input['widget_color']);
-        }
-        
-        if (isset($input['welcome_message'])) {
-            $sanitized['welcome_message'] = sanitize_textarea_field($input['welcome_message']);
-        }
-        
-        // Rate limiting settings
-        if (isset($input['rate_limiting'])) {
-            $sanitized['rate_limiting'] = array();
-            if (isset($input['rate_limiting']['enabled'])) {
-                $sanitized['rate_limiting']['enabled'] = (bool) $input['rate_limiting']['enabled'];
-            }
-            if (isset($input['rate_limiting']['max_requests'])) {
-                $sanitized['rate_limiting']['max_requests'] = absint($input['rate_limiting']['max_requests']);
-            }
-            if (isset($input['rate_limiting']['time_window'])) {
-                $sanitized['rate_limiting']['time_window'] = absint($input['rate_limiting']['time_window']);
-            }
-        }
-        
-        // Content sync settings
-        if (isset($input['content_sync'])) {
-            $sanitized['content_sync'] = array();
-            if (isset($input['content_sync']['enabled'])) {
-                $sanitized['content_sync']['enabled'] = (bool) $input['content_sync']['enabled'];
-            }
-            if (isset($input['content_sync']['post_types'])) {
-                $sanitized['content_sync']['post_types'] = array_map('sanitize_text_field', $input['content_sync']['post_types']);
-            }
-            if (isset($input['content_sync']['sync_frequency'])) {
-                $sanitized['content_sync']['sync_frequency'] = sanitize_text_field($input['content_sync']['sync_frequency']);
-            }
-        }
-        
-        // GDPR settings
-        if (isset($input['gdpr'])) {
-            $sanitized['gdpr'] = array();
-            if (isset($input['gdpr']['enabled'])) {
-                $sanitized['gdpr']['enabled'] = (bool) $input['gdpr']['enabled'];
-            }
-            if (isset($input['gdpr']['data_retention_days'])) {
-                $sanitized['gdpr']['data_retention_days'] = absint($input['gdpr']['data_retention_days']);
-            }
-            if (isset($input['gdpr']['privacy_policy_url'])) {
-                $sanitized['gdpr']['privacy_policy_url'] = esc_url_raw($input['gdpr']['privacy_policy_url']);
-            }
-        }
-        
-        return $sanitized;
     }
     
     /**

@@ -403,10 +403,13 @@ class AI_Chatbot_Gemini extends AI_Chatbot_Provider_Base {
 	 */
 	public function get_available_models() {
 		return array(
-			'gemini-1.5-flash' => 'Gemini 1.5 Flash',
-			'gemini-1.5-flash-8b' => 'Gemini 1.5 Flash 8B', 
-			'gemini-1.5-pro' => 'Gemini 1.5 Pro',
-			'gemini-2.0-flash-exp' => 'Gemini 2.0 Flash (Experimental)'
+			// Latest Gemini models
+			'gemini-2.0-flash'=> 'Gemini 2.0 Flash',
+			'gemini-1.5-pro'=> 'Gemini 1.5 Pro',
+			'gemini-1.5-flash'=> 'Gemini 1.5 Flash',
+			'gemini-1.5-flash-8b'=> 'Gemini 1.5 Flash-8B',
+			'gemini-pro'=> 'Gemini Pro',
+			'gemini-pro-vision'=> 'Gemini Pro Vision'
 		);
 	}
 

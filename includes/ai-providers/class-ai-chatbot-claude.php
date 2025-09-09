@@ -358,10 +358,14 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 	 */
 	public function get_available_models() {
 		return array(
-			'claude-3-haiku-20240307' => 'Claude 3 Haiku',
-			'claude-3-sonnet-20240229' => 'Claude 3 Sonnet',
-			'claude-3-opus-20240229' => 'Claude 3 Opus',
-			'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet'
+			// Claude 3.5 (Latest)
+			'claude-3-5-sonnet-20241022'=> 'Claude 3.5 Sonnet (New)',
+			'claude-3-5-sonnet-20240620'=> 'Claude 3.5 Sonnet',
+			'claude-3-5-haiku-20241022'=> 'Claude 3.5 Haiku',
+			// Claude 3
+			'claude-3-opus-20240229'=> 'Claude 3 Opus',
+			'claude-3-sonnet-20240229'=> 'Claude 3 Sonnet',
+			'claude-3-haiku-20240307'=> 'Claude 3 Haiku'
 		);
 	}
 

@@ -217,8 +217,7 @@ class AI_Chatbot_Activator {
 		dbDelta($sql_content);
 		dbDelta($sql_training);
 		dbDelta($sql_training_data);
-		dbDelta($sql_questions_data);
-
+		
 		// Store database version for future upgrades
 		update_option('ai_chatbot_db_version', '1.2.0');
 	}

@@ -81,6 +81,7 @@
          */
         updateModelOptions: function(provider) {
             var $modelSelect = $('#ai_model');
+            var $currentModel = $modelSelect.val();
             var models = {
                 'openai': {
                     // GPT-5 level (o1 series)
@@ -122,13 +123,24 @@
             
             if (models[provider]) {
                 $.each(models[provider], function(value, text) {
-                    $modelSelect.append('<option value="' + value + '">' + text + '</option>');
+                    var selected = '';
+                    // Check if this was the previously selected model
+                    if (value === $currentModel) {
+                        selected = ' selected="selected"';
+                    }
+                    $modelSelect.append('<option value="' + value + '"' + selected + '>' + text + '</option>');
                 });
+                
+                // If no model was selected (first option gets auto-selected), 
+                // explicitly select the first option to ensure consistency
+                if (!$currentModel || !models[provider][$currentModel]) {
+                    var firstModel = Object.keys(models[provider])[0];
+                    $modelSelect.val(firstModel);
+                }
             }
             
-            if (provider === 'custom') {
-                $modelSelect.append('<option value="custom">Custom Model</option>');
-            }
+            // Trigger change event to ensure form knows about the selection
+            $modelSelect.trigger('change');
         },
         
         /**

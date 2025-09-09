@@ -439,77 +439,6 @@ class AI_Chatbot_Admin_Settings {
         }
     }
     
-    /**
-     * Sanitize settings input
-     */
-    private function sanitize_settings($input) {
-        $sanitized = array();
-        
-        // General Settings
-        $sanitized['enabled'] = !empty($input['enabled']);
-        $sanitized['widget_position'] = sanitize_text_field($input['widget_position'] ?? 'bottom-right');
-        $sanitized['widget_color'] = sanitize_hex_color($input['widget_color'] ?? '#0073aa');
-        $sanitized['welcome_message'] = sanitize_textarea_field($input['welcome_message'] ?? '');
-        $sanitized['offline_message'] = sanitize_textarea_field($input['offline_message'] ?? '');
-        
-        // AI Provider Settings
-        $sanitized['ai_provider'] = sanitize_text_field($input['ai_provider'] ?? 'openai');
-        $sanitized['api_key'] = sanitize_text_field($input['api_key'] ?? '');
-        $sanitized['model'] = sanitize_text_field($input['model'] ?? 'gpt-3.5-turbo');
-        $sanitized['max_tokens'] = absint($input['max_tokens'] ?? 150);
-        $sanitized['temperature'] = floatval($input['temperature'] ?? 0.7);
-        $sanitized['system_prompt'] = sanitize_textarea_field($input['system_prompt'] ?? '');
-        
-        // Display Settings
-        $sanitized['show_on_pages'] = is_array($input['show_on_pages']) ? array_map('sanitize_text_field', $input['show_on_pages']) : array('all');
-        $sanitized['hide_on_pages'] = is_array($input['hide_on_pages']) ? array_map('sanitize_text_field', $input['hide_on_pages']) : array();
-        $sanitized['widget_size'] = sanitize_text_field($input['widget_size'] ?? 'medium');
-        $sanitized['animation_style'] = sanitize_text_field($input['animation_style'] ?? 'slide');
-        $sanitized['show_typing_indicator'] = !empty($input['show_typing_indicator']);
-        $sanitized['show_timestamp'] = !empty($input['show_timestamp']);
-        
-        // Rate Limiting
-        if (isset($input['rate_limiting']) && is_array($input['rate_limiting'])) {
-            $sanitized['rate_limiting'] = array(
-                'enabled' => !empty($input['rate_limiting']['enabled']),
-                'max_requests' => absint($input['rate_limiting']['max_requests'] ?? 10),
-                'time_window' => absint($input['rate_limiting']['time_window'] ?? 3600),
-                'blocked_message' => sanitize_textarea_field($input['rate_limiting']['blocked_message'] ?? '')
-            );
-        }
-        
-        // Content Sync
-        if (isset($input['content_sync']) && is_array($input['content_sync'])) {
-            $sanitized['content_sync'] = array(
-                'enabled' => !empty($input['content_sync']['enabled']),
-                'post_types' => is_array($input['content_sync']['post_types']) ? array_map('sanitize_text_field', $input['content_sync']['post_types']) : array('post', 'page'),
-                'sync_frequency' => sanitize_text_field($input['content_sync']['sync_frequency'] ?? 'daily'),
-                'auto_sync' => !empty($input['content_sync']['auto_sync']),
-                'include_excerpt' => !empty($input['content_sync']['include_excerpt']),
-                'include_content' => !empty($input['content_sync']['include_content'])
-            );
-        }
-        
-        // GDPR Settings
-        if (isset($input['gdpr']) && is_array($input['gdpr'])) {
-            $sanitized['gdpr'] = array(
-                'enabled' => !empty($input['gdpr']['enabled']),
-                'data_retention_days' => absint($input['gdpr']['data_retention_days'] ?? 30),
-                'privacy_policy_url' => esc_url_raw($input['gdpr']['privacy_policy_url'] ?? ''),
-                'cookie_consent' => !empty($input['gdpr']['cookie_consent']),
-                'anonymize_data' => !empty($input['gdpr']['anonymize_data'])
-            );
-        }
-        
-        // Advanced Settings
-        $sanitized['debug_mode'] = !empty($input['debug_mode']);
-        $sanitized['log_conversations'] = !empty($input['log_conversations']);
-        $sanitized['cache_responses'] = !empty($input['cache_responses']);
-        $sanitized['custom_css'] = wp_strip_all_tags($input['custom_css'] ?? '');
-        $sanitized['custom_js'] = wp_strip_all_tags($input['custom_js'] ?? '');
-        
-        return $sanitized;
-    }
     
     /**
      * AJAX: Save settings - FIXED VERSION
@@ -925,28 +854,42 @@ class AI_Chatbot_Admin_Settings {
                 'name' => 'OpenAI',
                 'description' => __('GPT-3.5 and GPT-4 models from OpenAI', 'ai-website-chatbot'),
                 'models' => array(
-                    'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
-                    'gpt-4' => 'GPT-4',
-                    'gpt-4-turbo' => 'GPT-4 Turbo'
+                    'o1-preview'=> 'o1-preview (GPT-5 level reasoning)',
+                    'o1-mini'=> 'o1-mini (GPT-5 level, faster)',
+                    // GPT-4 models
+                    'gpt-4o'=> 'GPT-4o (Latest flagship)',
+                    'gpt-4o-mini'=> 'GPT-4o Mini (Recommended)',
+                    'gpt-4-turbo'=> 'GPT-4 Turbo',
+                    'gpt-4'=> 'GPT-4',
+                    // GPT-3.5
+                    'gpt-3.5-turbo'=> 'GPT-3.5 Turbo (Budget)'
                 )
             ),
             'claude' => array(
                 'name' => 'Anthropic Claude',
                 'description' => __('Claude models from Anthropic', 'ai-website-chatbot'),
                 'models' => array(
-                    'claude-3-haiku' => 'Claude 3 Haiku',
-                    'claude-3-sonnet' => 'Claude 3 Sonnet',
-                    'claude-3-opus' => 'Claude 3 Opus'
+                    // Claude 3.5 (Latest)
+                    'claude-3-5-sonnet-20241022'=> 'Claude 3.5 Sonnet (New)',
+                    'claude-3-5-sonnet-20240620'=> 'Claude 3.5 Sonnet',
+                    'claude-3-5-haiku-20241022'=> 'Claude 3.5 Haiku',
+                    // Claude 3
+                    'claude-3-opus-20240229'=> 'Claude 3 Opus',
+                    'claude-3-sonnet-20240229'=> 'Claude 3 Sonnet',
+                    'claude-3-haiku-20240307'=> 'Claude 3 Haiku'
                 )
             ),
             'gemini' => array(
                 'name' => 'Google Gemini',
                 'description' => __('Gemini models from Google', 'ai-website-chatbot'),
                 'models' => array(
-                    'gemini-pro' => 'Gemini Pro',
-                    'gemini-pro-vision' => 'Gemini Pro Vision',
-                    'gemini-2.0-flash' => 'Gemini 2.0 Flash',
-                    'gemini-1.5-flash' => 'Gemini 1.5 Flash'
+                    // Latest Gemini models
+                    'gemini-2.0-flash'=> 'Gemini 2.0 Flash (Latest)',
+                    'gemini-1.5-pro'=> 'Gemini 1.5 Pro',
+                    'gemini-1.5-flash'=> 'Gemini 1.5 Flash',
+                    'gemini-1.5-flash-8b'=> 'Gemini 1.5 Flash-8B',
+                    'gemini-pro'=> 'Gemini Pro (Legacy)',
+                    'gemini-pro-vision'=> 'Gemini Pro Vision (Legacy)'
                 )
             ),
             'custom' => array(
