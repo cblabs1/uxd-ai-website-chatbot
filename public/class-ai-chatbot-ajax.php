@@ -374,14 +374,6 @@ class AI_Chatbot_Ajax {
         return 'session_' . $session_id;
     }
 
-    /**
-     * Get client IP address
-     */
-    private function get_client_ip() {
-        $security = new AI_Chatbot_Security();
-        return $security->get_client_ip();
-    }
-
     // ==========================================
     // AI PROVIDER METHODS
     // ==========================================
@@ -482,7 +474,7 @@ class AI_Chatbot_Ajax {
     /**
      * Save message to database
      */
-    private function save_message($data) {
+    private function save_message($message_data) {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
@@ -490,22 +482,22 @@ class AI_Chatbot_Ajax {
         $result = $wpdb->insert(
             $table_name,
             array(
-                'session_id' => $data['session_id'],
-                'conversation_id' => $data['conversation_id'],
-                'user_message' => $data['user_message'],
-                'ai_response' => $data['ai_response'] ?? null,
-                'user_ip' => $data['user_ip'] ?? '',
-                'page_url' => $data['page_url'] ?? '',
-                'user_agent' => $data['user_agent'] ?? '',
-                'provider' => $data['provider'] ?? '',
-                'model' => $data['model'] ?? '',
-                'tokens_used' => $data['tokens_used'] ?? 0,
-                'response_time' => $data['response_time'] ?? 0,
-                'source' => $data['source'] ?? 'api',
-                'status' => $data['status'] ?? 'completed',
-                'created_at' => current_time('mysql')
+                'session_id' => $message_data['session_id'],
+                'conversation_id' => $message_data['conversation_id'],
+                'user_id' => $message_data['user_id'],
+                'user_message' => $message_data['user_message'],
+                'ai_response' => $message_data['ai_response'],
+                'user_name' => $message_data['user_name'],
+                'user_email' => $message_data['user_email'],
+                'user_ip' => $message_data['user_ip'],
+                'page_url' => $message_data['page_url'],
+                'user_agent' => $message_data['user_agent'],
+                'provider' => $message_data['provider'],
+                'status' => $message_data['status'],
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql')
             ),
-            array('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%f', '%s', '%s', '%s')
+            array('%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
         );
         
         if ($result === false) {
@@ -668,11 +660,74 @@ class AI_Chatbot_Ajax {
     // ==========================================
 
     /**
-     * Check rate limiting
+     * Check rate limits for user requests
+     *
+     * @return bool True if within limits, false if rate limited
      */
-    private function check_rate_limit($user_identifier) {
-        $rate_limiter = new AI_Chatbot_Security();
-        return $rate_limiter->check_rate_limit($user_identifier, 'chat_message');
+    private function check_rate_limits() {
+        $settings = get_option('ai_chatbot_settings', array());
+        
+        // Check if rate limiting is enabled
+        if (!isset($settings['rate_limiting']['enabled']) || !$settings['rate_limiting']['enabled']) {
+            return true; // Rate limiting disabled, allow request
+        }
+
+        $user_ip = $this->get_client_ip();
+        $current_time = time();
+        
+        // Get rate limiting settings
+        $max_requests = intval($settings['rate_limiting']['max_requests'] ?? 10);
+        $time_window = intval($settings['rate_limiting']['time_window'] ?? 60); // seconds
+        
+        // Use transients to track requests per IP
+        $transient_key = 'ai_chatbot_rate_limit_' . md5($user_ip);
+        $requests = get_transient($transient_key);
+        
+        if ($requests === false) {
+            // First request in this time window
+            set_transient($transient_key, 1, $time_window);
+            return true;
+        }
+        
+        if ($requests >= $max_requests) {
+            error_log('AI Chatbot: Rate limit exceeded for IP: ' . $user_ip);
+            return false;
+        }
+        
+        // Increment request count
+        set_transient($transient_key, $requests + 1, $time_window);
+        return true;
+    }
+
+    /**
+     * Get client IP address
+     *
+     * @return string Client IP address
+     */
+    private function get_client_ip() {
+        $ip_keys = array(
+            'HTTP_CF_CONNECTING_IP',     // Cloudflare
+            'HTTP_CLIENT_IP',
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_FORWARDED',
+            'HTTP_X_CLUSTER_CLIENT_IP',
+            'HTTP_FORWARDED_FOR',
+            'HTTP_FORWARDED',
+            'REMOTE_ADDR'
+        );
+
+        foreach ($ip_keys as $key) {
+            if (array_key_exists($key, $_SERVER) === true) {
+                $ip_list = explode(',', $_SERVER[$key]);
+                $ip = trim($ip_list[0]);
+                
+                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                    return $ip;
+                }
+            }
+        }
+
+        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     }
 
     /**
@@ -1435,7 +1490,7 @@ class AI_Chatbot_Ajax {
      * @return string Session ID
      */
     private function generate_session_id() {
-        return 'sess_' . wp_generate_uuid4();
+        return 'sess_' . time() . '_' . wp_generate_password(12, false);
     }
 
     /**
@@ -1444,7 +1499,7 @@ class AI_Chatbot_Ajax {
      * @return int|null User ID or null if not found
      */
     private function get_current_user_id() {
-        if (!session_id()) {
+        if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
         

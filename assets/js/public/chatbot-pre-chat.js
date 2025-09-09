@@ -1,13 +1,13 @@
 /**
- * Minimal Inline Pre-Chat JavaScript Integration
- * Replace the previous pre-chat implementation with this
+ * Fixed Inline Pre-Chat - Shows on first message attempt + hides input area
+ * Replace the previous JavaScript with this fixed version
  */
 
 (function($) {
     'use strict';
 
     /**
-     * Inline Pre-Chat Class
+     * Fixed Inline Pre-Chat Class
      */
     class AIChatbotInlinePreChat {
         constructor() {
@@ -15,6 +15,7 @@
             this.userData = null;
             this.pendingMessage = null;
             this.formElement = null;
+            this.isFormShown = false;
             this.init();
         }
 
@@ -23,7 +24,7 @@
          */
         init() {
             this.checkUserSession();
-            this.createInlineForm();
+            // DON'T create form immediately - wait for first message attempt
             this.bindEvents();
         }
 
@@ -43,20 +44,30 @@
         }
 
         /**
-         * Create and inject inline form into chat
+         * Show form when user tries to send first message
          */
-        createInlineForm() {
-            // Don't show form if user is already identified
-            if (this.isUserIdentified) {
-                return;
+        showFormOnFirstMessage(message) {
+            if (this.isFormShown || this.isUserIdentified) {
+                return false; // Don't show form
             }
 
+            this.pendingMessage = message;
+            this.createAndShowForm();
+            this.hideInputArea(); // Hide the input area when form is shown
+            this.isFormShown = true;
+            return true; // Block the message
+        }
+
+        /**
+         * Create and inject inline form into chat
+         */
+        createAndShowForm() {
             const formHTML = `
                 <div id="ai-chatbot-pre-chat-inline" class="ai-chatbot-pre-chat-inline">
                     <div class="ai-chatbot-pre-chat-header">
                         <div class="ai-chatbot-pre-chat-icon">📝</div>
-                        <h3 class="ai-chatbot-pre-chat-title">${ai_chatbot_ajax.strings.pre_chat_title || 'Quick Setup'}</h3>
-                        <p class="ai-chatbot-pre-chat-subtitle">${ai_chatbot_ajax.strings.pre_chat_subtitle || 'Help us personalize your experience'}</p>
+                        <h3 class="ai-chatbot-pre-chat-title">Quick Setup</h3>
+                        <p class="ai-chatbot-pre-chat-subtitle">Help us personalize your experience</p>
                     </div>
 
                     <form id="ai-chatbot-pre-chat-form" class="ai-chatbot-pre-chat-form">
@@ -67,12 +78,12 @@
                                     id="ai-chatbot-user-email" 
                                     name="user_email"
                                     class="ai-chatbot-form-input" 
-                                    placeholder="${ai_chatbot_ajax.strings.email_placeholder || 'Email*'}"
+                                    placeholder="Email*"
                                     required
                                     autocomplete="email"
                                 >
                                 <div class="ai-chatbot-form-error" data-field="email">
-                                    ${ai_chatbot_ajax.strings.email_error || 'Please enter a valid email'}
+                                    Please enter a valid email
                                 </div>
                             </div>
                             <div class="ai-chatbot-form-field">
@@ -81,24 +92,21 @@
                                     id="ai-chatbot-user-name" 
                                     name="user_name"
                                     class="ai-chatbot-form-input" 
-                                    placeholder="${ai_chatbot_ajax.strings.name_placeholder || 'Name (optional)'}"
+                                    placeholder="Name (optional)"
                                     autocomplete="name"
                                 >
                                 <div class="ai-chatbot-form-error" data-field="name">
-                                    ${ai_chatbot_ajax.strings.name_error || 'Name too short'}
+                                    Name too short
                                 </div>
                             </div>
                         </div>
 
                         <button type="submit" class="ai-chatbot-form-submit" id="ai-chatbot-start-chat">
-                            ${ai_chatbot_ajax.strings.start_chat || 'Start Chatting'}
+                            Start Chatting
                         </button>
                         
                         <div class="ai-chatbot-privacy-note">
-                            🔒 ${ai_chatbot_ajax.strings.privacy_text || 'Your info is secure.'} 
-                            <a href="${ai_chatbot_ajax.privacy_url || '#'}" target="_blank">
-                                ${ai_chatbot_ajax.strings.learn_more || 'Privacy Policy'}
-                            </a>
+                            🔒 Your info is secure. <a href="#" target="_blank">Privacy Policy</a>
                         </div>
                     </form>
                 </div>
@@ -132,74 +140,71 @@
             }
 
             if (messagesContainer && messagesContainer.length > 0) {
-                // Add form at the beginning of messages
-                messagesContainer.prepend(formHTML);
+                // Add form at the end of messages (not beginning)
+                messagesContainer.append(formHTML);
                 this.formElement = $('#ai-chatbot-pre-chat-inline');
                 
-                // Disable input area until form is completed
-                this.disableInputArea();
+                // Scroll to form
+                this.scrollToForm();
+                
+                // Focus on email field
+                setTimeout(() => {
+                    $('#ai-chatbot-user-email').focus();
+                }, 300);
             } else {
                 console.warn('AI Chatbot: Could not find messages container for pre-chat form');
             }
         }
 
         /**
-         * Disable chat input until user info is provided
+         * Hide chat input area completely when form is shown
          */
-        disableInputArea() {
-            // Disable various input selectors
-            const inputSelectors = [
-                '.ai-chatbot-input',
-                '#ai-chatbot-input',
-                '.popup-chatbot-input',
-                '.inline-chatbot-input'
+        hideInputArea() {
+            // Hide various input areas
+            const inputAreas = [
+                '.ai-chatbot-input-area',
+                '.ai-chatbot-input-form',
+                '.popup-input-area', 
+                '.inline-input-section',
+                '#ai-chatbot-input-form',
+                '#ai-popup-form',
+                '#inline-chatbot-form'
             ];
 
-            const buttonSelectors = [
-                '.ai-chatbot-send-button',
-                '#ai-chatbot-send-button', 
-                '.ai-chatbot-send-btn',
-                '.popup-send-btn'
-            ];
-
-            inputSelectors.forEach(selector => {
-                $(selector).prop('disabled', true)
-                    .attr('placeholder', ai_chatbot_ajax.strings.setup_required || 'Complete setup above to start chatting...')
-                    .addClass('ai-chatbot-disabled');
-            });
-
-            buttonSelectors.forEach(selector => {
-                $(selector).prop('disabled', true).addClass('ai-chatbot-disabled');
+            inputAreas.forEach(selector => {
+                $(selector).hide();
             });
         }
 
         /**
-         * Enable chat input after user identification
+         * Show chat input area after user identification
          */
-        enableInputArea() {
-            const inputSelectors = [
-                '.ai-chatbot-input',
-                '#ai-chatbot-input', 
-                '.popup-chatbot-input',
-                '.inline-chatbot-input'
+        showInputArea() {
+            const inputAreas = [
+                '.ai-chatbot-input-area',
+                '.ai-chatbot-input-form',
+                '.popup-input-area',
+                '.inline-input-section', 
+                '#ai-chatbot-input-form',
+                '#ai-popup-form',
+                '#inline-chatbot-form'
             ];
 
-            const buttonSelectors = [
-                '.ai-chatbot-send-button',
-                '#ai-chatbot-send-button',
-                '.ai-chatbot-send-btn',
-                '.popup-send-btn'
-            ];
-
-            inputSelectors.forEach(selector => {
-                $(selector).prop('disabled', false)
-                    .attr('placeholder', ai_chatbot_ajax.strings.placeholder || 'Type your message...')
-                    .removeClass('ai-chatbot-disabled');
+            inputAreas.forEach(selector => {
+                $(selector).show();
             });
+        }
 
-            buttonSelectors.forEach(selector => {
-                $(selector).prop('disabled', false).removeClass('ai-chatbot-disabled');
-            });
+        /**
+         * Scroll to form
+         */
+        scrollToForm() {
+            if (this.formElement && this.formElement.length > 0) {
+                this.formElement[0].scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }
         }
 
         /**
@@ -245,16 +250,45 @@
                     if (response.success) {
                         this.handleSubmissionSuccess(response.data, email, name);
                     } else {
-                        this.showFormError(response.data || 'Failed to save information');
+                        this.showFormError(response.data?.message || 'Failed to save information');
                     }
                 })
                 .catch((error) => {
                     console.error('AI Chatbot: Form submission failed', error);
-                    this.showFormError('Connection error. Please try again.');
+                    
+                    // More specific error handling
+                    let errorMessage = 'Connection error. Please try again.';
+                    if (error.responseJSON && error.responseJSON.data) {
+                        errorMessage = error.responseJSON.data.message || error.responseJSON.data;
+                    } else if (error.statusText) {
+                        errorMessage = 'Server error: ' + error.statusText;
+                    }
+                    
+                    this.showFormError(errorMessage);
                 })
                 .finally(() => {
                     submitBtn.removeClass('loading').prop('disabled', false);
                 });
+        }
+
+        /**
+         * Submit user data to server
+         */
+        submitUserData(email, name) {
+            return $.ajax({
+                url: ai_chatbot_ajax.ajax_url,
+                type: 'POST',
+                dataType: 'json',
+                timeout: 30000, // 30 second timeout
+                data: {
+                    action: 'ai_chatbot_save_user_data',
+                    nonce: ai_chatbot_ajax.nonce,
+                    user_email: email,
+                    user_name: name,
+                    page_url: window.location.href,
+                    user_agent: navigator.userAgent
+                }
+            });
         }
 
         /**
@@ -275,9 +309,9 @@
             // Show success message
             this.showSuccessMessage(name);
 
-            // Enable input area
+            // Show input area and hide form
             setTimeout(() => {
-                this.enableInputArea();
+                this.showInputArea();
                 
                 // Hide form after a moment
                 setTimeout(() => {
@@ -287,7 +321,7 @@
                     if (this.pendingMessage) {
                         this.sendPendingMessage();
                     }
-                }, 1500);
+                }, 1000);
             }, 800);
         }
 
@@ -326,22 +360,44 @@
         }
 
         /**
-         * Submit user data to server
+         * Send pending message after identification
          */
-        submitUserData(email, name) {
-            return $.ajax({
-                url: ai_chatbot_ajax.ajax_url,
-                type: 'POST',
-                dataType: 'json',
-                data: {
-                    action: 'ai_chatbot_save_user_data',
-                    nonce: ai_chatbot_ajax.nonce,
-                    user_email: email,
-                    user_name: name,
-                    page_url: window.location.href,
-                    user_agent: navigator.userAgent
-                }
-            });
+        sendPendingMessage() {
+            if (this.pendingMessage) {
+                // Clear and set the input with pending message
+                const inputs = $('.ai-chatbot-input, #ai-chatbot-input, .popup-chatbot-input, .inline-chatbot-input');
+                inputs.val(this.pendingMessage);
+                
+                // Trigger send after a short delay
+                setTimeout(() => {
+                    // Try different methods to send the message
+                    if (window.AIChatbotFrontend && window.AIChatbotFrontend.handleSendMessage) {
+                        window.AIChatbotFrontend.handleSendMessage();
+                    } else {
+                        // Fallback: trigger submit on form
+                        const form = inputs.closest('form');
+                        if (form.length > 0) {
+                            form.submit();
+                        } else {
+                            // Fallback: click send button
+                            $('.ai-chatbot-send-button, #ai-chatbot-send-button, .ai-chatbot-send-btn, .popup-send-btn').first().click();
+                        }
+                    }
+                    this.pendingMessage = null;
+                }, 200);
+            }
+        }
+
+        /**
+         * Check if user needs identification (main entry point)
+         */
+        requiresUserIdentification(message) {
+            if (this.isUserIdentified) {
+                return false; // User already identified, allow message
+            }
+
+            // Show form and block message
+            return this.showFormOnFirstMessage(message);
         }
 
         /**
@@ -406,7 +462,6 @@
          * Show general form error
          */
         showFormError(message) {
-            // Show error in the form
             let generalError = $('.ai-chatbot-general-error');
             if (generalError.length === 0) {
                 generalError = $(`<div class="ai-chatbot-form-error ai-chatbot-general-error show">${message}</div>`);
@@ -417,7 +472,7 @@
 
             setTimeout(() => {
                 generalError.removeClass('show');
-            }, 5000);
+            }, 8000);
         }
 
         /**
@@ -429,53 +484,6 @@
         }
 
         /**
-         * Check if user needs identification
-         */
-        requiresUserIdentification(message) {
-            if (this.isUserIdentified) {
-                return false;
-            }
-
-            // Store message to send after identification
-            this.pendingMessage = message;
-            
-            // Scroll to form if not visible
-            if (this.formElement && this.formElement.length > 0) {
-                this.formElement[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                // Highlight the form briefly
-                this.formElement.css('box-shadow', '0 0 0 2px #6366f1');
-                setTimeout(() => {
-                    this.formElement.css('box-shadow', '');
-                }, 1000);
-            }
-            
-            return true;
-        }
-
-        /**
-         * Send pending message after identification
-         */
-        sendPendingMessage() {
-            if (this.pendingMessage && window.AIChatbotFrontend) {
-                // Clear the input and set the pending message
-                const inputs = $('.ai-chatbot-input, #ai-chatbot-input, .popup-chatbot-input, .inline-chatbot-input');
-                inputs.val(this.pendingMessage);
-                
-                // Trigger send
-                setTimeout(() => {
-                    if (window.AIChatbotFrontend.handleSendMessage) {
-                        window.AIChatbotFrontend.handleSendMessage();
-                    } else {
-                        // Fallback: trigger form submission
-                        $('.ai-chatbot-send-button, #ai-chatbot-send-button, .ai-chatbot-send-btn').first().click();
-                    }
-                    this.pendingMessage = null;
-                }, 100);
-            }
-        }
-
-        /**
          * Get user data
          */
         getUserData() {
@@ -484,257 +492,9 @@
     }
 
     /**
-     * CSS Styles for Inline Pre-Chat
-     */
-    const inlinePreChatCSS = `
-        /* Inline Pre-Chat Form Styles */
-        .ai-chatbot-pre-chat-inline {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin: 0 0 16px 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            animation: ai-chatbot-slide-in 0.3s ease-out;
-            transition: all 0.3s ease;
-        }
-
-        @keyframes ai-chatbot-slide-in {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .ai-chatbot-pre-chat-header {
-            text-align: center;
-            margin-bottom: 16px;
-        }
-
-        .ai-chatbot-pre-chat-icon {
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-
-        .ai-chatbot-pre-chat-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #1e293b;
-            margin: 0 0 4px;
-        }
-
-        .ai-chatbot-pre-chat-subtitle {
-            font-size: 14px;
-            color: #64748b;
-            margin: 0;
-        }
-
-        .ai-chatbot-pre-chat-form {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .ai-chatbot-form-row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .ai-chatbot-form-field {
-            flex: 1;
-            position: relative;
-        }
-
-        .ai-chatbot-form-input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 14px;
-            background: white;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            box-sizing: border-box;
-        }
-
-        .ai-chatbot-form-input:focus {
-            outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
-        }
-
-        .ai-chatbot-form-input.error {
-            border-color: #ef4444;
-            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
-        }
-
-        .ai-chatbot-form-input::placeholder {
-            color: #9ca3af;
-            font-size: 13px;
-        }
-
-        .ai-chatbot-form-input[required] {
-            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><text x="1" y="6" font-size="6" fill="%23ef4444">*</text></svg>');
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-            padding-right: 24px;
-        }
-
-        .ai-chatbot-form-error {
-            color: #ef4444;
-            font-size: 11px;
-            margin-top: 4px;
-            display: none;
-        }
-
-        .ai-chatbot-form-error.show {
-            display: block;
-        }
-
-        .ai-chatbot-general-error {
-            background: #fee2e2;
-            border: 1px solid #fecaca;
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin-bottom: 12px;
-            font-size: 12px;
-        }
-
-        .ai-chatbot-form-submit {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-
-        .ai-chatbot-form-submit:hover:not(:disabled) {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-        }
-
-        .ai-chatbot-form-submit:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .ai-chatbot-form-submit.loading {
-            color: transparent;
-        }
-
-        .ai-chatbot-form-submit.loading::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            animation: ai-chatbot-spin 1s linear infinite;
-        }
-
-        @keyframes ai-chatbot-spin {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
-        .ai-chatbot-privacy-note {
-            font-size: 11px;
-            color: #64748b;
-            text-align: center;
-            margin-top: 8px;
-            line-height: 1.4;
-        }
-
-        .ai-chatbot-privacy-note a {
-            color: #6366f1;
-            text-decoration: none;
-        }
-
-        @keyframes ai-chatbot-shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-3px); }
-            75% { transform: translateX(3px); }
-        }
-
-        .ai-chatbot-form-input.shake {
-            animation: ai-chatbot-shake 0.4s ease-in-out;
-        }
-
-        .ai-chatbot-pre-chat-inline.success {
-            background: #f0fdf4;
-            border-color: #16a34a;
-        }
-
-        .ai-chatbot-pre-chat-inline.success .ai-chatbot-pre-chat-title {
-            color: #16a34a;
-        }
-
-        .ai-chatbot-success-message {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            color: #16a34a;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        /* Disabled input styles */
-        .ai-chatbot-disabled {
-            background: #f9fafb !important;
-            color: #9ca3af !important;
-            cursor: not-allowed !important;
-        }
-
-        /* Mobile responsive */
-        @media (max-width: 480px) {
-            .ai-chatbot-pre-chat-inline {
-                margin: 0 0 12px 0;
-                padding: 16px;
-            }
-            
-            .ai-chatbot-form-row {
-                flex-direction: column;
-                gap: 8px;
-            }
-            
-            .ai-chatbot-form-input {
-                font-size: 16px; /* Prevent zoom on iOS */
-            }
-        }
-
-        /* Integration with different layouts */
-        .ai-chatbot-popup .ai-chatbot-pre-chat-inline {
-            margin: 16px 20px 16px 20px;
-        }
-
-        .ai-chatbot-widget .ai-chatbot-pre-chat-inline {
-            margin: 0 16px 16px 16px;
-        }
-    `;
-
-    /**
      * Integration with existing chatbot functionality
      */
     $(document).ready(function() {
-        // Inject CSS
-        if (!$('#ai-chatbot-inline-prechat-css').length) {
-            $('<style id="ai-chatbot-inline-prechat-css">' + inlinePreChatCSS + '</style>').appendTo('head');
-        }
-
         // Initialize inline pre-chat
         window.AIChatbotInlinePreChat = new AIChatbotInlinePreChat();
 
@@ -782,17 +542,6 @@
             }
         });
 
-        // Hook into starter buttons and suggestion chips
-        $(document).on('click', '.starter-btn, .suggestion-chip', function(e) {
-            const message = $(this).data('message') || $(this).data('suggestion') || $(this).text();
-            
-            if (message && window.AIChatbotInlinePreChat.requiresUserIdentification(message)) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-        });
-
         // Hook into enter key in inputs
         $(document).on('keypress', '.ai-chatbot-input, #ai-chatbot-input, .popup-chatbot-input, .inline-chatbot-input', function(e) {
             if (e.which === 13 && !e.shiftKey) {
@@ -803,6 +552,17 @@
                     e.stopPropagation();
                     return false;
                 }
+            }
+        });
+
+        // Hook into starter buttons and suggestion chips
+        $(document).on('click', '.starter-btn, .suggestion-chip', function(e) {
+            const message = $(this).data('message') || $(this).data('suggestion') || $(this).text();
+            
+            if (message && window.AIChatbotInlinePreChat.requiresUserIdentification(message)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
             }
         });
     });
