@@ -201,6 +201,7 @@
                 this.messages.append(messageHtml);
                 this.scrollToBottom();
             }
+            setTimeout(scrollToBottom, 100);
         }
 
         /**
@@ -254,6 +255,8 @@
                 }, 100);
             }
         }
+        
+
 
         /**
          * Generate unique conversation ID
@@ -356,6 +359,22 @@
             // Initialize inline chatbot functionality
             // Similar to widget but without toggle functionality
         });
+    });
+
+    function scrollToBottom() {
+            const messagesContainer = document.querySelector('.ai-chatbot-messages');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatToggle = document.querySelector('.ai-chatbot-toggle');
+        if (chatToggle) {
+            chatToggle.addEventListener('click', function() {
+                setTimeout(scrollToBottom, 300); // Delay to allow container to open
+            });
+        }
     });
 
 })(jQuery);

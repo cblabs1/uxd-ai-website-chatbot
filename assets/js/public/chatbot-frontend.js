@@ -31,7 +31,7 @@
         $sendBtn: null,
         $typing: null,
         
-        // Initialize chatbot
+        // Initialize chatbotf
         init: function(config) {
             if (this.initialized) {
                 return;
@@ -154,8 +154,11 @@
 
         // NEW METHOD: Show pre-chat form
         showPreChatForm: function() {
+            // Add dynamic height class for prechat form
+            $('.ai-chatbot-container').addClass('has-prechat-form');
+            
             this.disableChatInterface();
-            this.createPreChatModal(); // This will now create inline form
+            this.createPreChatModal();
         },
 
         // NEW METHOD: Create pre-chat modal (using your existing structure)
@@ -168,17 +171,15 @@
                 <div class="ai-chatbot-prechat-form">
                     <div class="prechat-header">
                         <div class="prechat-avatar">👋</div>
-                        <h3>Welcome!</h3>
-                        <p>To get started, please share your details so I can assist you better.</p>
+                        <h3>Hi, I am Teekeydee!</h3>
+                        <p>To get started, please share your details.</p>
                     </div>
                     <form id="ai-chatbot-prechat-inline-form" class="prechat-form">
                         <div class="form-group">
-                            <label for="prechat-name">Your Name</label>
                             <input type="text" id="prechat-name" name="name" required 
                                 placeholder="Enter your full name" autocomplete="name">
                         </div>
                         <div class="form-group">
-                            <label for="prechat-email">Email Address</label>
                             <input type="email" id="prechat-email" name="email" required 
                                 placeholder="Enter your email" autocomplete="email">
                         </div>
@@ -307,6 +308,7 @@
         // UI Initialization
         initializeUI: function() {
             this.$widget = $('.ai-chatbot-widget');
+            this.$container = $('#ai-chatbot-container');
             this.$messages = $('.ai-chatbot-messages, .messages-container, .inline-messages-container, .popup-messages-container');
             this.$input = $('.ai-chatbot-input input, #ai-chatbot-input, input[name="message"]');
             this.$sendBtn = $('.ai-chatbot-send-btn, #ai-chatbot-send, .popup-send-btn');
@@ -878,15 +880,15 @@
         },
 
         buildMessageHtml: function(message, sender, timestamp, messageId) {
-            var senderClass = sender === 'user' ? 'user-message' : 'bot-message';
+            var senderClass = sender === 'user' ? ' ai-chatbot-message-user' : ' ai-chatbot-message-bot';
             var timeString = this.formatTime(timestamp / 1000);
-            var avatar = sender === 'user' ? '👤' : '🤖';
+            // var avatar = sender === 'user' ? '👤' : '🤖';
             
             var html = '<div class="ai-chatbot-message ' + senderClass + '" data-message-id="' + messageId + '">';
-            html += '<div class="message-avatar">' + avatar + '</div>';
-            html += '<div class="message-content">';
-            html += '<div class="message-bubble">' + this.escapeHtml(message) + '</div>';
-            html += '<div class="message-meta">';
+            // html += '<div class="message-avatar">' + avatar + '</div>';
+            html += '<div class="ai-chatbot-message-content">';
+            html += '<div class="ai-chatbot-message-text">' + this.escapeHtml(message) + '</div>';
+            html += '<div class="ai-chatbot-message-time">';
             html += '<span class="message-time">' + timeString + '</span>';
             
             // Add rating for bot messages
@@ -924,6 +926,8 @@
                 console.log('Rating already exists');
                 return;
             }
+
+            $('.ai-chatbot-container').addClass('has-feedback-form');
             
             var ratingHtml = `
                 <div class="ai-chatbot-message bot-message end-conversation-rating">
@@ -1062,14 +1066,28 @@
         },
 
         closeChat: function() {
-            if (!$('.end-conversation-rating').length && this.messageCount > 2) {
+            // Check if there are messages and no rating shown yet
+            var hasConversation = this.messageCount > 2; // More than welcome + first user message
+            var hasRatingShown = $('.end-conversation-rating').length > 0;
+            
+            if (hasConversation && !hasRatingShown) {
+                // Add dynamic height class for feedback form
+                $('.ai-chatbot-container').addClass('has-feedback-form');
+                
+                // Show feedback form instead of closing immediately
                 this.showEndOfConversationRating();
                 
-                // Give user time to rate, then close
+                // Set a flag to indicate we're in feedback mode
+                this.feedbackMode = true;
+                
+                // Auto-hide after 30 seconds if no interaction
                 setTimeout(() => {
-                    this.hideWidget();
+                    if (this.feedbackMode) {
+                        this.hideWidget();
+                    }
                 }, 30000);
             } else {
+                // Close directly if no conversation or feedback already shown
                 this.hideWidget();
             }
         },
@@ -1155,8 +1173,17 @@
         },
 
         hideWidget: function() {
+            // Remove dynamic height classes
+            $('.ai-chatbot-container').removeClass('has-feedback-form has-prechat-form');
+            var $container = this.$messages.closest('.ai-chatbot-container, .chat-container');
+            
+            // Reset feedback mode
+            this.feedbackMode = false;
+            
+            // Hide the widget
             if (this.$widget.length) {
-                this.$widget.hide();
+                this.$widget.removeClass('ai-chatbot-open');
+                this.$container.hide();
             }
         },
 
@@ -1356,6 +1383,7 @@
             });
             console.log('===============================');
         },
+
     };
 
     // Utilities namespace

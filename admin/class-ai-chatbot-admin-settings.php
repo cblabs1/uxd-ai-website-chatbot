@@ -109,7 +109,7 @@ class AI_Chatbot_Admin_Settings {
             'enabled' => false,
             'widget_position' => 'bottom-right',
             'widget_color' => '#0073aa',
-            'welcome_message' => __('Hello! How can I help you today?', 'ai-website-chatbot'),
+            'welcome_message' => __('Hi 👋 How can I help you today?', 'ai-website-chatbot'),
             'offline_message' => __('Sorry, the chatbot is currently offline. Please try again later.', 'ai-website-chatbot'),
             
             // AI Provider Settings

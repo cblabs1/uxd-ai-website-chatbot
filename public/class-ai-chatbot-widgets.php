@@ -106,7 +106,7 @@ class AI_Chatbot_Widget extends WP_Widget {
                         <span></span>
                         <span></span>
                     </div>
-                    <span class="typing-text"><?php esc_html_e('AI is typing...', 'ai-website-chatbot'); ?></span>
+                    <span class="typing-text"><?php esc_html_e('TeekayDee is typing...', 'ai-website-chatbot'); ?></span>
                 </div>
                 
                 <form class="ai-chatbot-form">
