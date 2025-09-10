@@ -150,81 +150,17 @@
          */
         sendMessage(message, inputElement) {
             // Add user message to chat
-            this.addMessage(message, 'user');
-            
-            // Clear input
-            inputElement.val('');
-            this.handleInputChange(inputElement);
-            
-            // Show typing indicator
-            this.showTyping();
-            
-            // Send AJAX request
-            $.ajax({
-                url: ai_chatbot_ajax.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'ai_chatbot_send_message',
-                    nonce: ai_chatbot_ajax.nonce,
-                    message: message,
-                    conversation_id: this.conversationId
-                },
-                success: (response) => {
-                    this.hideTyping();
-                    
-                    if (response.success) {
-                        // Ensure we have a valid response string
-                        let botResponse = response.data && response.data.response ? response.data.response : '';
-                        if (!botResponse) {
-                            botResponse = ai_chatbot_ajax.strings.error || 'No response received';
-                        }
-                        this.addMessage(botResponse, 'bot');
-                    } else {
-                        // Handle error response properly
-                        let errorMessage = '';
-                        
-                        if (response.data) {
-                            if (typeof response.data === 'string') {
-                                errorMessage = response.data;
-                            } else if (response.data.message) {
-                                errorMessage = response.data.message;
-                            } else {
-                                errorMessage = ai_chatbot_ajax.strings.error || 'An error occurred';
-                            }
-                        } else {
-                            errorMessage = ai_chatbot_ajax.strings.error || 'An error occurred';
-                        }
-                        
-                        this.addMessage(errorMessage, 'bot', 'error');
-                    }
-                },
-                error: (xhr, status, error) => {
-                    this.hideTyping();
-                    
-                    let errorMessage = ai_chatbot_ajax.strings.error || 'Something went wrong. Please try again.';
-                    
-                    // Provide more specific error messages based on status
-                    if (xhr.status === 403) {
-                        errorMessage = 'Access denied. Please refresh the page and try again.';
-                    } else if (xhr.status === 429) {
-                        errorMessage = 'Too many requests. Please wait a moment before trying again.';
-                    } else if (xhr.status >= 500) {
-                        errorMessage = 'Server error. Please try again later.';
-                    } else if (xhr.status === 0) {
-                        errorMessage = 'Network error. Please check your internet connection.';
-                    }
-                    
-                    this.addMessage(errorMessage, 'bot', 'error');
-                    
-                    // Log error for debugging
-                    console.error('Chatbot AJAX Error:', {
-                        status: xhr.status,
-                        statusText: xhr.statusText,
-                        responseText: xhr.responseText,
-                        error: error
-                    });
-                }
-            });
+            if (window.AIChatbot && typeof window.AIChatbot.handleSendMessage === 'function') {
+                // Use the main chatbot's method which has proper authentication
+                window.AIChatbot.handleSendMessage(message);
+                
+                // Clear the input
+                inputElement.val('');
+                this.handleInputChange(inputElement);
+            } else {
+                console.error('Main AIChatbot not available. Please refresh the page.');
+                this.addMessage('Please refresh the page and try again.', 'bot', true);
+            }
         }
 
         /**

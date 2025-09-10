@@ -720,7 +720,7 @@ class AI_Chatbot_Custom implements AI_Chatbot_Provider_Interface {
             );
             $messages[] = array(
                 'role' => 'assistant',
-                'content' => $item['bot_response'],
+                'content' => $item['ai_response'],
             );
         }
 

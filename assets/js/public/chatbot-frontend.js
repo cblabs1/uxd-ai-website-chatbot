@@ -733,7 +733,7 @@
             }
             
             // Get user data with validation
-            var userData = window.AIChatbot.currentUserData || {};
+            var userData = this.currentUserData || {};
 
             console.log('userData after fix:', userData);
             console.log('userData.email:', userData.email);

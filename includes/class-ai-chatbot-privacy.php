@@ -138,7 +138,7 @@ class AI_Chatbot_Privacy {
 					),
 					array(
 						'name'  => __( 'Bot Response', 'ai-website-chatbot' ),
-						'value' => $conversation->bot_response,
+						'value' => $conversation->ai_response,
 					),
 					array(
 						'name'  => __( 'Page URL', 'ai-website-chatbot' ),
@@ -518,21 +518,21 @@ class AI_Chatbot_Privacy {
 	private function get_collected_data_types() {
 		$data_types = array(
 			'user_messages' => true, // Always collected
-			'bot_responses' => true, // Always collected
+			'ai_responses' => true, // Always collected
 			'timestamps' => true,    // Always collected
 			'page_urls' => true,     // Always collected
 		);
 
 		if ( get_option( 'ai_chatbot_collect_ip', false ) ) {
-			$data_types['ip_addresses'] = true;
+			$data_types['user_ip'] = true;
 		}
 
 		if ( get_option( 'ai_chatbot_collect_user_agent', false ) ) {
-			$data_types['user_agents'] = true;
+			$data_types['user_agent'] = true;
 		}
 
 		if ( get_option( 'ai_chatbot_enable_rating', true ) ) {
-			$data_types['ratings'] = true;
+			$data_types['rating'] = true;
 		}
 
 		return array_keys( array_filter( $data_types ) );
@@ -613,7 +613,7 @@ class AI_Chatbot_Privacy {
 		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
 		$conversations = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT user_message, bot_response, page_url, created_at, rating 
+				"SELECT user_message, ai_response, page_url, created_at, rating 
 				FROM {$table_name} 
 				WHERE session_id = %s 
 				ORDER BY created_at ASC",
@@ -636,7 +636,7 @@ class AI_Chatbot_Privacy {
 			$export_data['conversations'][] = array(
 				'timestamp' => $conversation->created_at,
 				'user_message' => $conversation->user_message,
-				'bot_response' => $conversation->bot_response,
+				'ai_response' => $conversation->ai_response,
 				'page_url' => $conversation->page_url,
 				'rating' => $conversation->rating,
 			);

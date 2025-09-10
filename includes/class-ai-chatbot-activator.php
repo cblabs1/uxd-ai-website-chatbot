@@ -138,6 +138,8 @@ class AI_Chatbot_Activator {
             tokens_used int(10) unsigned DEFAULT NULL,
             provider varchar(50) DEFAULT NULL,
             model varchar(100) DEFAULT NULL,
+			message_rating int(1) DEFAULT NULL,
+            message_rated_at datetime DEFAULT NULL,
 			feedback text,
 			rated_at datetime DEFAULT NULL,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

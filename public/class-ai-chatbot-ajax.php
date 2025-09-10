@@ -151,7 +151,7 @@ class AI_Chatbot_Ajax {
             $context = $this->get_user_conversation_context($user_email, $session_id, $conversation_id);
             
             // Send message to AI provider
-            $ai_response = $provider->send_message($message, $context, array(
+            $ai_response = $provider->generate_response($message, $context, array(
                 'model' => $model,
                 'user_data' => $user_data,
                 'session_id' => $session_id
@@ -173,12 +173,12 @@ class AI_Chatbot_Ajax {
                 'user_name' => $user_name,    // NEW: Store user name
                 'user_id' => $user_data['id'], // NEW: Link to user ID
                 'user_message' => $message,
-                'bot_response' => $response_text,
+                'ai_response' => $response_text,
                 'tokens_used' => $tokens_used,
                 'model' => $model_used,
                 'provider' => $ai_provider,
                 'response_time' => microtime(true) - $start_time,
-                'ip_address' => $this->get_client_ip(),
+                'user_ip' => $this->get_client_ip(),
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
                 'created_at' => current_time('mysql')
             );
@@ -297,18 +297,18 @@ class AI_Chatbot_Ajax {
                 user_name varchar(255) DEFAULT NULL,
                 user_id bigint(20) DEFAULT NULL,
                 user_message text NOT NULL,
-                bot_response text NOT NULL,
+                ai_response text NOT NULL,
                 tokens_used int(11) DEFAULT 0,
                 model varchar(100) DEFAULT NULL,
                 provider varchar(50) DEFAULT NULL,
                 response_time float DEFAULT NULL,
-                ip_address varchar(45) DEFAULT NULL,
+                user_ip varchar(45) DEFAULT NULL,
                 user_agent text DEFAULT NULL,
                 message_rating int(1) DEFAULT NULL,
                 message_rated_at datetime DEFAULT NULL,
-                conversation_rating int(1) DEFAULT NULL,
-                conversation_feedback text DEFAULT NULL,
-                conversation_rated_at datetime DEFAULT NULL,
+                rating int(1) DEFAULT NULL,
+                feedback text DEFAULT NULL,
+                rated_at datetime DEFAULT NULL,
                 created_at datetime DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
                 KEY session_id (session_id),
@@ -338,7 +338,7 @@ class AI_Chatbot_Ajax {
         }
 
         $results = $wpdb->get_results($wpdb->prepare(
-            "SELECT user_message, bot_response, created_at 
+            "SELECT user_message, ai_response, created_at 
             FROM {$table_name} 
             WHERE user_email = %s 
             ORDER BY created_at DESC 
@@ -355,7 +355,7 @@ class AI_Chatbot_Ajax {
             );
             $context[] = array(
                 'role' => 'assistant',
-                'content' => $row->bot_response
+                'content' => $row->ai_response
             );
         }
 
@@ -870,7 +870,7 @@ class AI_Chatbot_Ajax {
             $messages[] = array(
                 'id' => $row->conversation_id,
                 'sender' => 'bot',
-                'message' => $row->bot_response,
+                'message' => $row->ai_response,
                 'timestamp' => strtotime($row->created_at),
                 'user_email' => $row->user_email
             );
@@ -2098,9 +2098,9 @@ class AI_Chatbot_Ajax {
             $result = $wpdb->update(
                 $table_name,
                 array(
-                    'conversation_rating' => $rating,
-                    'conversation_feedback' => $feedback,
-                    'conversation_rated_at' => current_time('mysql')
+                    'rating' => $rating,
+                    'feedback' => $feedback,
+                    'rated_at' => current_time('mysql')
                 ),
                 array('conversation_id' => $conversation_id),
                 array('%d', '%s', '%s'),
