@@ -176,22 +176,3 @@ $theme = get_option('ai_chatbot_theme', 'modern');
         </button>
     </div>
 </div>
-
-<script>
-// Enqueue pre-chat functionality
-jQuery(document).ready(function($) {
-    // Check if pre-chat modal should be enabled
-    if (ai_chatbot_ajax.settings.user_collection_enabled) {
-        // Load pre-chat modal script if not already loaded
-        if (typeof window.AIChatbotPreChat === 'undefined') {
-            $.getScript(ai_chatbot_ajax.plugin_url + 'assets/js/public/chatbot-pre-chat.js')
-                .done(function() {
-                    console.log('AI Chatbot: Pre-chat modal loaded successfully');
-                })
-                .fail(function() {
-                    console.warn('AI Chatbot: Failed to load pre-chat modal');
-                });
-        }
-    }
-});
-</script>
