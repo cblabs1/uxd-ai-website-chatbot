@@ -59,8 +59,12 @@ class AI_Chatbot_Ajax {
     public function handle_send_message() {
         $start_time = microtime(true);
 
+        // Enhanced logging
+        error_log('AI Chatbot: handle_send_message called');
+
         // Verify nonce
         if (!check_ajax_referer('ai_chatbot_nonce', 'nonce', false)) {
+            error_log('AI Chatbot: Nonce verification failed');
             wp_send_json_error(array(
                 'message' => __('Security check failed', 'ai-website-chatbot'),
                 'code' => 'NONCE_FAILED'
@@ -72,9 +76,12 @@ class AI_Chatbot_Ajax {
         $message = sanitize_textarea_field($_POST['message'] ?? '');
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
         $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
-        $user_email = sanitize_email($_POST['user_email'] ?? '');  // NEW
-        $user_name = sanitize_text_field($_POST['user_name'] ?? '');  // NEW
-        $user_id = intval($_POST['user_id'] ?? 0);  // NEW
+        $user_email = sanitize_email($_POST['user_email'] ?? '');
+        $user_name = sanitize_text_field($_POST['user_name'] ?? '');
+        $user_id = intval($_POST['user_id'] ?? 0);
+
+        // Enhanced logging
+        error_log('AI Chatbot: Message data - Email: ' . $user_email . ', Name: ' . $user_name . ', Message: ' . substr($message, 0, 50) . '...');
 
         if (empty($message)) {
             wp_send_json_error(array(
@@ -84,21 +91,27 @@ class AI_Chatbot_Ajax {
             return;
         }
 
-        // NEW: Validate user email is provided
+        // Enhanced email validation
         if (empty($user_email) || !is_email($user_email)) {
+            error_log('AI Chatbot: Invalid email provided: ' . $user_email);
             wp_send_json_error(array(
-                'message' => __('Valid email is required to send messages', 'ai-website-chatbot'),
-                'code' => 'EMAIL_REQUIRED'
+                'message' => __('Valid email is required to send messages. Please refresh and try again.', 'ai-website-chatbot'),
+                'code' => 'EMAIL_REQUIRED',
+                'debug' => array(
+                    'provided_email' => $user_email,
+                    'is_valid' => is_email($user_email)
+                )
             ));
             return;
         }
 
-        // NEW: Get or create user
-        $user_data = $this->get_or_create_user($user_email, $user_name, $session_id);
+        // Get or validate user data
+        $user_data = $this->validate_user_session($user_email, $user_name, $session_id, $user_id);
         if (!$user_data) {
+            error_log('AI Chatbot: User validation failed');
             wp_send_json_error(array(
-                'message' => __('Failed to process user data', 'ai-website-chatbot'),
-                'code' => 'USER_ERROR'
+                'message' => __('User session invalid. Please refresh and try again.', 'ai-website-chatbot'),
+                'code' => 'USER_SESSION_INVALID'
             ));
             return;
         }
@@ -189,12 +202,12 @@ class AI_Chatbot_Ajax {
                 'conversation_id' => $conversation_id,
                 'session_id' => $session_id,
                 'user_id' => $user_data['id'],
-                'user_email' => $user_email,  // NEW: Return user email
+                'user_email' => $user_email,
+                'user_name' => $user_name,
                 'tokens_used' => $tokens_used,
                 'response_time' => round($response_time, 3),
                 'source' => 'ai_provider',
                 'model' => $model_used,
-                'user_name' => $user_name,
                 'cached' => false
             ));
 
@@ -207,6 +220,44 @@ class AI_Chatbot_Ajax {
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }
+    }
+
+    /**
+     * NEW: Validate user session method
+     */
+    private function validate_user_session($email, $name, $session_id, $user_id) {
+        // Start session if needed
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // Check WordPress session first
+        if (isset($_SESSION['ai_chatbot_user']) && $_SESSION['ai_chatbot_user']['email'] === $email) {
+            return $_SESSION['ai_chatbot_user'];
+        }
+        
+        // Validate against database
+        global $wpdb;
+        $users_table = $wpdb->prefix . 'ai_chatbot_users';
+        
+        $user = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$users_table} WHERE email = %s AND status = 'active'",
+            $email
+        ), ARRAY_A);
+        
+        if ($user) {
+            // Update session
+            $_SESSION['ai_chatbot_user'] = array(
+                'id' => $user['id'],
+                'email' => $user['email'],
+                'name' => $user['name'],
+                'session_id' => $session_id
+            );
+            
+            return $user;
+        }
+        
+        return false;
     }
 
     /**
@@ -1472,7 +1523,11 @@ class AI_Chatbot_Ajax {
      * Handle user data collection from pre-chat form
      */
     public function ajax_save_user_data() {
+        // Enhanced logging
+        error_log('AI Chatbot: ajax_save_user_data called');
+        
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'ai_chatbot_nonce')) {
+            error_log('AI Chatbot: Nonce verification failed');
             wp_send_json_error(array('message' => __('Security check failed.', 'ai-website-chatbot')));
             return;
         }
@@ -1481,25 +1536,47 @@ class AI_Chatbot_Ajax {
         $email = sanitize_email($_POST['email'] ?? '');
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
 
+        // Enhanced validation
         if (empty($name) || empty($email) || !is_email($email)) {
+            error_log('AI Chatbot: Invalid user data - Name: ' . $name . ', Email: ' . $email);
             wp_send_json_error(array('message' => __('Please provide valid name and email.', 'ai-website-chatbot')));
             return;
         }
 
-        // NEW: Get or create user in database
+        // Enhanced logging
+        error_log('AI Chatbot: Processing user data - Name: ' . $name . ', Email: ' . $email . ', Session: ' . $session_id);
+
+        // Get or create user in database
         $user_data = $this->get_or_create_user($email, $name, $session_id);
 
         if ($user_data) {
+            // Enhanced logging
+            error_log('AI Chatbot: User data saved successfully - ID: ' . $user_data['id']);
+            
+            // Store in WordPress session for server-side access
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            $_SESSION['ai_chatbot_user'] = array(
+                'id' => $user_data['id'],
+                'email' => $user_data['email'],
+                'name' => $user_data['name'],
+                'session_id' => $session_id
+            );
+            
             wp_send_json_success(array(
                 'message' => __('User data saved successfully.', 'ai-website-chatbot'),
                 'user_id' => $user_data['id'],
                 'user_data' => array(
                     'name' => $user_data['name'],
                     'email' => $user_data['email'],
-                    'id' => $user_data['id']
+                    'id' => $user_data['id'],
+                    'session_id' => $session_id,
+                    'authenticated' => true
                 )
             ));
         } else {
+            error_log('AI Chatbot: Failed to save user data');
             wp_send_json_error(array(
                 'message' => __('Failed to save user data.', 'ai-website-chatbot')
             ));

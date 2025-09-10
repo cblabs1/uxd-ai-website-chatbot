@@ -89,7 +89,15 @@
 
         // NEW METHOD: Check if user is authenticated
         checkUserAuthentication: function() {
+            console.log('Checking user authentication...');
+            
+            // Try localStorage first
             var userData = localStorage.getItem('ai_chatbot_user_data');
+            
+            // Fallback to sessionStorage
+            if (!userData) {
+                userData = sessionStorage.getItem('ai_chatbot_user_data');
+            }
             
             if (userData) {
                 try {
@@ -97,18 +105,21 @@
                     console.log('User data found:', this.currentUserData);
                     
                     // Validate that we have required fields
-                    if (this.currentUserData.email && this.currentUserData.name) {
+                    if (this.currentUserData && 
+                        this.currentUserData.email && 
+                        this.currentUserData.name && 
+                        this.currentUserData.authenticated) {
+                        
+                        console.log('User is authenticated, enabling chat');
                         this.enableChatInterface();
                         return;
                     } else {
-                        console.log('User data incomplete, removing...');
-                        localStorage.removeItem('ai_chatbot_user_data');
-                        this.currentUserData = null;
+                        console.log('User data incomplete:', this.currentUserData);
+                        this.clearUserData();
                     }
                 } catch (e) {
-                    console.log('Invalid user data in localStorage, removing...');
-                    localStorage.removeItem('ai_chatbot_user_data');
-                    this.currentUserData = null;
+                    console.log('Invalid user data in storage, removing...', e);
+                    this.clearUserData();
                 }
             }
             
@@ -116,9 +127,29 @@
             this.showPreChatForm();
         },
 
-        // NEW METHOD: Check if user is authenticated
         isUserAuthenticated: function() {
-            return this.currentUserData && this.currentUserData.email;
+            var isAuth = this.currentUserData && 
+                        this.currentUserData.email && 
+                        this.currentUserData.name && 
+                        this.currentUserData.authenticated;
+            
+            console.log('Authentication check:', {
+                hasCurrentUserData: !!this.currentUserData,
+                hasEmail: !!(this.currentUserData && this.currentUserData.email),
+                hasName: !!(this.currentUserData && this.currentUserData.name),
+                isAuthenticated: !!(this.currentUserData && this.currentUserData.authenticated),
+                result: isAuth
+            });
+            
+            return isAuth;
+        },
+
+        // NEW: Clear user data method
+        clearUserData: function() {
+            this.currentUserData = null;
+            localStorage.removeItem('ai_chatbot_user_data');
+            sessionStorage.removeItem('ai_chatbot_user_data');
+            localStorage.removeItem('ai_chatbot_authenticated');
         },
 
         // NEW METHOD: Show pre-chat form
@@ -449,34 +480,62 @@
                     nonce: this.config.nonce
                 },
                 success: function(response) {
+                    console.log('Server response:', response);
+                    
                     if (response.success) {
-                        // Store user data locally
+                        // Store user data with all required fields
                         self.currentUserData = {
                             name: name,
                             email: email,
-                            user_id: response.data.user_id || null
+                            user_id: response.data.user_id || null,
+                            session_id: self.currentSessionId,
+                            authenticated: true,
+                            authenticated_at: Date.now()
                         };
                         
+                        // Store in multiple places for redundancy
                         localStorage.setItem('ai_chatbot_user_data', JSON.stringify(self.currentUserData));
+                        sessionStorage.setItem('ai_chatbot_user_data', JSON.stringify(self.currentUserData));
+                        
+                        // Also store a simple flag
+                        localStorage.setItem('ai_chatbot_authenticated', 'true');
+                        
+                        console.log('User data stored:', self.currentUserData);
                         
                         // Remove pre-chat form and enable chat
                         $('.ai-chatbot-prechat-form').fadeOut(300, function() {
                             $(this).remove();
+                            
+                            // Enable chat interface
                             self.enableChatInterface();
+                            
+                            // Start inactivity timer
                             self.startInactivityTimer();
+                            
+                            // Add a welcome message mentioning the user
+                            var personalizedWelcome = `Hi ${name}! 👋 How can I help you today?`;
+                            self.addBotMessage(personalizedWelcome);
                             
                             // Focus on chat input
                             setTimeout(() => {
                                 self.$input.focus();
-                            }, 400);
+                                
+                                // Double-check authentication state
+                                console.log('Authentication check after form completion:', {
+                                    isAuthenticated: self.isUserAuthenticated(),
+                                    currentUserData: self.currentUserData,
+                                    localStorage: localStorage.getItem('ai_chatbot_user_data')
+                                });
+                            }, 500);
                         });
                         
-                        console.log('User authenticated successfully:', self.currentUserData);
+                        console.log('User authenticated successfully');
                     } else {
                         self.showInlineFormError(response.data.message || 'Failed to save user data. Please try again.');
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
+                    console.error('AJAX Error:', { xhr: xhr, status: status, error: error });
                     self.showInlineFormError('Connection error. Please check your internet connection and try again.');
                 },
                 complete: function() {
@@ -660,19 +719,42 @@
         },
 
         sendMessageToServer: function(message) {
+
+            console.log('=== SEND MESSAGE DEBUG ===');
+            console.log('this context check:', this === window.AIChatbot);
+
             var self = this;
             
-            // Check authentication before sending
+            // Enhanced authentication check
             if (!this.isUserAuthenticated()) {
+                console.log('User not authenticated, showing pre-chat form');
                 this.showPreChatForm();
                 return;
             }
             
-            // Get user data - FIXED: Ensure we have the user data
-            var userData = this.currentUserData || {};
+            // Get user data with validation
+            var userData = window.AIChatbot.currentUserData || {};
+
+            console.log('userData after fix:', userData);
+            console.log('userData.email:', userData.email);
+            console.log('==============================');
             
-            // Debug log
-            console.log('Sending message with user data:', userData);
+            // Debug logging
+            console.log('Sending message:', {
+                message: message,
+                userData: userData,
+                sessionId: this.currentSessionId,
+                conversationId: this.currentConversationId
+            });
+            
+            // Validate we have required user data
+            if (!userData.email) {
+                console.error('No email found in user data:', userData);
+                this.showError('Session expired. Please refresh and try again.');
+                this.clearUserData();
+                this.showPreChatForm();
+                return;
+            }
             
             $.ajax({
                 url: this.config.ajaxUrl,
@@ -684,12 +766,21 @@
                     message: message,
                     session_id: this.currentSessionId,
                     conversation_id: this.currentConversationId,
-                    user_email: userData.email || '',  // FIXED: Ensure email is sent
-                    user_name: userData.name || '',    // FIXED: Ensure name is sent
-                    user_id: userData.user_id || 0,   // FIXED: Ensure user_id is sent
+                    user_email: userData.email,
+                    user_name: userData.name,
+                    user_id: userData.user_id || 0,
                     nonce: this.config.nonce
                 },
+                beforeSend: function() {
+                    console.log('Sending AJAX request with data:', {
+                        user_email: userData.email,
+                        user_name: userData.name,
+                        user_id: userData.user_id
+                    });
+                },
                 success: function(response) {
+                    console.log('Message sent successfully:', response);
+                    
                     self.hideTypingIndicator();
                     self.setInputState(true);
                     self.retryCount = 0;
@@ -736,18 +827,20 @@
                         
                         self.hideSuggestions();
                     } else {
+                        console.error('Server error:', response.data);
                         self.showError(response.data.message || self.config.strings.error);
                     }
                 },
                 error: function(xhr, status, error) {
-                    self.hideTypingIndicator();
-                    self.setInputState(true);
-                    
                     console.error('AJAX Error:', {
                         status: status,
                         error: error,
-                        response: xhr.responseText
+                        response: xhr.responseText,
+                        userData: userData
                     });
+                    
+                    self.hideTypingIndicator();
+                    self.setInputState(true);
                     
                     // Retry logic
                     if (self.retryCount < self.maxRetries) {
@@ -1245,7 +1338,24 @@
         refreshWidget: function() {
             // Reload the widget
             location.reload();
-        }
+        },
+        debugSessionState: function() {
+            console.log('=== CHATBOT SESSION DEBUG ===');
+            console.log('Current User Data:', this.currentUserData);
+            console.log('Is Authenticated:', this.isUserAuthenticated());
+            console.log('Session ID:', this.currentSessionId);
+            console.log('Conversation ID:', this.currentConversationId);
+            console.log('LocalStorage Data:', localStorage.getItem('ai_chatbot_user_data'));
+            console.log('SessionStorage Data:', sessionStorage.getItem('ai_chatbot_user_data'));
+            console.log('Auth Flag:', localStorage.getItem('ai_chatbot_authenticated'));
+            console.log('Message Count:', this.messageCount);
+            console.log('DOM Elements:', {
+                messages: this.$messages ? this.$messages.length : 0,
+                input: this.$input ? this.$input.length : 0,
+                sendBtn: this.$sendBtn ? this.$sendBtn.length : 0
+            });
+            console.log('===============================');
+        },
     };
 
     // Utilities namespace
