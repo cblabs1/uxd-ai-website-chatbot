@@ -2099,7 +2099,7 @@ class AI_Chatbot_Ajax {
                 $table_name,
                 array(
                     'rating' => $rating,
-                    'conversation_feedback' => $feedback,
+                    'feedback' => $feedback,
                     'rated_at' => current_time('mysql')
                 ),
                 array('conversation_id' => $conversation_id),

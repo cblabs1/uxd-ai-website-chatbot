@@ -183,7 +183,20 @@ class AI_Chatbot_Shortcodes {
             
             <?php if (filter_var($atts['show_header'], FILTER_VALIDATE_BOOLEAN)): ?>
             <div class="ai-chatbot-header">
-                <h4 class="ai-chatbot-title"><?php echo esc_html($atts['title']); ?></h4>
+                <div class="ai-chatbot-header-content">
+                    <div class="ai-chatbot-avatar">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="16" cy="16" r="16" fill="#6366f1"></circle>
+                            <path d="M12 14C12.5523 14 13 13.5523 13 13C13 12.4477 12.5523 12 12 12C11.4477 12 11 12.4477 11 13C11 13.5523 11.4477 14 12 14Z" fill="white"></path>
+                            <path d="M20 14C20.5523 14 21 13.5523 21 13C21 12.4477 20.5523 12 20 12C19.4477 12 19 12.4477 19 13C19 13.5523 19.4477 14 20 14Z" fill="white"></path>
+                            <path d="M16 20C18.2091 20 20 18.2091 20 16H12C12 18.2091 13.7909 20 16 20Z" fill="white"></path>
+                        </svg>
+                    </div>
+                    <div class="ai-chatbot-header-info">
+                        <h3 class="ai-chatbot-title"><?php echo esc_html($atts['title']); ?></h3>
+                        <p class="ai-chatbot-subtitle"><?php echo wp_kses_post($atts['welcome_message']); ?></p>
+                    </div>
+                </div>
             </div>
             <?php endif; ?>
 
@@ -227,19 +240,15 @@ class AI_Chatbot_Shortcodes {
                             </button>
                         </div>
                     </form>
+                    <?php if (filter_var($atts['show_powered_by'], FILTER_VALIDATE_BOOLEAN)): ?>
                     <div class="ai-chatbot-footer">
                         <span class="ai-chatbot-powered-by">
-                            Powered by <strong>Dream Website</strong>
+                            <?php _e('Powered by', 'ai-website-chatbot'); ?> <strong><?php echo esc_html(get_bloginfo('name')); ?></strong>
                         </span>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
-
-            <?php if (filter_var($atts['show_powered_by'], FILTER_VALIDATE_BOOLEAN)): ?>
-            <div class="ai-chatbot-powered-by">
-                <small><?php esc_html_e('Powered by AI Website Chatbot', 'ai-website-chatbot'); ?></small>
-            </div>
-            <?php endif; ?>
         </div>
         <?php
 

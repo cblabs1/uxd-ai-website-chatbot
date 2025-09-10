@@ -7,7 +7,7 @@
 
 /* AI Chatbot Frontend Styles */
 :root {
-    --ai-chatbot-primary: #6366f1;
+    --ai-chatbot-primary: #1e293b;
     --ai-chatbot-primary-hover: #5855eb;
     --ai-chatbot-secondary: #f8fafc;
     --ai-chatbot-text: #1e293b;
@@ -457,6 +457,10 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    border-radius: var(--ai-chatbot-radius-lg);
+    box-shadow: var(--ai-chatbot-shadow-lg);
+    overflow: hidden;
+    border: 1px solid var(--ai-chatbot-border);
 }
 
 .ai-chatbot-container.has-prechat-form,
