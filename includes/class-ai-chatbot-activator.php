@@ -217,17 +217,16 @@ class AI_Chatbot_Activator {
 
 		$users_table = $wpdb->prefix . 'ai_chatbot_users';
 		$sql_users = "CREATE TABLE $users_table (
-			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			name varchar(255) NOT NULL,
 			email varchar(255) NOT NULL,
-			name varchar(255) DEFAULT '',
-			company varchar(255) DEFAULT '',
-			phone varchar(50) DEFAULT '',
-			first_seen datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			last_seen datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			session_count int(10) unsigned DEFAULT 1,
-			total_messages int(10) unsigned DEFAULT 0,
-			total_conversations int(10) unsigned DEFAULT 0,
-			preferences longtext DEFAULT NULL,
+			session_id varchar(255) DEFAULT NULL,
+			ip_address varchar(45) DEFAULT NULL,
+			user_agent text DEFAULT NULL,
+			total_conversations int(11) DEFAULT 0,
+			total_messages int(11) DEFAULT 0,
+			first_seen datetime DEFAULT NULL,
+			last_seen datetime DEFAULT NULL,
 			status varchar(20) DEFAULT 'active',
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -235,8 +234,7 @@ class AI_Chatbot_Activator {
 			UNIQUE KEY unique_email (email),
 			KEY idx_email (email),
 			KEY idx_status (status),
-			KEY idx_first_seen (first_seen),
-			KEY idx_last_seen (last_seen),
+			KEY idx_session_id (session_id),
 			KEY idx_total_messages (total_messages)
 		) $charset_collate;";
 
@@ -394,14 +392,6 @@ class AI_Chatbot_Activator {
 				'provider' => array(
 					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN provider varchar(50) DEFAULT NULL',
 					'check' => 'provider'
-				),
-				'model' => array(
-					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN model varchar(100) DEFAULT NULL',
-					'check' => 'model'
-				),
-				'user_id' => array(
-					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN user_id bigint(20) unsigned DEFAULT NULL AFTER session_id',
-					'check' => 'user_id'
 				),
 			);
 

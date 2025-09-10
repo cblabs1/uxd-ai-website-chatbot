@@ -49,7 +49,8 @@
                     enableHistory: true,
                     enableFileUpload: false,
                     typingSpeed: 50,
-                    autoResponse: true
+                    autoResponse: true,
+                    requirePreChat: true  // NEW: Make pre-chat mandatory
                 },
                 strings: {
                     loading: 'Loading...',
@@ -58,7 +59,8 @@
                     networkError: 'Network error. Please check your connection.',
                     messageTooLong: 'Message is too long.',
                     thankYou: 'Thank you for your feedback!',
-                    confirmClear: 'Are you sure you want to clear the conversation?'
+                    confirmClear: 'Are you sure you want to clear the conversation?',
+                    pleaseProvideEmail: 'Please provide your email to start chatting.' // NEW
                 }
             }, config);
 
@@ -70,19 +72,132 @@
             // Initialize UI
             this.initializeUI();
             
+            // Check if user data exists - NEW
+            this.checkUserAuthentication();
+            
             // Setup event handlers
             this.setupEventHandlers();
             
-            // Load conversation history if enabled
-            if (this.config.settings.enableHistory) {
-                this.loadConversationHistory();
+            // Start inactivity monitoring only if user is authenticated
+            if (this.isUserAuthenticated()) {
+                this.startInactivityTimer();
             }
-
-            // Start inactivity monitoring
-            this.startInactivityTimer();
 
             this.initialized = true;
             console.log('AIChatbot: Initialized successfully');
+        },
+
+        // NEW METHOD: Check if user is authenticated
+        checkUserAuthentication: function() {
+            var userData = localStorage.getItem('ai_chatbot_user_data');
+            
+            if (userData) {
+                try {
+                    this.currentUserData = JSON.parse(userData);
+                    console.log('User data found:', this.currentUserData);
+                    this.enableChatInterface();
+                } catch (e) {
+                    console.log('Invalid user data in localStorage');
+                    this.showPreChatForm();
+                }
+            } else {
+                console.log('No user data found, showing pre-chat form');
+                this.showPreChatForm();
+            }
+        },
+
+        // NEW METHOD: Check if user is authenticated
+        isUserAuthenticated: function() {
+            return this.currentUserData && this.currentUserData.email;
+        },
+
+        // NEW METHOD: Show pre-chat form
+        showPreChatForm: function() {
+            this.disableChatInterface();
+            
+            // Check if pre-chat modal exists from your existing pre-chat code
+            if ($('#ai-chatbot-pre-chat-modal').length === 0) {
+                this.createPreChatModal();
+            }
+            
+            $('#ai-chatbot-prechat-overlay').show();
+        },
+
+        // NEW METHOD: Create pre-chat modal (using your existing structure)
+        createPreChatModal: function() {
+            var modalHTML = `
+                <div id="ai-chatbot-prechat-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center;">
+                    <div id="ai-chatbot-pre-chat-modal" style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                        <div class="ai-chatbot-form-container">
+                            <div class="ai-chatbot-form-header">
+                                <h3 style="margin: 0 0 10px 0; color: #333;">Welcome! 👋</h3>
+                                <p style="margin: 0 0 20px 0; color: #666;">Please provide your details to start chatting with our AI assistant.</p>
+                            </div>
+                            <form id="ai-chatbot-user-form">
+                                <div class="ai-chatbot-form-group" style="margin-bottom: 15px;">
+                                    <label for="ai-chatbot-user-name" style="display: block; margin-bottom: 5px; font-weight: 500;">Name *</label>
+                                    <input type="text" id="ai-chatbot-user-name" name="name" required 
+                                        style="width: 100%; padding: 10px; border: 2px solid #e1e5e9; border-radius: 6px; font-size: 14px;" 
+                                        placeholder="Enter your full name">
+                                </div>
+                                <div class="ai-chatbot-form-group" style="margin-bottom: 20px;">
+                                    <label for="ai-chatbot-user-email" style="display: block; margin-bottom: 5px; font-weight: 500;">Email *</label>
+                                    <input type="email" id="ai-chatbot-user-email" name="email" required 
+                                        style="width: 100%; padding: 10px; border: 2px solid #e1e5e9; border-radius: 6px; font-size: 14px;" 
+                                        placeholder="Enter your email address">
+                                </div>
+                                <button type="submit" class="ai-chatbot-form-submit" 
+                                        style="width: 100%; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 500; cursor: pointer;">
+                                    Start Chatting
+                                </button>
+                            </form>
+                            <div class="ai-chatbot-form-footer" style="margin-top: 15px; text-align: center;">
+                                <small style="color: #666;">🔒 Your information is secure and will only be used to personalize your chat experience</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            $('body').append(modalHTML);
+            
+            // Focus on name field
+            setTimeout(() => {
+                $('#ai-chatbot-user-name').focus();
+            }, 300);
+        },
+
+        // NEW METHOD: Disable chat interface
+        disableChatInterface: function() {
+            this.$input.prop('disabled', true).attr('placeholder', this.config.strings.pleaseProvideEmail);
+            this.$sendBtn.prop('disabled', true);
+            
+            // Hide any existing messages or show a placeholder
+            if (this.$messages.children('.auth-required-message').length === 0) {
+                this.$messages.append(`
+                    <div class="auth-required-message ai-chatbot-message bot-message">
+                        <div class="message-content">
+                            <div class="message-bubble">
+                                Please provide your email address to start chatting with our AI assistant.
+                            </div>
+                        </div>
+                    </div>
+                `);
+            }
+        },
+
+        // NEW METHOD: Enable chat interface
+        enableChatInterface: function() {
+            this.$input.prop('disabled', false).attr('placeholder', 'Type your message...');
+            this.$sendBtn.prop('disabled', false);
+            
+            // Remove auth required message
+            $('.auth-required-message').remove();
+            
+            // Show welcome message if configured and user is new
+            if (this.config.welcomeMessage && this.$messages.children().length <= 1) {
+                this.addBotMessage(this.config.welcomeMessage);
+            }
         },
 
         // Generate unique session ID
@@ -139,9 +254,19 @@
             // Remove existing handlers to avoid duplicates
             $(document).off('.aichatbot');
             
+            // Pre-chat form submission - NEW
+            $(document).on('submit.aichatbot', '#ai-chatbot-user-form', function(e) {
+                e.preventDefault();
+                self.handlePreChatSubmission();
+            });
+            
             // Send button click
             $(document).on('click.aichatbot', '.ai-chatbot-send-btn, #ai-chatbot-send, .popup-send-btn', function(e) {
                 e.preventDefault();
+                if (!self.isUserAuthenticated()) {
+                    self.showPreChatForm();
+                    return;
+                }
                 self.resetInactivityTimer();
                 self.handleSendMessage();
             });
@@ -150,6 +275,10 @@
             $(document).on('keypress.aichatbot', '.ai-chatbot-input input, #ai-chatbot-input, input[name="message"]', function(e) {
                 if (e.which === 13 && !e.shiftKey) {
                     e.preventDefault();
+                    if (!self.isUserAuthenticated()) {
+                        self.showPreChatForm();
+                        return;
+                    }
                     self.resetInactivityTimer();
                     self.handleSendMessage();
                 }
@@ -157,8 +286,10 @@
             
             // Input change for validation and activity tracking
             $(document).on('input.aichatbot', '.ai-chatbot-input input, #ai-chatbot-input, input[name="message"]', function() {
-                self.resetInactivityTimer();
-                self.onInputChange();
+                if (self.isUserAuthenticated()) {
+                    self.resetInactivityTimer();
+                    self.onInputChange();
+                }
             });
             
             // Rating buttons - Quick rating for individual messages
@@ -227,6 +358,97 @@
                 var action = $(this).data('action');
                 self.handleQuickAction(action);
             });
+
+            console.log('Event handlers set up successfully');
+        },
+
+        handlePreChatSubmission: function() {
+            var name = $('#ai-chatbot-user-name').val().trim();
+            var email = $('#ai-chatbot-user-email').val().trim();
+            
+            if (!name || !email || !this.isValidEmail(email)) {
+                this.showPreChatError('Please provide a valid name and email address.');
+                return;
+            }
+            
+            var self = this;
+            var $submitBtn = $('.ai-chatbot-form-submit');
+            
+            // Show loading state
+            $submitBtn.prop('disabled', true).text('Saving...');
+            
+            // Send user data to server
+            $.ajax({
+                url: this.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_save_user_data',
+                    name: name,
+                    email: email,
+                    session_id: this.currentSessionId,
+                    nonce: this.config.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Store user data locally
+                        self.currentUserData = {
+                            name: name,
+                            email: email,
+                            user_id: response.data.user_id || null
+                        };
+                        
+                        localStorage.setItem('ai_chatbot_user_data', JSON.stringify(self.currentUserData));
+                        
+                        // Hide pre-chat form
+                        $('#ai-chatbot-prechat-overlay').fadeOut(300);
+                        
+                        // Enable chat interface
+                        self.enableChatInterface();
+                        
+                        // Start inactivity timer
+                        self.startInactivityTimer();
+                        
+                        // Focus on chat input
+                        setTimeout(() => {
+                            self.$input.focus();
+                        }, 400);
+                        
+                        console.log('User authenticated successfully:', self.currentUserData);
+                    } else {
+                        self.showPreChatError(response.data.message || 'Failed to save user data. Please try again.');
+                    }
+                },
+                error: function() {
+                    self.showPreChatError('Connection error. Please check your internet connection and try again.');
+                },
+                complete: function() {
+                    $submitBtn.prop('disabled', false).text('Start Chatting');
+                }
+            });
+        },
+
+        // NEW METHOD: Show pre-chat form error
+        showPreChatError: function(message) {
+            // Remove existing error
+            $('.ai-chatbot-form-error').remove();
+            
+            // Add error message
+            $('#ai-chatbot-user-form').prepend(`
+                <div class="ai-chatbot-form-error" style="background: #fee; border: 1px solid #fcc; color: #c66; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 14px;">
+                    ${message}
+                </div>
+            `);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                $('.ai-chatbot-form-error').fadeOut();
+            }, 5000);
+        },
+
+        // NEW METHOD: Validate email
+        isValidEmail: function(email) {
+            var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
         },
 
         // Inactivity Timer Management
@@ -298,22 +520,31 @@
         sendMessageToServer: function(message) {
             var self = this;
             
+            // Check authentication before sending
+            if (!this.isUserAuthenticated()) {
+                this.showPreChatForm();
+                return;
+            }
+            
             $.ajax({
                 url: this.config.ajaxUrl,
                 type: 'POST',
                 dataType: 'json',
-                timeout: 60000, // 60 seconds timeout
+                timeout: 60000,
                 data: {
                     action: 'ai_chatbot_send_message',
                     message: message,
                     session_id: this.currentSessionId,
                     conversation_id: this.currentConversationId,
+                    user_email: this.currentUserData.email,  // NEW: Send user email
+                    user_name: this.currentUserData.name,    // NEW: Send user name
+                    user_id: this.currentUserData.user_id,   // NEW: Send user ID if available
                     nonce: this.config.nonce
                 },
                 success: function(response) {
                     self.hideTypingIndicator();
                     self.setInputState(true);
-                    self.retryCount = 0; // Reset retry count on success
+                    self.retryCount = 0;
                     
                     if (response.success) {
                         var botResponse = response.data.response;
@@ -351,10 +582,10 @@
                             user_message: message,
                             bot_response: botResponse,
                             response_time: response.data.response_time,
-                            tokens_used: response.data.tokens_used
+                            tokens_used: response.data.tokens_used,
+                            user_email: self.currentUserData.email
                         });
                         
-                        // Hide suggestions after successful response
                         self.hideSuggestions();
                     } else {
                         self.showError(response.data.message || self.config.strings.error);
@@ -375,7 +606,7 @@
                         self.retryCount++;
                         setTimeout(function() {
                             self.sendMessageToServer(message);
-                        }, 2000 * self.retryCount); // Exponential backoff
+                        }, 2000 * self.retryCount);
                     } else {
                         var errorMessage = status === 'timeout' ? 
                             'Request timed out. Please try again.' : 
@@ -690,7 +921,11 @@
 
         // Conversation Management
         loadConversationHistory: function() {
-            // Load conversation history from server if available
+            // Only load if user is authenticated
+            if (!this.isUserAuthenticated()) {
+                return;
+            }
+            
             var self = this;
             
             $.ajax({
@@ -699,6 +934,7 @@
                 data: {
                     action: 'ai_chatbot_get_history',
                     session_id: this.currentSessionId,
+                    user_email: this.currentUserData.email, // NEW
                     nonce: this.config.nonce
                 },
                 success: function(response) {
@@ -730,6 +966,7 @@
                     data: {
                         action: 'ai_chatbot_clear_conversation',
                         session_id: this.currentSessionId,
+                        user_email: this.currentUserData ? this.currentUserData.email : '', // NEW
                         nonce: this.config.nonce
                     },
                     success: function(response) {
@@ -815,6 +1052,11 @@
         },
 
         exportConversation: function() {
+            if (!this.isUserAuthenticated()) {
+                this.showError('Please login to export conversations.');
+                return;
+            }
+            
             var self = this;
             
             $.ajax({
@@ -823,6 +1065,7 @@
                 data: {
                     action: 'ai_chatbot_export_data',
                     session_id: this.currentSessionId,
+                    user_email: this.currentUserData.email, // NEW
                     nonce: this.config.nonce
                 },
                 success: function(response) {
@@ -836,6 +1079,19 @@
                     }
                 }
             });
+        },
+        logoutUser: function() {
+            // Clear user data
+            this.currentUserData = null;
+            localStorage.removeItem('ai_chatbot_user_data');
+            
+            // Clear conversations
+            this.clearConversation();
+            
+            // Show pre-chat form again
+            this.showPreChatForm();
+            
+            console.log('User logged out');
         },
 
         refreshWidget: function() {
