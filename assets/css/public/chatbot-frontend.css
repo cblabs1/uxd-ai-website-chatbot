@@ -449,6 +449,8 @@
     overflow: hidden;
     background: white;
     box-shadow: var(--ai-chatbot-shadow);
+    display:flex;
+    flex-direction: column;
 }
 
 .ai-chatbot-inline-container {

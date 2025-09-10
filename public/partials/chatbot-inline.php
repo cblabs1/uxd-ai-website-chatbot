@@ -18,6 +18,13 @@ $height = isset($config['height']) ? $config['height'] : '400px';
 $theme = isset($config['theme']) ? $config['theme'] : 'default';
 $show_header = isset($config['show_header']) ? $config['show_header'] : true;
 $show_powered_by = isset($config['show_powered_by']) ? $config['show_powered_by'] : true;
+$show_starter_buttons = isset($config['show_starter_buttons']) ? $config['show_starter_buttons'] : true;
+$starter_button_1 = isset($config['starter_button_1']) ? $config['starter_button_1'] : __('What services do you offer?', 'ai-website-chatbot');
+$starter_button_2 = isset($config['starter_button_2']) ? $config['starter_button_2'] : __('How can I contact support?', 'ai-website-chatbot');
+$starter_button_3 = isset($config['starter_button_3']) ? $config['starter_button_3'] : __('Tell me about pricing', 'ai-website-chatbot');
+$enable_file_upload = isset($config['enable_file_upload']) ? $config['enable_file_upload'] : false;
+$enable_voice_input = isset($config['enable_voice_input']) ? $config['enable_voice_input'] : false;
+$enable_conversation_save = isset($config['enable_conversation_save']) ? $config['enable_conversation_save'] : false;
 ?>
 
 <div class="ai-chatbot-inline theme-<?php echo esc_attr($theme); ?>" 
@@ -39,6 +46,11 @@ $show_powered_by = isset($config['show_powered_by']) ? $config['show_powered_by'
         </div>
         
         <div class="header-actions">
+            <?php if ($enable_conversation_save): ?>
+            <button type="button" class="header-btn save-conversation-btn" aria-label="<?php esc_attr_e('Save conversation', 'ai-website-chatbot'); ?>">
+                <span class="dashicons dashicons-download"></span>
+            </button>
+            <?php endif; ?>
             <button type="button" class="header-btn fullscreen-btn" aria-label="<?php esc_attr_e('Fullscreen', 'ai-website-chatbot'); ?>">
                 <span class="dashicons dashicons-fullscreen-alt"></span>
             </button>
@@ -68,120 +80,134 @@ $show_powered_by = isset($config['show_powered_by']) ? $config['show_powered_by'
                         <span class="avatar-icon">🤖</span>
                     </div>
                     <div class="message-content">
-                        <div class="message-header">
-                            <span class="sender-name"><?php echo esc_html($widget_title); ?></span>
-                            <span class="message-timestamp"><?php echo esc_html(current_time('g:i A')); ?></span>
-                        </div>
                         <div class="message-bubble">
-                            <div class="message-text">
-                                <?php echo wp_kses_post($welcome_message); ?>
-                            </div>
+                            <?php echo wp_kses_post($welcome_message); ?>
+                        </div>
+                        <div class="message-meta">
+                            <span class="message-time"><?php echo esc_html(current_time('g:i A')); ?></span>
+                            <span class="message-status">✓</span>
                         </div>
                     </div>
                 </div>
             </div>
             <?php endif; ?>
 
-            <!-- Quick Suggestions -->
-            <div class="quick-suggestions" id="inline-suggestions">
-                <div class="suggestions-header">
-                    <span class="suggestions-label"><?php esc_html_e('Suggested questions:', 'ai-website-chatbot'); ?></span>
+            <!-- Conversation Starters -->
+            <?php if ($show_starter_buttons): ?>
+            <div class="conversation-starters" id="inline-conversation-starters">
+                <div class="starters-label"><?php esc_html_e('Quick questions to get started:', 'ai-website-chatbot'); ?></div>
+                <div class="starter-buttons">
+                    <button type="button" class="starter-btn" data-message="<?php echo esc_attr($starter_button_1); ?>">
+                        <span class="starter-icon">💼</span>
+                        <span class="starter-text"><?php echo esc_html($starter_button_1); ?></span>
+                    </button>
+                    <button type="button" class="starter-btn" data-message="<?php echo esc_attr($starter_button_2); ?>">
+                        <span class="starter-icon">🆘</span>
+                        <span class="starter-text"><?php echo esc_html($starter_button_2); ?></span>
+                    </button>
+                    <button type="button" class="starter-btn" data-message="<?php echo esc_attr($starter_button_3); ?>">
+                        <span class="starter-icon">💰</span>
+                        <span class="starter-text"><?php echo esc_html($starter_button_3); ?></span>
+                    </button>
                 </div>
-                <div class="suggestions-grid">
-                    <button type="button" class="suggestion-chip" data-suggestion="<?php esc_attr_e('What can you help me with?', 'ai-website-chatbot'); ?>">
-                        <span class="chip-icon">❓</span>
-                        <span class="chip-text"><?php esc_html_e('What can you help me with?', 'ai-website-chatbot'); ?></span>
-                    </button>
-                    <button type="button" class="suggestion-chip" data-suggestion="<?php esc_attr_e('Tell me about your services', 'ai-website-chatbot'); ?>">
-                        <span class="chip-icon">🛎️</span>
-                        <span class="chip-text"><?php esc_html_e('Our services', 'ai-website-chatbot'); ?></span>
-                    </button>
-                    <button type="button" class="suggestion-chip" data-suggestion="<?php esc_attr_e('How do I get started?', 'ai-website-chatbot'); ?>">
-                        <span class="chip-icon">🚀</span>
-                        <span class="chip-text"><?php esc_html_e('Getting started', 'ai-website-chatbot'); ?></span>
-                    </button>
+            </div>
+            <?php endif; ?>
+
+            <!-- Typing Indicator -->
+            <div class="ai-chatbot-typing inline-typing" id="inline-typing-indicator" style="display: none;">
+                <div class="message-wrapper">
+                    <div class="message-avatar">
+                        <span class="avatar-icon typing-avatar">🤖</span>
+                    </div>
+                    <div class="typing-content">
+                        <div class="typing-bubble">
+                            <div class="typing-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                        <div class="typing-text"><?php esc_html_e('AI is thinking...', 'ai-website-chatbot'); ?></div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Typing Indicator -->
-        <div class="inline-typing-indicator" id="inline-typing" style="display: none;">
-            <div class="typing-wrapper">
-                <div class="message-avatar">
-                    <span class="avatar-icon">🤖</span>
-                </div>
-                <div class="typing-content">
-                    <div class="typing-bubble">
-                        <div class="typing-animation">
-                            <span class="typing-dot"></span>
-                            <span class="typing-dot"></span>
-                            <span class="typing-dot"></span>
-                        </div>
-                    </div>
-                    <div class="typing-label"><?php esc_html_e('AI is typing...', 'ai-website-chatbot'); ?></div>
-                </div>
-            </div>
+        <!-- Scroll to bottom button -->
+        <div class="scroll-controls" style="display: none;">
+            <button type="button" class="scroll-to-bottom-btn" aria-label="<?php esc_attr_e('Scroll to bottom', 'ai-website-chatbot'); ?>">
+                <span class="dashicons dashicons-arrow-down-alt"></span>
+                <span class="new-message-indicator"><?php esc_html_e('New message', 'ai-website-chatbot'); ?></span>
+            </button>
         </div>
     </div>
 
-    <!-- Input Section -->
-    <div class="inline-input-section">
-        <form id="inline-chatbot-form" class="inline-form">
-            <div class="input-container">
-                <!-- File Upload Area (if enabled) -->
-                <?php if (get_option('ai_chatbot_enable_file_uploads', false)): ?>
-                <div class="file-upload-area" id="file-upload-area" style="display: none;">
-                    <div class="upload-content">
-                        <span class="upload-icon">📎</span>
-                        <span class="upload-text"><?php esc_html_e('Drag & drop a file or click to browse', 'ai-website-chatbot'); ?></span>
+    <!-- Input Area -->
+    <div class="inline-input-area">
+        <!-- File Upload Overlay -->
+        <?php if ($enable_file_upload): ?>
+        <div class="file-upload-overlay" id="inline-file-overlay" style="display: none;">
+            <div class="upload-content">
+                <div class="upload-icon">📎</div>
+                <div class="upload-text"><?php esc_html_e('Drop files here or click to browse', 'ai-website-chatbot'); ?></div>
+                <div class="upload-hint"><?php esc_html_e('Supported: PDF, DOC, TXT, Images', 'ai-website-chatbot'); ?></div>
+            </div>
+            <input type="file" id="inline-file-input" class="file-input" accept="<?php echo esc_attr(implode(',', get_option('ai_chatbot_allowed_file_types', array('.txt', '.pdf')))); ?>">
+        </div>
+        <?php endif; ?>
+
+        <!-- Input Form -->
+        <form id="inline-chatbot-form" class="inline-chatbot-form">
+            <div class="input-field-container">
+                <div class="input-field-wrapper">
+                    <!-- Pre-input Actions -->
+                    <div class="pre-input-actions">
+                        <?php if ($enable_file_upload): ?>
+                        <button type="button" class="pre-action-btn file-btn" aria-label="<?php esc_attr_e('Attach file', 'ai-website-chatbot'); ?>">
+                            <span class="dashicons dashicons-paperclip"></span>
+                        </button>
+                        <?php endif; ?>
+                        <?php if ($enable_voice_input): ?>
+                        <button type="button" class="pre-action-btn voice-btn" aria-label="<?php esc_attr_e('Voice input', 'ai-website-chatbot'); ?>">
+                            <span class="dashicons dashicons-microphone"></span>
+                        </button>
+                        <?php endif; ?>
                     </div>
-                    <input type="file" id="inline-file-input" class="file-input" accept="<?php echo esc_attr(implode(',', get_option('ai_chatbot_allowed_file_types', array('.txt', '.pdf')))); ?>">
-                </div>
-                <?php endif; ?>
 
-                <!-- Input Field -->
-                <div class="input-field-container">
-                    <div class="input-field-wrapper">
-                        <!-- Pre-input Actions -->
-                        <div class="pre-input-actions">
-                            <?php if (get_option('ai_chatbot_enable_file_uploads', false)): ?>
-                            <button type="button" class="pre-action-btn file-btn" aria-label="<?php esc_attr_e('Attach file', 'ai-website-chatbot'); ?>">
-                                <span class="dashicons dashicons-paperclip"></span>
-                            </button>
-                            <?php endif; ?>
-                        </div>
+                    <!-- Text Input -->
+                    <textarea id="inline-chatbot-input" 
+                              class="inline-input" 
+                              placeholder="<?php esc_attr_e('Type your message here...', 'ai-website-chatbot'); ?>"
+                              rows="1"
+                              maxlength="<?php echo esc_attr(get_option('ai_chatbot_max_message_length', 1000)); ?>"></textarea>
 
-                        <!-- Text Input -->
-                        <textarea id="inline-chatbot-input" 
-                                  class="inline-input" 
-                                  placeholder="<?php esc_attr_e('Type your message here...', 'ai-website-chatbot'); ?>"
-                                  rows="1"
-                                  maxlength="<?php echo esc_attr(get_option('ai_chatbot_max_message_length', 1000)); ?>"></textarea>
-
-                        <!-- Post-input Actions -->
-                        <div class="post-input-actions">
-                            <button type="submit" id="inline-send-btn" class="inline-send-btn" disabled>
-                                <span class="send-icon default-icon">🚀</span>
-                                <span class="send-icon loading-icon" style="display: none;">
-                                    <span class="loading-dots">
-                                        <span></span>
-                                        <span></span>
-                                        <span></span>
-                                    </span>
+                    <!-- Post-input Actions -->
+                    <div class="post-input-actions">
+                        <button type="submit" id="inline-send-btn" class="inline-send-btn" disabled>
+                            <span class="send-icon default-icon">🚀</span>
+                            <span class="send-icon loading-icon" style="display: none;">
+                                <span class="loading-dots">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
                                 </span>
-                            </button>
-                        </div>
+                            </span>
+                        </button>
                     </div>
+                </div>
 
-                    <!-- Input Metadata -->
-                    <div class="input-metadata">
-                        <div class="char-count-container">
-                            <span class="char-count" id="inline-char-count">0</span>
-                            <span class="char-limit">/ <?php echo esc_html(get_option('ai_chatbot_max_message_length', 1000)); ?></span>
-                        </div>
-                        <div class="input-hints">
-                            <span class="hint"><?php esc_html_e('Press Shift+Enter for new line', 'ai-website-chatbot'); ?></span>
-                        </div>
+                <!-- Input Metadata -->
+                <div class="input-metadata">
+                    <div class="char-count-container">
+                        <span class="char-count" id="inline-char-count">0</span>
+                        <span class="char-limit">/ <?php echo esc_html(get_option('ai_chatbot_max_message_length', 1000)); ?></span>
+                    </div>
+                    <div class="input-hints">
+                        <span class="hint"><?php esc_html_e('Press Shift+Enter for new line', 'ai-website-chatbot'); ?></span>
+                        <?php if ($enable_voice_input): ?>
+                        <span class="hint-separator">•</span>
+                        <span class="hint voice-hint"><?php esc_html_e('Click mic for voice input', 'ai-website-chatbot'); ?></span>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -192,6 +218,9 @@ $show_powered_by = isset($config['show_powered_by']) ? $config['show_powered_by'
             <button type="button" class="action-btn scroll-to-bottom" aria-label="<?php esc_attr_e('Scroll to bottom', 'ai-website-chatbot'); ?>">
                 <span class="dashicons dashicons-arrow-down-alt"></span>
             </button>
+            <button type="button" class="action-btn clear-chat" aria-label="<?php esc_attr_e('Clear chat', 'ai-website-chatbot'); ?>">
+                <span class="dashicons dashicons-trash"></span>
+            </button>
         </div>
     </div>
 
@@ -199,42 +228,36 @@ $show_powered_by = isset($config['show_powered_by']) ? $config['show_powered_by'
     <?php if ($show_powered_by): ?>
     <div class="inline-chatbot-footer">
         <div class="footer-content">
-            <div class="powered-by-inline">
+            <div class="powered-by">
                 <small><?php esc_html_e('Powered by AI Website Chatbot', 'ai-website-chatbot'); ?></small>
             </div>
             <div class="footer-stats">
-                <span class="messages-count">0 <?php esc_html_e('messages', 'ai-website-chatbot'); ?></span>
+                <span class="message-count" id="inline-message-count">0 <?php esc_html_e('messages', 'ai-website-chatbot'); ?></span>
+                <span class="response-time" id="inline-avg-response-time" style="display: none;">
+                    <?php esc_html_e('Avg: 2.1s', 'ai-website-chatbot'); ?>
+                </span>
             </div>
         </div>
     </div>
     <?php endif; ?>
 
-    <!-- Settings Panel (if enabled) -->
-    <div class="settings-panel" id="inline-settings-panel" style="display: none;">
-        <div class="settings-header">
-            <h4><?php esc_html_e('Chat Settings', 'ai-website-chatbot'); ?></h4>
-            <button type="button" class="close-settings">
-                <span class="dashicons dashicons-no"></span>
-            </button>
-        </div>
-        <div class="settings-content">
-            <div class="setting-item">
-                <label class="setting-label">
-                    <input type="checkbox" class="setting-checkbox" id="enable-sounds">
-                    <span><?php esc_html_e('Enable notification sounds', 'ai-website-chatbot'); ?></span>
-                </label>
+    <!-- Voice Input Modal -->
+    <?php if ($enable_voice_input): ?>
+    <div class="voice-input-modal" id="inline-voice-modal" style="display: none;">
+        <div class="voice-modal-content">
+            <div class="voice-animation">
+                <div class="voice-circle"></div>
+                <div class="voice-pulse"></div>
             </div>
-            <div class="setting-item">
-                <label class="setting-label">
-                    <input type="checkbox" class="setting-checkbox" id="auto-scroll">
-                    <span><?php esc_html_e('Auto-scroll to new messages', 'ai-website-chatbot'); ?></span>
-                </label>
+            <div class="voice-status">
+                <span class="voice-text"><?php esc_html_e('Listening...', 'ai-website-chatbot'); ?></span>
+                <span class="voice-hint"><?php esc_html_e('Speak now or click to stop', 'ai-website-chatbot'); ?></span>
             </div>
-            <div class="setting-item">
-                <button type="button" class="setting-button clear-history">
-                    <?php esc_html_e('Clear conversation history', 'ai-website-chatbot'); ?>
-                </button>
+            <div class="voice-controls">
+                <button type="button" class="voice-stop-btn"><?php esc_html_e('Stop', 'ai-website-chatbot'); ?></button>
+                <button type="button" class="voice-cancel-btn"><?php esc_html_e('Cancel', 'ai-website-chatbot'); ?></button>
             </div>
         </div>
     </div>
+    <?php endif; ?>
 </div>

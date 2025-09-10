@@ -191,6 +191,7 @@ class AI_Chatbot {
 
         // Initialize shortcodes
         $plugin_shortcodes = new AI_Chatbot_Shortcodes($this->plugin_name, $this->version);
+        $this->loader->add_action('init', $plugin_shortcodes, 'register_shortcodes'); 
         // Shortcode hooks will be defined in the Shortcodes class constructor
 
         // Initialize widgets
