@@ -320,6 +320,12 @@
     animation: ai-chatbot-fade-in 0.3s ease;
 }
 
+.ai-chatbot-shortcode .ai-chatbot-typing {
+    background: #fff;
+    padding: 0 20px 10px;
+    border-right: 6px solid var(--ai-chatbot-secondary);
+}
+
 @keyframes ai-chatbot-fade-in {
     from { opacity: 0; }
     to { opacity: 1; }

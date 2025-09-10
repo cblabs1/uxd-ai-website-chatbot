@@ -84,13 +84,14 @@
             }
 
             this.initialized = true;
+            var self = this;
 
             setTimeout(function() {
-                if (self.currentSessionId) {
-                    self.loadConversationHistory();
-                }
-            }, 500);
-            console.log('AIChatbot: Initialized successfully');
+                console.log('Loading conversation history...');
+                self.loadConversationHistory();
+            }, 1000); // Increased delay to ensure UI is ready
+            
+            console.log('AI Chatbot initialization complete');
         },
 
         // NEW METHOD: Check if user is authenticated
@@ -352,6 +353,13 @@
                 e.preventDefault();
                 self.handleInlinePreChatSubmission();
             });
+
+            $(document).on('input.aichatbot keyup.aichatbot', 
+                '.ai-chatbot-input, #ai-chatbot-input, input[name="message"], textarea.ai-chatbot-input', 
+                function() {
+                    self.handleInputChange($(this));
+                }
+            );
             
             // Pre-chat overlay form submission (fallback)
             $(document).on('submit.aichatbot', '#ai-chatbot-user-form', function(e) {
@@ -360,15 +368,18 @@
             });
             
             // Send button click
-            $(document).on('click.aichatbot', '.ai-chatbot-send-btn, #ai-chatbot-send, .popup-send-btn', function(e) {
-                e.preventDefault();
-                if (!self.isUserAuthenticated()) {
-                    self.showPreChatForm();
-                    return;
+            $(document).on('click.aichatbot', 
+                '.ai-chatbot-send-btn, #ai-chatbot-send, .popup-send-btn, #ai-chatbot-send-button, .ai-chatbot-send-button', 
+                function(e) {
+                    e.preventDefault();
+                    if (!self.isUserAuthenticated()) {
+                        self.showPreChatForm();
+                        return;
+                    }
+                    self.resetInactivityTimer();
+                    self.handleSendMessage();
                 }
-                self.resetInactivityTimer();
-                self.handleSendMessage();
-            });
+            );
             
             // Enter key press
             $(document).on('keypress.aichatbot', '.ai-chatbot-input input, #ai-chatbot-input, input[name="message"]', function(e) {
@@ -458,6 +469,38 @@
             });
 
             console.log('Event handlers set up successfully');
+        },
+
+        handleInputChange: function($input) {
+            var message = $input.val().trim();
+            var charCount = message.length;
+            
+            // Find the corresponding send button
+            var $sendBtn = $input.closest('.ai-chatbot-input-container, .ai-chatbot-input-form')
+                                .find('.ai-chatbot-send-btn, #ai-chatbot-send, .popup-send-btn, #ai-chatbot-send-button, .ai-chatbot-send-button');
+            
+            // Update character counter if exists
+            $('.char-count').text(charCount);
+            
+            // Update send button state
+            if (message && charCount <= (this.config.settings?.maxMessageLength || 1000) && !this.isTyping) {
+                $sendBtn.prop('disabled', false).removeClass('disabled');
+                $input.removeClass('ai-chatbot-input-empty');
+            } else {
+                $sendBtn.prop('disabled', true).addClass('disabled');
+                if (!message) {
+                    $input.addClass('ai-chatbot-input-empty');
+                }
+            }
+            
+            // Handle validation styling
+            if (charCount > (this.config.settings?.maxMessageLength || 1000)) {
+                $input.addClass('error');
+                $('.char-count').addClass('over-limit');
+            } else {
+                $input.removeClass('error');
+                $('.char-count').removeClass('over-limit');
+            }
         },
 
         handleInlinePreChatSubmission: function() {

@@ -265,7 +265,7 @@ class AI_Chatbot_Ajax {
      */
     private function save_conversation($data) {
         global $wpdb;
-        
+
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
     
         // CHECK FOR DUPLICATES first
@@ -761,7 +761,7 @@ class AI_Chatbot_Ajax {
             $final_data['user_id'] = null;
         }
         
-        return $this->save_conversation_to_db($final_data);
+        return $this->save_conversation($final_data);
 
     }
 

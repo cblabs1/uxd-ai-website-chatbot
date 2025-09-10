@@ -221,17 +221,15 @@ class AI_Chatbot_Shortcodes {
             </div>
 
             <div class="ai-chatbot-input-area">
-                <div class="ai-chatbot-typing-indicator" style="display: none;">
-                    <div class="message-avatar">🤖</div>
-                    <div class="typing-content">
-                        <div class="typing-bubble">
-                            <div class="typing-dots">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
+
+                <div class="ai-chatbot-typing" id="ai-chatbot-typing" style="display: none;">
+                    <div class="ai-chatbot-typing-content">
+                        <div class="ai-chatbot-typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
                         </div>
-                        <div class="typing-text"><?php esc_html_e('AI is thinking...', 'ai-website-chatbot'); ?></div>
+                        <span class="ai-chatbot-typing-text"><?php esc_html_e('AI is typing...', 'ai-website-chatbot'); ?></span>
                     </div>
                 </div>
                 
