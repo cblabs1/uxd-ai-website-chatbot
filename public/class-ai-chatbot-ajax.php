@@ -271,17 +271,71 @@ class AI_Chatbot_Ajax {
             return;
         }
 
-        $result = $this->save_rating($conversation_id, $rating);
+        $result = $this->save_message_rating($conversation_id, $rating);
 
         if ($result) {
+            // Log the rating event
+            $this->log_message_rating_event($conversation_id, $rating);
+            
             wp_send_json_success(array(
-                'message' => __('Thank you for your feedback!', 'ai-website-chatbot')
+                'message' => __('Thank you for your feedback!', 'ai-website-chatbot'),
+                'rating' => $rating
             ));
         } else {
             wp_send_json_error(array(
                 'message' => __('Failed to save rating.', 'ai-website-chatbot')
             ));
         }
+    }   
+
+    /**
+     * Save message rating to database (ADD THIS)
+     */
+    private function save_message_rating($conversation_id, $rating) {
+        global $wpdb;
+        
+        // Try to update conversations table if it exists
+        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") == $table_name) {
+            $result = $wpdb->update(
+                $table_name,
+                array(
+                    'message_rating' => $rating,
+                    'message_rated_at' => current_time('mysql')
+                ),
+                array('conversation_id' => $conversation_id),
+                array('%d', '%s'),
+                array('%s')
+            );
+            
+            if ($result !== false) {
+                return true;
+            }
+        }
+        
+        // Fallback: save to options table
+        $ratings = get_option('ai_chatbot_message_ratings', array());
+        $ratings[$conversation_id] = array(
+            'rating' => $rating,
+            'timestamp' => current_time('mysql'),
+            'ip' => $this->get_client_ip()
+        );
+        
+        return update_option('ai_chatbot_message_ratings', $ratings);
+    }
+
+    /**
+     * Log message rating event for analytics (ADD THIS)
+     */
+    private function log_message_rating_event($conversation_id, $rating) {
+        // Log to WordPress debug log if enabled
+        if (WP_DEBUG && WP_DEBUG_LOG) {
+            error_log("AI Chatbot Message Rating: ID={$conversation_id}, Rating={$rating}");
+        }
+        
+        // Hook for external analytics
+        do_action('ai_chatbot_message_rated', $conversation_id, $rating);
     }
 
     /**
@@ -1789,11 +1843,12 @@ class AI_Chatbot_Ajax {
             return;
         }
 
+        // Save conversation rating
         $result = $this->save_conversation_rating($conversation_id, $rating, $feedback);
 
         if ($result) {
             // Log the rating event
-            $this->log_rating_event($conversation_id, $rating, $feedback);
+            $this->log_conversation_rating_event($conversation_id, $rating, $feedback);
             
             wp_send_json_success(array(
                 'message' => __('Thank you for your feedback!', 'ai-website-chatbot'),
@@ -1810,57 +1865,60 @@ class AI_Chatbot_Ajax {
     /**
      * Save conversation rating to database
      */
-    private function save_conversation_rating($conversation_id, $rating, $feedback) {
+
+    private function save_conversation_rating($conversation_id, $rating, $feedback = '') {
         global $wpdb;
         
+        // Try to update conversations table if it exists
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
         
-        $result = $wpdb->update(
-            $table_name,
-            array(
-                'rating' => $rating,
-                'feedback' => $feedback,
-                'rated_at' => current_time('mysql')
-            ),
-            array('id' => $conversation_id),
-            array('%d', '%s', '%s'),
-            array('%d')
+        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") == $table_name) {
+            $result = $wpdb->update(
+                $table_name,
+                array(
+                    'conversation_rating' => $rating,
+                    'conversation_feedback' => $feedback,
+                    'conversation_rated_at' => current_time('mysql')
+                ),
+                array('conversation_id' => $conversation_id),
+                array('%d', '%s', '%s'),
+                array('%s')
+            );
+            
+            if ($result !== false) {
+                return true;
+            }
+        }
+        
+        // Fallback: save to options table
+        $ratings = get_option('ai_chatbot_conversation_ratings', array());
+        $ratings[] = array(
+            'conversation_id' => $conversation_id,
+            'rating' => $rating,
+            'feedback' => $feedback,
+            'timestamp' => current_time('mysql'),
+            'ip' => $this->get_client_ip()
         );
         
-        return $result !== false;
+        // Keep only last 1000 ratings
+        if (count($ratings) > 1000) {
+            $ratings = array_slice($ratings, -1000);
+        }
+        
+        return update_option('ai_chatbot_conversation_ratings', $ratings);
     }
 
     /**
-     * Log rating event for analytics
+     * Log conversation rating event for analytics (NEW METHOD - ADD THIS)
      */
-    private function log_rating_event($conversation_id, $rating, $feedback) {
-        // Get conversation details for context
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
-        
-        $conversation = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$table_name} WHERE id = %d",
-            $conversation_id
-        ));
-        
-        if ($conversation) {
-            // Log to analytics (if analytics class exists)
-            if (class_exists('AI_Chatbot_Analytics')) {
-                $analytics = new AI_Chatbot_Analytics();
-                $analytics->track_event('conversation_rated', array(
-                    'conversation_id' => $conversation_id,
-                    'rating' => $rating,
-                    'has_feedback' => !empty($feedback),
-                    'message_count' => $conversation->message_count,
-                    'user_id' => $conversation->user_id,
-                    'session_id' => $conversation->session_id,
-                    'created_at' => $conversation->created_at
-                ));
-            }
-            
-            // Optional: Send to external analytics (Google Analytics, etc.)
-            do_action('ai_chatbot_conversation_rated', $conversation_id, $rating, $feedback, $conversation);
+    private function log_conversation_rating_event($conversation_id, $rating, $feedback = '') {
+        // Log to WordPress debug log if enabled
+        if (WP_DEBUG && WP_DEBUG_LOG) {
+            error_log("AI Chatbot Conversation Rating: ID={$conversation_id}, Rating={$rating}, Feedback=" . substr($feedback, 0, 100));
         }
+        
+        // Hook for external analytics
+        do_action('ai_chatbot_conversation_rated', $conversation_id, $rating, $feedback);
     }
 
     /**

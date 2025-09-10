@@ -631,13 +631,96 @@
     }
 }
 
-/* End of conversation rating */
+/* ========================================
+   RATING SYSTEM STYLES
+   ======================================== */
+
+/* Individual Message Rating (Quick Rating) */
+.message-rating {
+    margin-top: 8px;
+    padding: 8px 0;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.message-rating:hover {
+    opacity: 1;
+}
+
+.rating-label {
+    font-size: 11px;
+    color: #6b7280;
+    margin-right: 4px;
+}
+
+.quick-rating {
+    display: flex;
+    gap: 6px;
+}
+
+.quick-rating-btn {
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+    min-width: 32px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quick-rating-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+    background: #f8fafc;
+}
+
+.quick-rating-btn.positive:hover {
+    background: #ecfdf5;
+    border-color: #86efac;
+}
+
+.quick-rating-btn.negative:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+}
+
+/* Thank you state for quick rating */
+.rating-thanks {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #059669;
+    font-weight: 500;
+    animation: fadeInRating 0.3s ease;
+}
+
+.thank-emoji {
+    font-size: 14px;
+}
+
+.thank-text {
+    font-style: italic;
+}
+
+/* End of Conversation Rating */
 .end-conversation-rating {
     border: 2px solid #e5e7eb !important;
     border-radius: 16px !important;
     margin: 20px 0 !important;
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
     animation: slideInRating 0.5s ease-out;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .rating-bubble {
@@ -820,70 +903,10 @@
     color: #374151;
 }
 
-/* Quick rating for individual messages */
-.message-rating {
-    margin-top: 8px;
-    padding: 8px 0;
-    border-top: 1px solid #f1f5f9;
-}
+/* ========================================
+   ANIMATIONS
+   ======================================== */
 
-.rating-label {
-    font-size: 11px;
-    color: #6b7280;
-    margin-right: 8px;
-}
-
-.quick-rating {
-    display: inline-flex;
-    gap: 6px;
-}
-
-.quick-rating-btn {
-    background: none;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 4px 8px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: all 0.2s ease;
-    opacity: 0.7;
-}
-
-.quick-rating-btn:hover {
-    opacity: 1;
-    transform: scale(1.1);
-    background: #f8fafc;
-}
-
-.quick-rating-btn.positive:hover {
-    background: #ecfdf5;
-    border-color: #86efac;
-}
-
-.quick-rating-btn.negative:hover {
-    background: #fef2f2;
-    border-color: #fca5a5;
-}
-
-/* Thank you state for quick rating */
-.rating-thanks {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #059669;
-    font-weight: 500;
-}
-
-.thank-emoji {
-    font-size: 14px;
-}
-
-.thank-text {
-    font-style: italic;
-}
-
-/* Animations */
 @keyframes slideInRating {
     from {
         opacity: 0;
@@ -907,6 +930,21 @@
     50% { transform: scale(1.1); }
     100% { transform: scale(1); opacity: 1; }
 }
+
+@keyframes fadeInRating {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
 
 /* Mobile responsiveness */
 @media (max-width: 480px) {
@@ -935,9 +973,55 @@
     .skip-rating-btn {
         width: 100%;
     }
+    
+    .end-conversation-rating {
+        margin: 15px 0 !important;
+    }
+    
+    .rating-bubble {
+        padding: 15px !important;
+    }
+    
+    .rating-bubble h4 {
+        font-size: 16px;
+    }
 }
 
-/* Dark theme support */
+@media (max-width: 320px) {
+    .smiley-btn {
+        min-width: 50px;
+        padding: 10px 4px;
+    }
+    
+    .smiley {
+        font-size: 20px;
+    }
+    
+    .smiley-label {
+        font-size: 9px;
+    }
+}
+
+/* Tablet responsiveness */
+@media (min-width: 481px) and (max-width: 768px) {
+    .rating-smilies {
+        gap: 12px;
+    }
+    
+    .smiley-btn {
+        min-width: 70px;
+        padding: 14px 10px;
+    }
+    
+    .smiley {
+        font-size: 28px;
+    }
+}
+
+/* ========================================
+   DARK THEME SUPPORT
+   ======================================== */
+
 @media (prefers-color-scheme: dark) {
     .end-conversation-rating {
         background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
@@ -985,4 +1069,118 @@
     .thank-you-message p {
         color: #f9fafb;
     }
+    
+    .message-rating {
+        border-top-color: #374151;
+    }
+    
+    .quick-rating-btn {
+        border-color: #4b5563;
+        color: #d1d5db;
+    }
+    
+    .quick-rating-btn:hover {
+        background: #374151;
+    }
+    
+    .rating-thanks {
+        color: #34d399;
+    }
+}
+
+/* ========================================
+   HIGH CONTRAST MODE
+   ======================================== */
+
+@media (prefers-contrast: high) {
+    .smiley-btn {
+        border-width: 3px;
+    }
+    
+    .smiley-btn.selected {
+        border-width: 4px;
+    }
+    
+    .quick-rating-btn {
+        border-width: 2px;
+    }
+    
+    .feedback-text {
+        border-width: 3px;
+    }
+}
+
+/* ========================================
+   REDUCED MOTION SUPPORT
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .smiley-btn,
+    .quick-rating-btn,
+    .submit-rating-btn,
+    .skip-rating-btn {
+        transition: none;
+    }
+    
+    .smiley-btn:hover {
+        transform: none;
+    }
+    
+    .submit-rating-btn:hover {
+        transform: none;
+    }
+    
+    .smiley-btn.bounce,
+    .thank-you-emoji {
+        animation: none;
+    }
+    
+    .end-conversation-rating {
+        animation: none;
+    }
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+    .message-rating,
+    .end-conversation-rating {
+        display: none;
+    }
+}
+
+/* ========================================
+   ADDITIONAL UTILITY CLASSES
+   ======================================== */
+
+.rating-disabled .smiley-btn,
+.rating-disabled .quick-rating-btn {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+.rating-loading .submit-rating-btn {
+    background: #9ca3af;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.rating-loading .submit-rating-btn::after {
+    content: " ⏳";
+}
+
+/* Focus styles for accessibility */
+.smiley-btn:focus,
+.quick-rating-btn:focus,
+.submit-rating-btn:focus,
+.skip-rating-btn:focus {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+.feedback-text:focus {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
 }
