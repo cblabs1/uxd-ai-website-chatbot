@@ -85,16 +85,22 @@ class AI_Chatbot_Shortcodes {
             'enable_conversation_save' => get_option('ai_chatbot_enable_conversation_save', 'false'),
             'class' => '',
             'id' => '',
+            'force_enabled' => 'true',
         ), $atts, 'ai_chatbot');
 
         // Sanitize attributes
         $atts = array_map('sanitize_text_field', $atts);
 
-        $settings = get_option('ai_chatbot_settings', array());
-        $is_enabled = !empty($settings['enabled']) && ($settings['enabled'] === true || $settings['enabled'] === 1 || $settings['enabled'] === '1');
+        $force_enabled = filter_var($atts['force_enabled'], FILTER_VALIDATE_BOOLEAN);
+
+        $is_enabled = !empty($saved_settings['enabled']) && ($saved_settings['enabled'] === true || $saved_settings['enabled'] === 1 || $saved_settings['enabled'] === '1');
 
         // Check if chatbot is enabled
-        if (!$is_enabled) {
+        $is_enabled = !empty($saved_settings['enabled']);
+        $shortcodes_when_disabled = !empty($saved_settings['enable_shortcodes_when_disabled']);
+
+        // Check if should work
+        if (!$is_enabled && !$shortcodes_when_disabled) {
             return $this->get_disabled_message();
         }
 

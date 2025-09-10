@@ -200,6 +200,9 @@
             if (this.messages) {
                 this.messages.append(messageHtml);
                 this.scrollToBottom();
+            } else {
+                // Fallback to standalone function
+                setTimeout(scrollToBottom, 100);
             }
             setTimeout(scrollToBottom, 100);
         }
@@ -249,10 +252,19 @@
          * Scroll messages to bottom
          */
         scrollToBottom() {
-            if (this.messages) {
+            // Handle both class property and jQuery selector
+            var messagesContainer = this.messages || $('.ai-chatbot-messages');
+            
+            if (messagesContainer && messagesContainer.length) {
                 setTimeout(() => {
-                    this.messages.scrollTop(this.messages[0].scrollHeight);
-                }, 100);
+                    if (messagesContainer.jquery) {
+                        // jQuery object
+                        messagesContainer[0].scrollTop = messagesContainer[0].scrollHeight;
+                    } else {
+                        // DOM element
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                }, 50);
             }
         }
         
@@ -362,11 +374,24 @@
     });
 
     function scrollToBottom() {
-            const messagesContainer = document.querySelector('.ai-chatbot-messages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        // Handle multiple possible containers
+        const containers = [
+            '.ai-chatbot-messages',
+            '.messages-container', 
+            '.inline-messages-container',
+            '.popup-messages-container'
+        ];
+        
+        containers.forEach(selector => {
+            const container = document.querySelector(selector);
+            if (container) {
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight;
+                }, 50);
             }
+        });
     }
+
 
     document.addEventListener('DOMContentLoaded', function() {
         const chatToggle = document.querySelector('.ai-chatbot-toggle');

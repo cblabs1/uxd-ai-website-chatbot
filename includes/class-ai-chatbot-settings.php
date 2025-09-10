@@ -54,6 +54,7 @@ class AI_Chatbot_Settings {
 		$this->defaults = array(
 			// General settings
 			'enabled'                => false,
+			'enable_shortcodes_when_disabled' => false,
 			'ai_provider'           => 'openai',
 			'position'              => 'bottom-right',
 			'theme_color'           => '#0073aa',
@@ -348,6 +349,7 @@ class AI_Chatbot_Settings {
                 
             // Boolean/checkbox fields
             case 'enabled':
+			case 'enable_shortcodes_when_disabled':
             case 'debug_mode':
             case 'log_conversations':
             case 'cache_responses':
@@ -418,7 +420,7 @@ class AI_Chatbot_Settings {
 	 */
 	private function get_setting_group( $setting_name, $groups ) {
 		$group_mappings = array(
-			'general'  => array( 'enabled', 'ai_provider', 'welcome_message', 'placeholder_text', 'send_button_text', 'widget_title' ),
+			'general'  => array( 'enabled', 'enable_shortcodes_when_disabled', 'ai_provider', 'welcome_message', 'placeholder_text', 'send_button_text', 'widget_title' ),
 			'display'  => array( 'position', 'theme_color', 'show_on_mobile', 'show_on_pages', 'hide_on_pages', 'show_to_logged_users', 'show_to_guests' ),
 			'ai'       => array( 'openai_', 'claude_', 'gemini_' ),
 			'training' => array( 'auto_train', 'allowed_post_types', 'training_frequency', 'max_content_length' ),

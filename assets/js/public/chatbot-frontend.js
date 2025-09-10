@@ -84,6 +84,12 @@
             }
 
             this.initialized = true;
+
+            setTimeout(function() {
+                if (self.currentSessionId) {
+                    self.loadConversationHistory();
+                }
+            }, 500);
             console.log('AIChatbot: Initialized successfully');
         },
 
@@ -1153,12 +1159,23 @@
         },
 
         scrollToBottom: function() {
-            var $container = this.$messages.closest('.ai-chatbot-container, .chat-container');
-            if ($container.length) {
-                $container.scrollTop($container[0].scrollHeight);
-            } else {
-                this.$messages.scrollTop(this.$messages[0].scrollHeight);
+            // Always scroll the messages container directly, not parent containers
+            if (this.$messages && this.$messages.length) {
+                var messagesElement = this.$messages[0];
+                if (messagesElement) {
+                    // Use setTimeout to ensure DOM updates are complete
+                    setTimeout(function() {
+                        messagesElement.scrollTop = messagesElement.scrollHeight;
+                    }, 50);
+                }
             }
+            
+            // Also handle cases where $messages might be jQuery collection of multiple elements
+            this.$messages.each(function() {
+                setTimeout(function() {
+                    this.scrollTop = this.scrollHeight;
+                }.bind(this), 50);
+            });
         },
 
         animateMessageAppearance: function(messageId) {
@@ -1189,12 +1206,12 @@
 
         // Conversation Management
         loadConversationHistory: function() {
+
+            var self = this;
             // Only load if user is authenticated
-            if (!this.isUserAuthenticated()) {
+            if (!this.currentSessionId) {
                 return;
             }
-            
-            var self = this;
             
             $.ajax({
                 url: this.config.ajaxUrl,
@@ -1202,13 +1219,17 @@
                 data: {
                     action: 'ai_chatbot_get_history',
                     session_id: this.currentSessionId,
-                    user_email: this.currentUserData.email, // NEW
+                    user_email: this.currentUserData ? this.currentUserData.email : '', 
                     nonce: this.config.nonce
                 },
                 success: function(response) {
                     if (response.success && response.data.messages) {
                         self.displayConversationHistory(response.data.messages);
+                        self.scrollToBottom();
                     }
+                },
+                error: function() {
+                    console.log('Could not load conversation history');
                 }
             });
         },

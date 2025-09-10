@@ -76,6 +76,20 @@ $settings = wp_parse_args($all_settings, $default_settings);
                         <p class="description"><?php _e('Enable or disable the AI chatbot on your website.', 'ai-website-chatbot'); ?></p>
                     </td>
                 </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="enable_shortcodes_when_disabled"><?php _e('Enable Shortcodes When Disabled', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" id="enable_shortcodes_when_disabled" name="ai_chatbot_settings[enable_shortcodes_when_disabled]" value="1" <?php checked($settings['enable_shortcodes_when_disabled'] ?? false); ?>>
+                            <span class="slider"></span>
+                        </label>
+                        <p class="description"><?php _e('Allow shortcodes and blocks to work even when the main chatbot widget is disabled.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
                 
                 <tr>
                     <th scope="row">

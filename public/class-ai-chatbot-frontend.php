@@ -33,7 +33,11 @@ class AI_Chatbot_Frontend {
      */
     public function enqueue_frontend_scripts() {
         // Only enqueue if chatbot is enabled
-        if (!$this->is_chatbot_enabled()) {
+        $settings = get_option('ai_chatbot_settings', array());
+        $shortcodes_when_disabled = !empty($settings['enable_shortcodes_when_disabled']);
+        
+        // Only enqueue if chatbot enabled OR shortcodes allowed when disabled
+        if (!$this->is_chatbot_enabled() && !$shortcodes_when_disabled) {
             return;
         }
 

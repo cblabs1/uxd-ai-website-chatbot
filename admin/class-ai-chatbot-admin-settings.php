@@ -379,6 +379,7 @@ class AI_Chatbot_Admin_Settings {
                 
             // Boolean/checkbox fields
             case 'enabled':
+            case 'enable_shortcodes_when_disabled':
             case 'debug_mode':
             case 'log_conversations':
             case 'cache_responses':
@@ -520,6 +521,7 @@ class AI_Chatbot_Admin_Settings {
         $checkboxes = array(
             // Top-level checkboxes
             'enabled',
+            'enable_shortcodes_when_disabled',
             'debug_mode', 
             'log_conversations',
             'cache_responses',

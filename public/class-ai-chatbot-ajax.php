@@ -267,15 +267,38 @@ class AI_Chatbot_Ajax {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+    
+        // CHECK FOR DUPLICATES first
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$table_name} 
+            WHERE conversation_id = %s 
+            AND user_message = %s 
+            AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)",
+            $data['conversation_id'],
+            $data['user_message']
+        ));
+        
+        // If duplicate found within 1 minute, skip saving
+        if ($existing) {
+            error_log("AI Chatbot: Duplicate conversation detected, skipping save");
+            return $existing;
+        }
         
         // Create table if it doesn't exist
         $this->maybe_create_conversations_table();
         
-        return $wpdb->insert(
+        $result = $wpdb->insert(
             $table_name,
             $data,
             array('%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s', '%s', '%f', '%s', '%s', '%s')
         );
+        
+        if ($result === false) {
+            error_log('AI Chatbot: Database insert failed: ' . $wpdb->last_error);
+            return false;
+        }
+        
+        return $wpdb->insert_id;
     }
 
     /**
@@ -711,37 +734,35 @@ class AI_Chatbot_Ajax {
      * Save message to database
      */
     private function save_message($message_data) {
-        global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
-        
-        $result = $wpdb->insert(
-            $table_name,
-            array(
-                'session_id' => $message_data['session_id'],
-                'conversation_id' => $message_data['conversation_id'],
-                'user_id' => $message_data['user_id'],
-                'user_message' => $message_data['user_message'],
-                'ai_response' => $message_data['ai_response'],
-                'user_name' => $message_data['user_name'],
-                'user_email' => $message_data['user_email'],
-                'user_ip' => $message_data['user_ip'],
-                'page_url' => $message_data['page_url'],
-                'user_agent' => $message_data['user_agent'],
-                'provider' => $message_data['provider'],
-                'status' => $message_data['status'],
-                'created_at' => current_time('mysql'),
-                'updated_at' => current_time('mysql')
-            ),
-            array('%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+        $final_data = array(
+            'session_id' => $message_data['session_id'],
+            'conversation_id' => $message_data['conversation_id'],
+            'user_message' => $message_data['user_message'],
+            'ai_response' => $message_data['ai_response'] ?? '',
+            'tokens_used' => $message_data['tokens_used'] ?? 0,
+            'model' => $message_data['model'] ?? '',
+            'provider' => $message_data['provider'] ?? '',
+            'response_time' => $message_data['response_time'] ?? 0,
+            'user_ip' => $this->get_client_ip(),
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'status' => $message_data['status'] ?? 'completed',
+            'created_at' => current_time('mysql')
         );
         
-        if ($result === false) {
-            error_log('Database error: ' . $wpdb->last_error);
-            return false;
+        // Prioritize authenticated user data
+        if (!empty($message_data['user_email'])) {
+            $final_data['user_email'] = $message_data['user_email'];
+            $final_data['user_name'] = $message_data['user_name'] ?? '';
+            $final_data['user_id'] = $message_data['user_id'] ?? null;
+        } else {
+            // For anonymous users, use empty values (not "anonymous")
+            $final_data['user_email'] = '';
+            $final_data['user_name'] = '';
+            $final_data['user_id'] = null;
         }
         
-        return $wpdb->insert_id;
+        return $this->save_conversation_to_db($final_data);
+
     }
 
     /**
