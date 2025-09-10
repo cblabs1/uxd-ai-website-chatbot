@@ -643,6 +643,227 @@
             });
         },
 
+        // Enhanced End-of-Conversation Rating with Smilies
+        showEndOfConversationRating: function() {
+            var ratingHtml = `
+                <div class="ai-chatbot-message bot-message end-conversation-rating">
+                    <div class="message-content">
+                        <div class="message-bubble rating-bubble">
+                            <h4>How was your experience?</h4>
+                            <div class="conversation-rating">
+                                <div class="rating-smilies">
+                                    <button class="smiley-btn" data-rating="1" title="Very Poor">
+                                        <span class="smiley">😡</span>
+                                        <span class="smiley-label">Very Poor</span>
+                                    </button>
+                                    <button class="smiley-btn" data-rating="2" title="Poor">
+                                        <span class="smiley">😞</span>
+                                        <span class="smiley-label">Poor</span>
+                                    </button>
+                                    <button class="smiley-btn" data-rating="3" title="Okay">
+                                        <span class="smiley">😐</span>
+                                        <span class="smiley-label">Okay</span>
+                                    </button>
+                                    <button class="smiley-btn" data-rating="4" title="Good">
+                                        <span class="smiley">😊</span>
+                                        <span class="smiley-label">Good</span>
+                                    </button>
+                                    <button class="smiley-btn" data-rating="5" title="Excellent">
+                                        <span class="smiley">🤩</span>
+                                        <span class="smiley-label">Excellent</span>
+                                    </button>
+                                </div>
+                                <div class="rating-feedback" style="display: none;">
+                                    <textarea placeholder="Tell us more about your experience (optional)..." class="feedback-text" maxlength="500"></textarea>
+                                    <div class="rating-actions">
+                                        <button class="submit-rating-btn">Submit Feedback</button>
+                                        <button class="skip-rating-btn">Skip</button>
+                                    </div>
+                                </div>
+                                <div class="rating-thank-you" style="display: none;">
+                                    <div class="thank-you-message">
+                                        <span class="thank-you-emoji">🙏</span>
+                                        <p>Thank you for your feedback!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.$messages.append(ratingHtml);
+            this.scrollToBottom();
+            
+            // Bind events for smiley rating
+            this.bindSmileyRatingEvents();
+        },
+
+        // Update per-message rating to use smilies too
+        buildRatingHtml: function(messageId) {
+            return `
+                <div class="message-rating" data-message-id="${messageId}">
+                    <span class="rating-label">Rate this response:</span>
+                    <div class="quick-rating">
+                        <button class="quick-rating-btn positive" data-rating="1" data-conversation-id="${messageId}" title="Helpful">
+                            😊
+                        </button>
+                        <button class="quick-rating-btn negative" data-rating="-1" data-conversation-id="${messageId}" title="Not Helpful">
+                            😞
+                        </button>
+                    </div>
+                </div>
+            `;
+        },
+
+        // Bind smiley rating events
+        bindSmileyRatingEvents: function() {
+            var self = this;
+            
+            // Smiley button clicks
+            $(document).off('click', '.smiley-btn').on('click', '.smiley-btn', function() {
+                var $btn = $(this);
+                var rating = parseInt($btn.data('rating'));
+                
+                // Update UI to show selected state
+                $('.smiley-btn').removeClass('selected');
+                $btn.addClass('selected');
+                
+                // Show feedback section
+                $('.rating-feedback').slideDown(300);
+                
+                // Store rating for submission
+                $('.end-conversation-rating').data('selected-rating', rating);
+                
+                // Add animation
+                $btn.addClass('bounce');
+                setTimeout(() => $btn.removeClass('bounce'), 600);
+            });
+            
+            // Submit rating
+            $(document).off('click', '.submit-rating-btn').on('click', '.submit-rating-btn', function() {
+                var rating = $('.end-conversation-rating').data('selected-rating');
+                var feedback = $('.feedback-text').val().trim();
+                
+                if (rating) {
+                    self.submitConversationRating(rating, feedback);
+                }
+            });
+            
+            // Skip rating
+            $(document).off('click', '.skip-rating-btn').on('click', '.skip-rating-btn', function() {
+                $('.end-conversation-rating').fadeOut(300);
+            });
+        },
+
+        // Submit conversation rating
+        submitConversationRating: function(rating, feedback) {
+            var self = this;
+            
+            $.ajax({
+                url: this.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_conversation_rating',
+                    conversation_id: this.currentConversationId,
+                    rating: rating,
+                    feedback: feedback || '',
+                    nonce: this.config.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Show thank you message
+                        $('.rating-smilies, .rating-feedback').slideUp(200);
+                        $('.rating-thank-you').slideDown(300);
+                        
+                        // Auto-hide after 3 seconds
+                        setTimeout(function() {
+                            $('.end-conversation-rating').fadeOut(500);
+                        }, 3000);
+                        
+                        self.trackEvent('conversation_rated', { 
+                            rating: rating, 
+                            has_feedback: feedback.length > 0 
+                        });
+                    }
+                },
+                error: function() {
+                    console.log('Failed to submit conversation rating');
+                }
+            });
+        },
+
+        // Enhanced quick rating for individual messages
+        submitRating: function(conversationId, rating) {
+            var self = this;
+            
+            $.ajax({
+                url: this.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_rating',
+                    conversation_id: conversationId,
+                    rating: rating,
+                    nonce: this.config.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        var $rating = $('[data-message-id="' + conversationId + '"] .message-rating');
+                        var thankYouEmoji = rating === 1 ? '🙂' : '😔';
+                        $rating.html(`
+                            <div class="rating-thanks">
+                                <span class="thank-emoji">${thankYouEmoji}</span>
+                                <span class="thank-text">${self.config.strings.thankYou}</span>
+                            </div>
+                        `);
+                        
+                        self.trackEvent('message_rated', { rating: rating });
+                    }
+                },
+                error: function() {
+                    console.log('Failed to submit rating');
+                }
+            });
+        },
+
+        // Trigger end-of-conversation rating
+        checkForConversationEnd: function(botMessage) {
+            var endPhrases = ['goodbye', 'bye', 'have a great day', 'anything else', 'help you with anything else'];
+            var messageText = botMessage.toLowerCase();
+            
+            if (endPhrases.some(phrase => messageText.includes(phrase))) {
+                setTimeout(() => {
+                    this.showEndOfConversationRating();
+                }, 2000); // Wait 2 seconds after bot's closing message
+            }
+        },
+
+        // Auto-show rating after inactivity
+        startInactivityTimer: function() {
+            var self = this;
+            clearTimeout(this.inactivityTimer);
+            
+            this.inactivityTimer = setTimeout(function() {
+                if (!$('.end-conversation-rating').length) {
+                    self.showEndOfConversationRating();
+                }
+            }, 300000); // 5 minutes of inactivity
+        },
+
+        // Show rating when closing chat
+        closeChat: function() {
+            if (!$('.end-conversation-rating').length && this.messageCount > 2) {
+                this.showEndOfConversationRating();
+                
+                // Give user time to rate, then close
+                setTimeout(() => {
+                    this.hideWidget();
+                }, 30000); // 30 seconds timeout
+            } else {
+                this.hideWidget();
+            }
+        },
+
         refreshWidget: function() {
             // Reload the widget
             location.reload();

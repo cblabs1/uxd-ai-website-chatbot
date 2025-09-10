@@ -630,3 +630,359 @@
         color: #9ca3af !important;
     }
 }
+
+/* End of conversation rating */
+.end-conversation-rating {
+    border: 2px solid #e5e7eb !important;
+    border-radius: 16px !important;
+    margin: 20px 0 !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    animation: slideInRating 0.5s ease-out;
+}
+
+.rating-bubble {
+    background: transparent !important;
+    border: none !important;
+    padding: 20px !important;
+}
+
+.rating-bubble h4 {
+    text-align: center;
+    margin: 0 0 20px 0;
+    color: #374151;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Smiley rating buttons */
+.rating-smilies {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.smiley-btn {
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 15px 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 80px;
+    position: relative;
+    overflow: hidden;
+}
+
+.smiley-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    border-color: #6366f1;
+}
+
+.smiley-btn.selected {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+}
+
+.smiley-btn.bounce {
+    animation: smileyBounce 0.6s ease;
+}
+
+.smiley {
+    font-size: 32px;
+    line-height: 1;
+    transition: transform 0.3s ease;
+}
+
+.smiley-btn:hover .smiley {
+    transform: scale(1.2);
+}
+
+.smiley-btn.selected .smiley {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+}
+
+.smiley-label {
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    transition: color 0.3s ease;
+    color: #6b7280;
+}
+
+.smiley-btn:hover .smiley-label,
+.smiley-btn.selected .smiley-label {
+    color: inherit;
+}
+
+/* Feedback section */
+.rating-feedback {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.feedback-text {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+    background: #ffffff;
+}
+
+.feedback-text:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.feedback-text::placeholder {
+    color: #9ca3af;
+}
+
+.rating-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 15px;
+    justify-content: center;
+}
+
+.submit-rating-btn,
+.skip-rating-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    font-size: 14px;
+}
+
+.submit-rating-btn {
+    background: #6366f1;
+    color: white;
+}
+
+.submit-rating-btn:hover {
+    background: #5855eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.skip-rating-btn {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.skip-rating-btn:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+/* Thank you message */
+.rating-thank-you {
+    text-align: center;
+    padding: 30px 20px;
+}
+
+.thank-you-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.thank-you-emoji {
+    font-size: 48px;
+    animation: thankYouPulse 1s ease;
+}
+
+.thank-you-message p {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: #374151;
+}
+
+/* Quick rating for individual messages */
+.message-rating {
+    margin-top: 8px;
+    padding: 8px 0;
+    border-top: 1px solid #f1f5f9;
+}
+
+.rating-label {
+    font-size: 11px;
+    color: #6b7280;
+    margin-right: 8px;
+}
+
+.quick-rating {
+    display: inline-flex;
+    gap: 6px;
+}
+
+.quick-rating-btn {
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.quick-rating-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+    background: #f8fafc;
+}
+
+.quick-rating-btn.positive:hover {
+    background: #ecfdf5;
+    border-color: #86efac;
+}
+
+.quick-rating-btn.negative:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+}
+
+/* Thank you state for quick rating */
+.rating-thanks {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #059669;
+    font-weight: 500;
+}
+
+.thank-emoji {
+    font-size: 14px;
+}
+
+.thank-text {
+    font-style: italic;
+}
+
+/* Animations */
+@keyframes slideInRating {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes smileyBounce {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.2) rotate(-5deg); }
+    50% { transform: scale(1.1) rotate(5deg); }
+    75% { transform: scale(1.15) rotate(-2deg); }
+}
+
+@keyframes thankYouPulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+    .rating-smilies {
+        gap: 8px;
+    }
+    
+    .smiley-btn {
+        min-width: 60px;
+        padding: 12px 6px;
+    }
+    
+    .smiley {
+        font-size: 24px;
+    }
+    
+    .smiley-label {
+        font-size: 10px;
+    }
+    
+    .rating-actions {
+        flex-direction: column;
+    }
+    
+    .submit-rating-btn,
+    .skip-rating-btn {
+        width: 100%;
+    }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    .end-conversation-rating {
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
+        border-color: #374151 !important;
+    }
+    
+    .rating-bubble h4 {
+        color: #f9fafb;
+    }
+    
+    .smiley-btn {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f9fafb;
+    }
+    
+    .smiley-btn:hover {
+        border-color: #6366f1;
+    }
+    
+    .smiley-label {
+        color: #d1d5db;
+    }
+    
+    .feedback-text {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f9fafb;
+    }
+    
+    .feedback-text::placeholder {
+        color: #6b7280;
+    }
+    
+    .skip-rating-btn {
+        background: #374151;
+        color: #d1d5db;
+    }
+    
+    .skip-rating-btn:hover {
+        background: #4b5563;
+        color: #f9fafb;
+    }
+    
+    .thank-you-message p {
+        color: #f9fafb;
+    }
+}

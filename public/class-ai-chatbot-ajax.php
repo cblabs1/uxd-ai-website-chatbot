@@ -47,6 +47,10 @@ class AI_Chatbot_Ajax {
         
         add_action('wp_ajax_ai_chatbot_export_data', array($this, 'handle_export_data'));
         add_action('wp_ajax_nopriv_ai_chatbot_export_data', array($this, 'handle_export_data'));
+
+        // Add this line to the constructor
+        add_action('wp_ajax_ai_chatbot_conversation_rating', array($this, 'handle_conversation_rating'));
+        add_action('wp_ajax_nopriv_ai_chatbot_conversation_rating', array($this, 'handle_conversation_rating'));
     }
 
     /**
@@ -1764,6 +1768,144 @@ class AI_Chatbot_Ajax {
             'export_date' => current_time('mysql'),
             'total_conversations' => count($conversations)
         );
+    }
+
+    /**
+     * Handle conversation rating submission
+     */
+    public function handle_conversation_rating() {
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'ai_chatbot_nonce')) {
+            wp_send_json_error(array('message' => __('Security check failed.', 'ai-website-chatbot')));
+            return;
+        }
+
+        $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
+        $rating = intval($_POST['rating'] ?? 0);
+        $feedback = sanitize_textarea_field($_POST['feedback'] ?? '');
+
+        // Validate rating (1-5 for smiley system)
+        if (empty($conversation_id) || !in_array($rating, [1, 2, 3, 4, 5])) {
+            wp_send_json_error(array('message' => __('Invalid rating data.', 'ai-website-chatbot')));
+            return;
+        }
+
+        $result = $this->save_conversation_rating($conversation_id, $rating, $feedback);
+
+        if ($result) {
+            // Log the rating event
+            $this->log_rating_event($conversation_id, $rating, $feedback);
+            
+            wp_send_json_success(array(
+                'message' => __('Thank you for your feedback!', 'ai-website-chatbot'),
+                'rating' => $rating,
+                'has_feedback' => !empty($feedback)
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Failed to save rating.', 'ai-website-chatbot')
+            ));
+        }
+    }
+
+    /**
+     * Save conversation rating to database
+     */
+    private function save_conversation_rating($conversation_id, $rating, $feedback) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        $result = $wpdb->update(
+            $table_name,
+            array(
+                'rating' => $rating,
+                'feedback' => $feedback,
+                'rated_at' => current_time('mysql')
+            ),
+            array('id' => $conversation_id),
+            array('%d', '%s', '%s'),
+            array('%d')
+        );
+        
+        return $result !== false;
+    }
+
+    /**
+     * Log rating event for analytics
+     */
+    private function log_rating_event($conversation_id, $rating, $feedback) {
+        // Get conversation details for context
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        $conversation = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table_name} WHERE id = %d",
+            $conversation_id
+        ));
+        
+        if ($conversation) {
+            // Log to analytics (if analytics class exists)
+            if (class_exists('AI_Chatbot_Analytics')) {
+                $analytics = new AI_Chatbot_Analytics();
+                $analytics->track_event('conversation_rated', array(
+                    'conversation_id' => $conversation_id,
+                    'rating' => $rating,
+                    'has_feedback' => !empty($feedback),
+                    'message_count' => $conversation->message_count,
+                    'user_id' => $conversation->user_id,
+                    'session_id' => $conversation->session_id,
+                    'created_at' => $conversation->created_at
+                ));
+            }
+            
+            // Optional: Send to external analytics (Google Analytics, etc.)
+            do_action('ai_chatbot_conversation_rated', $conversation_id, $rating, $feedback, $conversation);
+        }
+    }
+
+    /**
+     * Get rating statistics for admin dashboard
+     */
+    public function get_rating_statistics($days = 30) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        $stats = $wpdb->get_row($wpdb->prepare(
+            "SELECT 
+                COUNT(*) as total_ratings,
+                AVG(rating) as average_rating,
+                COUNT(CASE WHEN rating = 5 THEN 1 END) as excellent_count,
+                COUNT(CASE WHEN rating = 4 THEN 1 END) as good_count,
+                COUNT(CASE WHEN rating = 3 THEN 1 END) as okay_count,
+                COUNT(CASE WHEN rating = 2 THEN 1 END) as poor_count,
+                COUNT(CASE WHEN rating = 1 THEN 1 END) as very_poor_count,
+                COUNT(CASE WHEN feedback != '' AND feedback IS NOT NULL THEN 1 END) as feedback_count
+            FROM {$table_name} 
+            WHERE rating IS NOT NULL 
+            AND rated_at >= DATE_SUB(NOW(), INTERVAL %d DAY)",
+            $days
+        ));
+        
+        return $stats;
+    }
+
+    /**
+     * Get recent feedback for admin review
+     */
+    public function get_recent_feedback($limit = 20) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        $feedback = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, rating, feedback, rated_at, user_name, user_email
+            FROM {$table_name} 
+            WHERE feedback != '' AND feedback IS NOT NULL
+            ORDER BY rated_at DESC 
+            LIMIT %d",
+            $limit
+        ));
+        
+        return $feedback;
     }
 
 } // End of AI_Chatbot_Ajax class
