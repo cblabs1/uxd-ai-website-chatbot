@@ -95,15 +95,25 @@
                 try {
                     this.currentUserData = JSON.parse(userData);
                     console.log('User data found:', this.currentUserData);
-                    this.enableChatInterface();
+                    
+                    // Validate that we have required fields
+                    if (this.currentUserData.email && this.currentUserData.name) {
+                        this.enableChatInterface();
+                        return;
+                    } else {
+                        console.log('User data incomplete, removing...');
+                        localStorage.removeItem('ai_chatbot_user_data');
+                        this.currentUserData = null;
+                    }
                 } catch (e) {
-                    console.log('Invalid user data in localStorage');
-                    this.showPreChatForm();
+                    console.log('Invalid user data in localStorage, removing...');
+                    localStorage.removeItem('ai_chatbot_user_data');
+                    this.currentUserData = null;
                 }
-            } else {
-                console.log('No user data found, showing pre-chat form');
-                this.showPreChatForm();
             }
+            
+            console.log('No valid user data found, showing pre-chat form');
+            this.showPreChatForm();
         },
 
         // NEW METHOD: Check if user is authenticated
@@ -114,46 +124,86 @@
         // NEW METHOD: Show pre-chat form
         showPreChatForm: function() {
             this.disableChatInterface();
-            
-            // Check if pre-chat modal exists from your existing pre-chat code
-            if ($('#ai-chatbot-pre-chat-modal').length === 0) {
-                this.createPreChatModal();
-            }
-            
-            $('#ai-chatbot-prechat-overlay').show();
+            this.createPreChatModal(); // This will now create inline form
         },
 
         // NEW METHOD: Create pre-chat modal (using your existing structure)
         createPreChatModal: function() {
+            // Remove any existing pre-chat forms
+            $('.ai-chatbot-prechat-form').remove();
+            
+            // Create inline form HTML that goes inside the chat
+            var inlineFormHTML = `
+                <div class="ai-chatbot-prechat-form">
+                    <div class="prechat-header">
+                        <div class="prechat-avatar">👋</div>
+                        <h3>Welcome!</h3>
+                        <p>To get started, please share your details so I can assist you better.</p>
+                    </div>
+                    <form id="ai-chatbot-prechat-inline-form" class="prechat-form">
+                        <div class="form-group">
+                            <label for="prechat-name">Your Name</label>
+                            <input type="text" id="prechat-name" name="name" required 
+                                placeholder="Enter your full name" autocomplete="name">
+                        </div>
+                        <div class="form-group">
+                            <label for="prechat-email">Email Address</label>
+                            <input type="email" id="prechat-email" name="email" required 
+                                placeholder="Enter your email" autocomplete="email">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="start-chat-btn">
+                                <span class="btn-text">Start Chatting</span>
+                                <span class="btn-icon">💬</span>
+                            </button>
+                        </div>
+                        <div class="form-footer">
+                            <small>🔒 Your information is secure and private</small>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            // Find the messages container and inject the form
+            var $messagesContainer = this.$messages || $('.ai-chatbot-messages, .messages-container, .popup-messages-container');
+            
+            if ($messagesContainer.length > 0) {
+                // Clear existing messages and add the form
+                $messagesContainer.html(inlineFormHTML);
+                
+                // Focus on name field
+                setTimeout(() => {
+                    $('#prechat-name').focus();
+                }, 300);
+                
+                console.log('Pre-chat form injected into chat container');
+            } else {
+                console.error('Could not find messages container for pre-chat form');
+                // Fallback to overlay modal if container not found
+                this.createOverlayModal();
+            }
+        },
+
+        createOverlayModal: function() {
             var modalHTML = `
                 <div id="ai-chatbot-prechat-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center;">
                     <div id="ai-chatbot-pre-chat-modal" style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
                         <div class="ai-chatbot-form-container">
                             <div class="ai-chatbot-form-header">
                                 <h3 style="margin: 0 0 10px 0; color: #333;">Welcome! 👋</h3>
-                                <p style="margin: 0 0 20px 0; color: #666;">Please provide your details to start chatting with our AI assistant.</p>
+                                <p style="margin: 0 0 20px 0; color: #666;">Please provide your details to start chatting.</p>
                             </div>
                             <form id="ai-chatbot-user-form">
                                 <div class="ai-chatbot-form-group" style="margin-bottom: 15px;">
-                                    <label for="ai-chatbot-user-name" style="display: block; margin-bottom: 5px; font-weight: 500;">Name *</label>
-                                    <input type="text" id="ai-chatbot-user-name" name="name" required 
-                                        style="width: 100%; padding: 10px; border: 2px solid #e1e5e9; border-radius: 6px; font-size: 14px;" 
-                                        placeholder="Enter your full name">
+                                    <label for="ai-chatbot-user-name">Name *</label>
+                                    <input type="text" id="ai-chatbot-user-name" name="name" required placeholder="Enter your full name">
                                 </div>
                                 <div class="ai-chatbot-form-group" style="margin-bottom: 20px;">
-                                    <label for="ai-chatbot-user-email" style="display: block; margin-bottom: 5px; font-weight: 500;">Email *</label>
-                                    <input type="email" id="ai-chatbot-user-email" name="email" required 
-                                        style="width: 100%; padding: 10px; border: 2px solid #e1e5e9; border-radius: 6px; font-size: 14px;" 
-                                        placeholder="Enter your email address">
+                                    <label for="ai-chatbot-user-email">Email *</label>
+                                    <input type="email" id="ai-chatbot-user-email" name="email" required placeholder="Enter your email address">
                                 </div>
-                                <button type="submit" class="ai-chatbot-form-submit" 
-                                        style="width: 100%; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 500; cursor: pointer;">
-                                    Start Chatting
-                                </button>
+                                <button type="submit" class="ai-chatbot-form-submit">Start Chatting</button>
                             </form>
-                            <div class="ai-chatbot-form-footer" style="margin-top: 15px; text-align: center;">
-                                <small style="color: #666;">🔒 Your information is secure and will only be used to personalize your chat experience</small>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -161,11 +211,11 @@
             
             $('body').append(modalHTML);
             
-            // Focus on name field
             setTimeout(() => {
                 $('#ai-chatbot-user-name').focus();
             }, 300);
         },
+
 
         // NEW METHOD: Disable chat interface
         disableChatInterface: function() {
@@ -188,14 +238,18 @@
 
         // NEW METHOD: Enable chat interface
         enableChatInterface: function() {
+            // Remove any pre-chat forms
+            $('.ai-chatbot-prechat-form').remove();
+            $('#ai-chatbot-prechat-overlay').remove();
+            
             this.$input.prop('disabled', false).attr('placeholder', 'Type your message...');
             this.$sendBtn.prop('disabled', false);
             
             // Remove auth required message
             $('.auth-required-message').remove();
             
-            // Show welcome message if configured and user is new
-            if (this.config.welcomeMessage && this.$messages.children().length <= 1) {
+            // Show welcome message if configured and no other messages exist
+            if (this.config.welcomeMessage && this.$messages.children('.ai-chatbot-message').length === 0) {
                 this.addBotMessage(this.config.welcomeMessage);
             }
         },
@@ -254,7 +308,13 @@
             // Remove existing handlers to avoid duplicates
             $(document).off('.aichatbot');
             
-            // Pre-chat form submission - NEW
+            // Pre-chat inline form submission - NEW
+            $(document).on('submit.aichatbot', '#ai-chatbot-prechat-inline-form', function(e) {
+                e.preventDefault();
+                self.handleInlinePreChatSubmission();
+            });
+            
+            // Pre-chat overlay form submission (fallback)
             $(document).on('submit.aichatbot', '#ai-chatbot-user-form', function(e) {
                 e.preventDefault();
                 self.handlePreChatSubmission();
@@ -291,7 +351,6 @@
                     self.onInputChange();
                 }
             });
-            
             // Rating buttons - Quick rating for individual messages
             $(document).on('click.aichatbot', '.rating-btn, .quick-rating-btn', function(e) {
                 e.preventDefault();
@@ -360,6 +419,89 @@
             });
 
             console.log('Event handlers set up successfully');
+        },
+
+        handleInlinePreChatSubmission: function() {
+            var name = $('#prechat-name').val().trim();
+            var email = $('#prechat-email').val().trim();
+            
+            if (!name || !email || !this.isValidEmail(email)) {
+                this.showInlineFormError('Please provide a valid name and email address.');
+                return;
+            }
+            
+            var self = this;
+            var $submitBtn = $('.start-chat-btn');
+            
+            // Show loading state
+            $submitBtn.addClass('loading').prop('disabled', true);
+            $submitBtn.find('.btn-text').text('Saving...');
+            
+            // Send user data to server
+            $.ajax({
+                url: this.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_save_user_data',
+                    name: name,
+                    email: email,
+                    session_id: this.currentSessionId,
+                    nonce: this.config.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Store user data locally
+                        self.currentUserData = {
+                            name: name,
+                            email: email,
+                            user_id: response.data.user_id || null
+                        };
+                        
+                        localStorage.setItem('ai_chatbot_user_data', JSON.stringify(self.currentUserData));
+                        
+                        // Remove pre-chat form and enable chat
+                        $('.ai-chatbot-prechat-form').fadeOut(300, function() {
+                            $(this).remove();
+                            self.enableChatInterface();
+                            self.startInactivityTimer();
+                            
+                            // Focus on chat input
+                            setTimeout(() => {
+                                self.$input.focus();
+                            }, 400);
+                        });
+                        
+                        console.log('User authenticated successfully:', self.currentUserData);
+                    } else {
+                        self.showInlineFormError(response.data.message || 'Failed to save user data. Please try again.');
+                    }
+                },
+                error: function() {
+                    self.showInlineFormError('Connection error. Please check your internet connection and try again.');
+                },
+                complete: function() {
+                    $submitBtn.removeClass('loading').prop('disabled', false);
+                    $submitBtn.find('.btn-text').text('Start Chatting');
+                }
+            });
+        },
+
+        showInlineFormError: function(message) {
+            // Remove existing error
+            $('.prechat-error').remove();
+            
+            // Add error message
+            $('.prechat-form').prepend(`
+                <div class="prechat-error">
+                    <span class="error-icon">⚠️</span>
+                    ${message}
+                </div>
+            `);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                $('.prechat-error').fadeOut();
+            }, 5000);
         },
 
         handlePreChatSubmission: function() {
@@ -526,6 +668,12 @@
                 return;
             }
             
+            // Get user data - FIXED: Ensure we have the user data
+            var userData = this.currentUserData || {};
+            
+            // Debug log
+            console.log('Sending message with user data:', userData);
+            
             $.ajax({
                 url: this.config.ajaxUrl,
                 type: 'POST',
@@ -536,9 +684,9 @@
                     message: message,
                     session_id: this.currentSessionId,
                     conversation_id: this.currentConversationId,
-                    user_email: this.currentUserData.email,  // NEW: Send user email
-                    user_name: this.currentUserData.name,    // NEW: Send user name
-                    user_id: this.currentUserData.user_id,   // NEW: Send user ID if available
+                    user_email: userData.email || '',  // FIXED: Ensure email is sent
+                    user_name: userData.name || '',    // FIXED: Ensure name is sent
+                    user_id: userData.user_id || 0,   // FIXED: Ensure user_id is sent
                     nonce: this.config.nonce
                 },
                 success: function(response) {
@@ -583,7 +731,7 @@
                             bot_response: botResponse,
                             response_time: response.data.response_time,
                             tokens_used: response.data.tokens_used,
-                            user_email: self.currentUserData.email
+                            user_email: userData.email
                         });
                         
                         self.hideSuggestions();

@@ -139,7 +139,7 @@ class AI_Chatbot_Activator {
             provider varchar(50) DEFAULT NULL,
             model varchar(100) DEFAULT NULL,
 			feedback text,
-			rated_at datetime DEFAULT NULL;
+			rated_at datetime DEFAULT NULL,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
