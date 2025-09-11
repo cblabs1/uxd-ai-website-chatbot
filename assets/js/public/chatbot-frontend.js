@@ -1002,41 +1002,67 @@
 
         // Rating System Methods
         showEndOfConversationRating: function() {
-            console.log('Showing end of conversation rating');
+            console.log('Checking if conversation rating needed...');
             
-            // Don't show if already exists or if already rated
+            // Don't show if already exists in DOM
             if ($('.end-conversation-rating').length > 0) {
-                console.log('Rating already exists or conversation already rated');
+                console.log('Rating form already exists');
                 return;
             }
+            
+            // ✅ Check if this conversation was already rated
+            if (this.ratingStorage.isConversationRated(this.currentConversationId)) {
+                console.log('Conversation already rated, showing previous rating');
+                this.showPreviousRating();
+                return;
+            }
+            
+            // Show new rating form
+            console.log('Showing new rating form');
+            this.displayNewRatingForm();
+        },
 
-            // Check if conversation was already rated before showing new rating form
-            var self = this;
-            $.ajax({
-                url: this.config.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ai_chatbot_get_conversation_rating_status',
-                    session_id: this.currentSessionId,
-                    nonce: this.config.nonce
-                },
-                success: function(response) {
-                    if (response.success && response.data.has_rating) {
-                        // Show restored rating instead
-                        self.showRestoredConversationRating(
-                            response.data.rating, 
-                            response.data.feedback || ''
-                        );
-                    } else {
-                        // Show new rating form
-                        self.displayNewRatingForm();
-                    }
-                },
-                error: function() {
-                    // If check fails, show rating form anyway
-                    self.displayNewRatingForm();
-                }
-            });
+        // NEW: Show previous rating from localStorage
+        showPreviousRating: function() {
+            var ratingData = this.ratingStorage.getConversationRating(this.currentConversationId);
+            if (!ratingData) return;
+            
+            var ratingDetails = this.getRatingDetails(ratingData.rating);
+            
+            var previousRatingHtml = `
+                <div class="ai-chatbot-message bot-message end-conversation-rating rating-completed-inline">
+                    <div class="message-content">
+                        <div class="message-bubble rating-bubble">
+                            <div class="rating-submitted-inline">
+                                <div class="submitted-header">
+                                    <span class="check-icon">📋</span>
+                                    <span class="submitted-text">Previous Rating</span>
+                                </div>
+                                <div class="submitted-rating">
+                                    <div class="rating-display-inline" data-rating="${ratingData.rating}">
+                                        <span class="submitted-emoji">${ratingDetails.emoji}</span>
+                                        <div class="rating-info">
+                                            <div class="rating-label">${ratingDetails.label}</div>
+                                            <div class="rating-stars">${this.generateStars(ratingData.rating)}</div>
+                                        </div>
+                                    </div>
+                                    ${ratingData.feedback ? `
+                                        <div class="submitted-feedback">
+                                            <div class="feedback-label">Your previous feedback:</div>
+                                            <div class="feedback-text-display">"${ratingData.feedback}"</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.$messages.append(previousRatingHtml);
+            this.scrollToBottom();
+            
+            console.log('📋 Restored previous rating from localStorage');
         },
 
         // NEW: Display new rating form (extracted from showEndOfConversationRating)
@@ -1078,12 +1104,6 @@
                                         <button class="skip-rating-btn">Skip</button>
                                     </div>
                                 </div>
-                                <div class="rating-thank-you" style="display: none;">
-                                    <div class="thank-you-message">
-                                        <span class="thank-you-emoji">🙏</span>
-                                        <p>Thank you for your feedback!</p>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -1093,7 +1113,7 @@
             this.$messages.append(ratingHtml);
             this.scrollToBottom();
             
-            console.log('New rating form displayed');
+            console.log('📝 New rating form displayed');
         },
 
         submitRating: function(conversationId, rating) {
@@ -1153,19 +1173,22 @@
                 success: function(response) {
                     console.log('Conversation rating response:', response);
                     if (response.success) {
-                        // Show permanent rating display
-                        self.showRatingSubmitted(rating, feedback);
+                        // ✅ Store rating in localStorage
+                        self.ratingStorage.storeConversationRating(
+                            self.currentConversationId, 
+                            rating, 
+                            feedback
+                        );
                         
-                        // Handle session reset if indicated by server
-                        if (response.data.session_reset && response.data.new_session_id) {
-                            console.log('Session reset requested. New session:', response.data.new_session_id);
-                            self.handleSessionReset(response.data.new_session_id);
-                        }
+                        // ✅ Show submitted rating permanently in place
+                        self.showRatingSubmittedInPlace(rating, feedback);
+                        
+                        // ✅ No session reset - continue same conversation!
                         
                         self.trackEvent('conversation_rated', { 
                             rating: rating, 
                             has_feedback: feedback.length > 0,
-                            session_reset: response.data.session_reset || false
+                            persistent_storage: true
                         });
                     }
                 },
@@ -1173,6 +1196,51 @@
                     console.log('Failed to submit conversation rating');
                 }
             });
+        },
+
+        // NEW: Show submitted rating in place (no session reset)
+        showRatingSubmittedInPlace: function(rating, feedback) {
+            var self = this;
+            var ratingDetails = this.getRatingDetails(rating);
+            
+            // Hide the rating form elements
+            $('.rating-smilies, .rating-feedback').slideUp(300, function() {
+                // Replace with submitted rating display
+                var submittedHtml = `
+                    <div class="rating-submitted-inline">
+                        <div class="submitted-header">
+                            <span class="check-icon">✅</span>
+                            <span class="submitted-text">Rating Submitted</span>
+                        </div>
+                        <div class="submitted-rating">
+                            <div class="rating-display-inline" data-rating="${rating}">
+                                <span class="submitted-emoji">${ratingDetails.emoji}</span>
+                                <div class="rating-info">
+                                    <div class="rating-label">${ratingDetails.label}</div>
+                                    <div class="rating-stars">${self.generateStars(rating)}</div>
+                                </div>
+                            </div>
+                            ${feedback ? `
+                                <div class="submitted-feedback">
+                                    <div class="feedback-label">Your feedback:</div>
+                                    <div class="feedback-text-display">"${feedback}"</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                // Replace the rating bubble content
+                $('.rating-bubble').html(submittedHtml);
+                
+                // Add completed class for styling
+                $('.end-conversation-rating').addClass('rating-completed-inline');
+                
+                // Scroll to show the completed rating
+                self.scrollToBottom();
+            });
+            
+            console.log('✅ Rating displayed in place for conversation:', this.currentConversationId);
         },
 
         // NEW: Handle session reset after rating
@@ -1265,6 +1333,66 @@
             }, 500);
             
             console.log('Prepared for new conversation with session:', this.currentSessionId);
+        },
+
+        // NEW: Rating storage functions
+        ratingStorage: {
+            // Store a conversation rating
+            storeConversationRating: function(conversationId, rating, feedback) {
+                var ratings = JSON.parse(localStorage.getItem('ai_chatbot_conversation_ratings') || '{}');
+                ratings[conversationId] = {
+                    rating: rating,
+                    feedback: feedback,
+                    timestamp: Date.now(),
+                    type: 'conversation'
+                };
+                localStorage.setItem('ai_chatbot_conversation_ratings', JSON.stringify(ratings));
+                console.log('📝 Stored conversation rating:', conversationId, rating);
+            },
+            
+            // Store a message rating
+            storeMessageRating: function(messageId, rating) {
+                var ratings = JSON.parse(localStorage.getItem('ai_chatbot_message_ratings') || '{}');
+                ratings[messageId] = {
+                    rating: rating,
+                    timestamp: Date.now(),
+                    type: 'message'
+                };
+                localStorage.setItem('ai_chatbot_message_ratings', JSON.stringify(ratings));
+                console.log('📝 Stored message rating:', messageId, rating);
+            },
+            
+            // Get conversation rating
+            getConversationRating: function(conversationId) {
+                var ratings = JSON.parse(localStorage.getItem('ai_chatbot_conversation_ratings') || '{}');
+                return ratings[conversationId] || null;
+            },
+            
+            // Get message rating
+            getMessageRating: function(messageId) {
+                var ratings = JSON.parse(localStorage.getItem('ai_chatbot_message_ratings') || '{}');
+                return ratings[messageId] || null;
+            },
+            
+            // Check if conversation has been rated
+            isConversationRated: function(conversationId) {
+                return this.getConversationRating(conversationId) !== null;
+            },
+            
+            // Get all conversation ratings for current session
+            getSessionConversations: function(sessionId) {
+                var ratings = JSON.parse(localStorage.getItem('ai_chatbot_conversation_ratings') || '{}');
+                var sessionRatings = {};
+                
+                // Filter ratings for conversations in this session
+                Object.keys(ratings).forEach(function(convId) {
+                    if (convId.includes(sessionId) || ratings[convId].sessionId === sessionId) {
+                        sessionRatings[convId] = ratings[convId];
+                    }
+                });
+                
+                return sessionRatings;
+            }
         },
 
         showRatingSubmitted: function(rating, feedback) {
