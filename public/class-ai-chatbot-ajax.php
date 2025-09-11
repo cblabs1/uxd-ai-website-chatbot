@@ -2117,7 +2117,7 @@ class AI_Chatbot_Ajax {
                 'has_feedback' => !empty($feedback),
                 'session_reset' => true,
                 'new_session_id' => $new_session_id,
-                'should_reload_chat' => true
+                'should_reload_chat' => true,
             ));
         } else {
             wp_send_json_error(array(
