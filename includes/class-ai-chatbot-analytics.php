@@ -487,8 +487,7 @@ class AI_Chatbot_Analytics {
      * @return bool
      */
     private function is_analytics_enabled() {
-        $settings = get_option('ai_chatbot_settings', array());
-        return isset($settings['enable_analytics']) && $settings['enable_analytics'] === 'yes';
+        return true;
     }
 
     /**

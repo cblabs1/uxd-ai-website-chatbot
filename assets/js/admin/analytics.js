@@ -1,5 +1,5 @@
 /**
- * AI Chatbot Admin Analytics JavaScript
+ * AI Chatbot Admin Analytics JavaScript - FIXED VERSION
  * 
  * @package AI_Website_Chatbot
  * @since 1.0.0
@@ -11,15 +11,54 @@
     var AIChatbotAnalytics = {
         
         charts: {},
+        initialized: false,
         
         /**
          * Initialize
          */
         init: function() {
+            if (this.initialized) {
+                return; // Prevent double initialization
+            }
+            
             this.bindEvents();
             this.initCharts();
             this.initDateRangePicker();
-            this.loadAnalyticsData();
+            this.initialized = true;
+            
+            console.log('AIChatbotAnalytics initialized');
+        },
+        
+        /**
+         * Update analytics data and refresh charts
+         */
+        updateAnalyticsData: function(data) {
+            console.log('Updating analytics data:', data);
+            
+            // Update statistics
+            this.updateStatistics(data);
+            
+            // Update charts
+            this.updateConversationTrendsChart(data.conversations_trend || []);
+            this.updateResponseTimeChart(data.response_time_trend || []);
+            this.updateSatisfactionChart(data.satisfaction_distribution || {});
+            this.updateTopicsChart(data.top_topics || []);
+            this.updateHourlyDistributionChart(data.hourly_distribution || []);
+            
+            // Update last updated time
+            $('.last-updated-time').text('Last updated: ' + new Date().toLocaleString());
+        },
+        
+        /**
+         * Update statistics cards
+         */
+        updateStatistics: function(data) {
+            $('.stat-total-conversations').text(data.total_conversations || 0);
+            $('.stat-total-messages').text(data.total_messages || 0);
+            $('.stat-conversations-today').text(data.conversations_today || 0);
+            $('.stat-avg-response-time').text((data.avg_response_time || 0) + 'ms');
+            $('.stat-user-satisfaction').text((data.user_satisfaction || 0) + '/5');
+            $('.stat-unique-users').text(data.unique_users || 0);
         },
         
         /**
@@ -27,22 +66,22 @@
          */
         bindEvents: function() {
             // Date range change
-            $(document).on('change', '#analytics-date-range', this.handleDateRangeChange);
+            $(document).on('change', '#analytics-date-range', this.handleDateRangeChange.bind(this));
             
             // Export analytics
-            $(document).on('click', '.export-analytics', this.exportAnalytics);
+            $(document).on('click', '.export-analytics', this.exportAnalytics.bind(this));
             
             // Refresh data
-            $(document).on('click', '.refresh-analytics', this.refreshAnalytics);
+            $(document).on('click', '.refresh-analytics', this.refreshAnalytics.bind(this));
             
             // Filter changes
-            $(document).on('change', '.analytics-filter', this.handleFilterChange);
+            $(document).on('change', '.analytics-filter', this.handleFilterChange.bind(this));
             
             // Chart type toggle
-            $(document).on('click', '.chart-type-toggle', this.toggleChartType);
+            $(document).on('click', '.chart-type-toggle', this.toggleChartType.bind(this));
             
             // Real-time updates toggle
-            $(document).on('change', '#realtime-updates', this.toggleRealtimeUpdates);
+            $(document).on('change', '#realtime-updates', this.toggleRealtimeUpdates.bind(this));
         },
         
         /**
@@ -58,6 +97,10 @@
             Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             Chart.defaults.color = '#666';
             
+            // Destroy existing charts first
+            this.destroyExistingCharts();
+            
+            // Initialize new charts
             this.initConversationTrendsChart();
             this.initResponseTimeChart();
             this.initSatisfactionChart();
@@ -66,11 +109,26 @@
         },
         
         /**
+         * Destroy existing charts to prevent conflicts
+         */
+        destroyExistingCharts: function() {
+            Object.keys(this.charts).forEach(function(key) {
+                if (this.charts[key] && typeof this.charts[key].destroy === 'function') {
+                    this.charts[key].destroy();
+                }
+            }.bind(this));
+            this.charts = {};
+        },
+        
+        /**
          * Initialize conversation trends chart
          */
         initConversationTrendsChart: function() {
             var $canvas = $('#conversation-trends-chart');
-            if (!$canvas.length) return;
+            if (!$canvas.length) {
+                console.warn('Conversation trends canvas not found');
+                return;
+            }
             
             var ctx = $canvas[0].getContext('2d');
             
@@ -129,6 +187,8 @@
                     }
                 }
             });
+            
+            console.log('Conversation trends chart initialized');
         },
         
         /**
@@ -156,6 +216,12 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
                         y: {
                             beginAtZero: true,
                             title: {
@@ -190,13 +256,12 @@
                         data: [],
                         backgroundColor: [
                             '#28a745',
-                            '#6f42c1',
-                            '#fd7e14',
+                            '#6f42c1', 
                             '#ffc107',
+                            '#fd7e14',
                             '#dc3545'
                         ],
-                        borderWidth: 2,
-                        borderColor: '#fff'
+                        borderWidth: 0
                     }]
                 },
                 options: {
@@ -204,16 +269,7 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            position: 'right'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    var total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    var percentage = ((context.parsed * 100) / total).toFixed(1);
-                                    return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
-                                }
-                            }
+                            position: 'bottom'
                         }
                     }
                 }
@@ -221,7 +277,7 @@
         },
         
         /**
-         * Initialize topics chart
+         * Initialize topics chart - FIXED: Changed horizontalBar to bar with indexAxis
          */
         initTopicsChart: function() {
             var $canvas = $('#topics-chart');
@@ -230,7 +286,7 @@
             var ctx = $canvas[0].getContext('2d');
             
             this.charts.topics = new Chart(ctx, {
-                type: 'horizontalBar',
+                type: 'bar', // FIXED: Changed from 'horizontalBar'
                 data: {
                     labels: [],
                     datasets: [{
@@ -244,7 +300,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    indexAxis: 'y',
+                    indexAxis: 'y', // FIXED: This makes it horizontal
                     scales: {
                         x: {
                             beginAtZero: true,
@@ -314,65 +370,15 @@
         },
         
         /**
-         * Load analytics data
-         */
-        loadAnalyticsData: function(dateRange) {
-            dateRange = dateRange || '30';
-            
-            $('.analytics-loading').show();
-            $('.analytics-content').addClass('loading');
-            
-            $.ajax({
-                url: aiChatbotAdmin.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ai_chatbot_get_analytics_data',
-                    nonce: aiChatbotAdmin.nonce,
-                    date_range: dateRange
-                },
-                success: function(response) {
-                    if (response.success) {
-                        AIChatbotAnalytics.updateAnalyticsDisplay(response.data);
-                    } else {
-                        AIChatbotAdmin.showNotification('Failed to load analytics data', 'error');
-                    }
-                },
-                error: function() {
-                    AIChatbotAdmin.showNotification('Failed to load analytics data', 'error');
-                },
-                complete: function() {
-                    $('.analytics-loading').hide();
-                    $('.analytics-content').removeClass('loading');
-                }
-            });
-        },
-        
-        /**
-         * Update analytics display
-         */
-        updateAnalyticsDisplay: function(data) {
-            // Update statistics cards
-            $('.stat-total-conversations').text(this.formatNumber(data.total_conversations || 0));
-            $('.stat-conversations-today').text(this.formatNumber(data.conversations_today || 0));
-            $('.stat-avg-response-time').text((data.avg_response_time || 0) + 'ms');
-            $('.stat-user-satisfaction').text((data.user_satisfaction || 0) + '/5');
-            
-            // Update charts
-            this.updateConversationTrendsChart(data.daily_trends || []);
-            this.updateResponseTimeChart(data.response_times || []);
-            this.updateSatisfactionChart(data.satisfaction_distribution || []);
-            this.updateTopicsChart(data.top_topics || []);
-            this.updateHourlyDistributionChart(data.hourly_distribution || []);
-            
-            // Update last updated time
-            $('.last-updated-time').text('Last updated: ' + new Date().toLocaleString());
-        },
-        
-        /**
-         * Update conversation trends chart
+         * Update conversation trends chart - FIXED
          */
         updateConversationTrendsChart: function(data) {
-            if (!this.charts.conversationTrends) return;
+            console.log('Updating conversation trends chart with:', data);
+            
+            if (!this.charts.conversationTrends) {
+                console.warn('Conversation trends chart not initialized');
+                return;
+            }
             
             var labels = data.map(function(item) {
                 return new Date(item.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
@@ -381,9 +387,14 @@
                 return parseInt(item.count);
             });
             
+            console.log('Chart labels:', labels);
+            console.log('Chart values:', values);
+            
             this.charts.conversationTrends.data.labels = labels;
             this.charts.conversationTrends.data.datasets[0].data = values;
             this.charts.conversationTrends.update();
+            
+            console.log('Conversation trends chart updated');
         },
         
         /**
@@ -429,7 +440,7 @@
             if (!this.charts.topics) return;
             
             var labels = data.map(function(item) {
-                return item.topic;
+                return item.topic || item.intent || 'Unknown';
             });
             var values = data.map(function(item) {
                 return parseInt(item.count);
@@ -465,18 +476,58 @@
          * Handle date range change
          */
         handleDateRangeChange: function() {
-            var dateRange = $(this).val();
-            AIChatbotAnalytics.loadAnalyticsData(dateRange);
+            var dateRange = $('#analytics-date-range').val();
+            this.loadAnalyticsData(dateRange);
+        },
+        
+        /**
+         * Load analytics data via AJAX
+         */
+        loadAnalyticsData: function(dateRange) {
+            var self = this;
+            
+            $.ajax({
+                url: aiChatbotAdmin.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_get_analytics_data',
+                    nonce: aiChatbotAdmin.nonce,
+                    date_range: dateRange || 30
+                },
+                beforeSend: function() {
+                    $('.analytics-loading').show();
+                },
+                success: function(response) {
+                    if (response.success) {
+                        self.updateAnalyticsData(response.data);
+                    } else {
+                        console.error('Failed to load analytics data:', response.data);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Ajax error:', error);
+                },
+                complete: function() {
+                    $('.analytics-loading').hide();
+                }
+            });
+        },
+        
+        /**
+         * Refresh analytics
+         */
+        refreshAnalytics: function() {
+            var dateRange = $('#analytics-date-range').val();
+            this.loadAnalyticsData(dateRange);
         },
         
         /**
          * Handle filter change
          */
         handleFilterChange: function() {
-            var filter = $(this).val();
+            var filter = $('.analytics-filter').val();
             var dateRange = $('#analytics-date-range').val();
-            
-            AIChatbotAnalytics.loadAnalyticsData(dateRange, filter);
+            this.loadAnalyticsData(dateRange, filter);
         },
         
         /**
@@ -485,9 +536,9 @@
         exportAnalytics: function(e) {
             e.preventDefault();
             
-            var format = $(this).data('format') || 'csv';
+            var format = $(e.currentTarget).data('format') || 'csv';
             var dateRange = $('#analytics-date-range').val();
-            var $button = $(this);
+            var $button = $(e.currentTarget);
             
             $button.prop('disabled', true).text('Exporting...');
             
@@ -503,7 +554,7 @@
                 xhrFields: {
                     responseType: 'blob'
                 },
-                success: function(data, textStatus, xhr) {
+                success: function(data) {
                     // Create download
                     var filename = 'ai-chatbot-analytics-' + dateRange + 'days.' + format;
                     var blob = new Blob([data]);
@@ -515,138 +566,58 @@
                     a.click();
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
-                    
-                    AIChatbotAdmin.showNotification('Analytics exported successfully!', 'success');
                 },
                 error: function() {
-                    AIChatbotAdmin.showNotification('Export failed', 'error');
+                    console.error('Export failed');
                 },
                 complete: function() {
-                    $button.prop('disabled', false).text('Export');
+                    $button.prop('disabled', false).text('Export ' + format.toUpperCase());
                 }
             });
-        },
-        
-        /**
-         * Refresh analytics
-         */
-        refreshAnalytics: function(e) {
-            e.preventDefault();
-            
-            var dateRange = $('#analytics-date-range').val();
-            AIChatbotAnalytics.loadAnalyticsData(dateRange);
         },
         
         /**
          * Toggle chart type
          */
         toggleChartType: function(e) {
-            e.preventDefault();
+            // Chart type toggle functionality
+            var chartName = $(e.currentTarget).data('chart');
+            var chartType = $(e.currentTarget).data('type');
             
-            var chartName = $(this).data('chart');
-            var newType = $(this).data('type');
-            
-            if (AIChatbotAnalytics.charts[chartName]) {
-                AIChatbotAnalytics.charts[chartName].config.type = newType;
-                AIChatbotAnalytics.charts[chartName].update();
+            if (this.charts[chartName]) {
+                this.charts[chartName].config.type = chartType;
+                this.charts[chartName].update();
             }
         },
         
         /**
-         * Toggle realtime updates
+         * Toggle real-time updates
          */
         toggleRealtimeUpdates: function() {
-            var enabled = $(this).is(':checked');
+            // Real-time updates functionality
+            var enabled = $('#realtime-updates').is(':checked');
             
             if (enabled) {
-                AIChatbotAnalytics.startRealtimeUpdates();
+                // Set up periodic refresh
+                this.realtimeInterval = setInterval(this.refreshAnalytics.bind(this), 30000); // 30 seconds
             } else {
-                AIChatbotAnalytics.stopRealtimeUpdates();
+                // Clear interval
+                if (this.realtimeInterval) {
+                    clearInterval(this.realtimeInterval);
+                }
             }
-        },
-        
-        /**
-         * Start realtime updates
-         */
-        startRealtimeUpdates: function() {
-            if (this.realtimeInterval) {
-                clearInterval(this.realtimeInterval);
-            }
-            
-            this.realtimeInterval = setInterval(function() {
-                var dateRange = $('#analytics-date-range').val();
-                AIChatbotAnalytics.loadAnalyticsData(dateRange);
-            }, 30000); // Update every 30 seconds
-            
-            AIChatbotAdmin.showNotification('Real-time updates enabled', 'success', 2000);
-        },
-        
-        /**
-         * Stop realtime updates
-         */
-        stopRealtimeUpdates: function() {
-            if (this.realtimeInterval) {
-                clearInterval(this.realtimeInterval);
-                this.realtimeInterval = null;
-            }
-            
-            AIChatbotAdmin.showNotification('Real-time updates disabled', 'info', 2000);
         },
         
         /**
          * Initialize date range picker
          */
         initDateRangePicker: function() {
-            // Simple date range implementation
-            $('#custom-date-range').on('change', function() {
-                var customRange = $(this).val();
-                if (customRange) {
-                    $('#analytics-date-range').val('custom').trigger('change');
-                }
-            });
-        },
-        
-        /**
-         * Format number with commas
-         */
-        formatNumber: function(num) {
-            if (typeof num !== 'number') {
-                num = parseInt(num) || 0;
-            }
-            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        },
-        
-        /**
-         * Destroy charts (cleanup)
-         */
-        destroyCharts: function() {
-            Object.keys(this.charts).forEach(function(key) {
-                if (AIChatbotAnalytics.charts[key]) {
-                    AIChatbotAnalytics.charts[key].destroy();
-                }
-            });
-            this.charts = {};
+            // Basic date range picker setup
+            $('#analytics-date-range').on('change', this.handleDateRangeChange.bind(this));
         }
     };
-    
-    /**
-     * Document ready
-     */
-    $(document).ready(function() {
-        AIChatbotAnalytics.init();
-    });
-    
-    /**
-     * Window beforeunload - cleanup
-     */
-    $(window).on('beforeunload', function() {
-        AIChatbotAnalytics.stopRealtimeUpdates();
-        AIChatbotAnalytics.destroyCharts();
-    });
-    
-    /**
-     * Make AIChatbotAnalytics globally available
-     */
+
+    // Make available globally
     window.AIChatbotAnalytics = AIChatbotAnalytics;
-    
+
 })(jQuery);

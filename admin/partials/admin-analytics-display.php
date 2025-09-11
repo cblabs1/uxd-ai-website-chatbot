@@ -205,9 +205,9 @@ $analytics_data = isset($analytics_data) ? $analytics_data : $this->get_analytic
                             <?php foreach ($analytics_data['top_topics'] as $topic): ?>
                             <tr>
                                 <td>
-                                    <strong><?php echo esc_html($topic->intent); ?></strong>
+                                    <strong><?php echo esc_html($topic['topic']); ?></strong>
                                 </td>
-                                <td><?php echo esc_html($topic->count); ?></td>
+                                <td><?php echo esc_html($topic['count']); ?></td>
                                 <td>
                                     <span class="trend-indicator positive">
                                         <span class="dashicons dashicons-arrow-up-alt"></span>
@@ -270,35 +270,29 @@ $analytics_data = isset($analytics_data) ? $analytics_data : $this->get_analytic
     <div class="analytics-insights">
         <h3><?php _e('Key Insights', 'ai-website-chatbot'); ?></h3>
         <div class="insights-grid">
-            <div class="insight-card">
-                <div class="insight-icon positive">
-                    <span class="dashicons dashicons-arrow-up-alt"></span>
+            <?php if (!empty($analytics_data['insights'])): ?>
+                <?php foreach ($analytics_data['insights'] as $insight): ?>
+                <div class="insight-card">
+                    <div class="insight-icon <?php echo esc_attr($insight['type']); ?>">
+                        <span class="<?php echo esc_attr($insight['icon']); ?>"></span>
+                    </div>
+                    <div class="insight-content">
+                        <h4><?php echo esc_html($insight['title']); ?></h4>
+                        <p><?php echo esc_html($insight['message']); ?></p>
+                    </div>
                 </div>
-                <div class="insight-content">
-                    <h4><?php _e('Performance Improvement', 'ai-website-chatbot'); ?></h4>
-                    <p><?php _e('Response times have improved by 15% compared to last month.', 'ai-website-chatbot'); ?></p>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="insight-card">
+                    <div class="insight-icon info">
+                        <span class="dashicons dashicons-info"></span>
+                    </div>
+                    <div class="insight-content">
+                        <h4><?php _e('Generating Insights', 'ai-website-chatbot'); ?></h4>
+                        <p><?php _e('Insights will appear here as you get more conversation data.', 'ai-website-chatbot'); ?></p>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="insight-card">
-                <div class="insight-icon info">
-                    <span class="dashicons dashicons-info"></span>
-                </div>
-                <div class="insight-content">
-                    <h4><?php _e('Peak Usage Hours', 'ai-website-chatbot'); ?></h4>
-                    <p><?php _e('Most conversations happen between 2PM and 4PM. Consider staffing adjustments.', 'ai-website-chatbot'); ?></p>
-                </div>
-            </div>
-            
-            <div class="insight-card">
-                <div class="insight-icon warning">
-                    <span class="dashicons dashicons-warning"></span>
-                </div>
-                <div class="insight-content">
-                    <h4><?php _e('Training Opportunity', 'ai-website-chatbot'); ?></h4>
-                    <p><?php _e('Some topics show lower satisfaction rates. Consider adding more training data.', 'ai-website-chatbot'); ?></p>
-                </div>
-            </div>
+            <?php endif; ?>
         </div>
     </div>
     
@@ -312,6 +306,19 @@ $analytics_data = isset($analytics_data) ? $analytics_data : $this->get_analytic
         <p><?php _e('Loading analytics data...', 'ai-website-chatbot'); ?></p>
     </div>
 </div>
+
+<script type="text/javascript">
+jQuery(document).ready(function($) {
+    // Pass analytics data to JavaScript
+    var analyticsData = <?php echo wp_json_encode($analytics_data); ?>;
+    
+    // Initialize analytics with data
+    if (typeof AIChatbotAnalytics !== 'undefined') {
+        AIChatbotAnalytics.init();
+        AIChatbotAnalytics.updateAnalyticsData(analyticsData);
+    }
+});
+</script>
 
 <style>
 .ai-chatbot-analytics-wrap {
