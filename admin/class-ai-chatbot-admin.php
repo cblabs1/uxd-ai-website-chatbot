@@ -109,49 +109,104 @@ class AI_Chatbot_Admin {
             __('AI Chatbot', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot',
-            array($this, 'render_main_page'),
+            array($this, 'display_dashboard_page'),
             'dashicons-format-chat',
             30
         );
         
-        // Settings submenu
+        // Dashboard (same as main page)
+        add_submenu_page(
+            'ai-chatbot',
+            __('Dashboard', 'ai-website-chatbot'),
+            __('Dashboard', 'ai-website-chatbot'),
+            'manage_options',
+            'ai-chatbot',
+            array($this, 'display_dashboard_page')
+        );
+        
+        // Settings
         add_submenu_page(
             'ai-chatbot',
             __('Settings', 'ai-website-chatbot'),
             __('Settings', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot-settings',
-            array($this->settings, 'render_settings_page')
+            array($this, 'display_settings_page')
         );
         
-        // Analytics submenu
-        add_submenu_page(
-            'ai-chatbot',
-            __('Analytics', 'ai-website-chatbot'),
-            __('Analytics', 'ai-website-chatbot'),
-            'manage_options',
-            'ai-chatbot-analytics',
-            array($this->analytics, 'render_analytics_page')
-        );
-        
-        // Training submenu
+        // Training
         add_submenu_page(
             'ai-chatbot',
             __('Training', 'ai-website-chatbot'),
             __('Training', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot-training',
-            array($this->training, 'render_training_page')
+            array($this, 'display_training_page')
         );
         
-        // Conversations submenu
+        // Analytics
+        add_submenu_page(
+            'ai-chatbot',
+            __('Analytics', 'ai-website-chatbot'),
+            __('Analytics', 'ai-website-chatbot'),
+            'manage_options',
+            'ai-chatbot-analytics',
+            array($this, 'display_analytics_page')
+        );
+        
+        // Conversations
         add_submenu_page(
             'ai-chatbot',
             __('Conversations', 'ai-website-chatbot'),
             __('Conversations', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot-conversations',
-            array($this->conversations, 'render_conversations_page')
+            array($this, 'display_conversations_page')
+        );
+        
+        // PRO MENU ITEMS - Only show if Pro is available
+        if (function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('intelligence_engine')) {
+            
+            // Semantic Intelligence (Pro)
+            add_submenu_page(
+                'ai-chatbot',
+                __('Semantic Intelligence', 'ai-website-chatbot'),
+                __('Semantic Intelligence', 'ai-website-chatbot'),
+                'manage_options',
+                'ai-chatbot-embeddings',
+                array($this, 'display_embeddings_page')
+            );
+            
+            // Advanced Analytics (Pro)
+            add_submenu_page(
+                'ai-chatbot',
+                __('Advanced Analytics', 'ai-website-chatbot'),
+                __('Advanced Analytics', 'ai-website-chatbot'),
+                'manage_options',
+                'ai-chatbot-pro-analytics',
+                array($this, 'display_pro_analytics_page')
+            );
+            
+        } else {
+            // Pro Features (Upgrade notice)
+            add_submenu_page(
+                'ai-chatbot',
+                __('Pro Features', 'ai-website-chatbot'),
+                __('Pro Features ⭐', 'ai-website-chatbot'),
+                'manage_options',
+                'ai-chatbot-pro',
+                array($this, 'display_pro_features_page')
+            );
+        }
+        
+        // Help & Support (always visible)
+        add_submenu_page(
+            'ai-chatbot',
+            __('Help & Support', 'ai-website-chatbot'),
+            __('Help & Support', 'ai-website-chatbot'),
+            'manage_options',
+            'ai-chatbot-help',
+            array($this, 'display_help_page')
         );
     }
     

@@ -4,7 +4,7 @@
  * Plugin URI: https://wordpress.org/plugins/ai-website-chatbot
  * GitHub Plugin URI: https://github.com/cblabs1/uxd-ai-website-chatbot.git
  * Description: An intelligent chatbot that learns from your website content and integrates with multiple AI platforms. GDPR compliant with privacy controls.
- * Version: 10.3.7
+ * Version: 10.3.8
  * Requires at least: 5.0
  * Requires PHP: 7.4
  * Author: Your Name
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'AI_CHATBOT_VERSION', '10.3.7' );
+define( 'AI_CHATBOT_VERSION', '10.3.8' );
 define( 'AI_CHATBOT_PLUGIN_FILE', __FILE__ );
 define( 'AI_CHATBOT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AI_CHATBOT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -60,6 +60,18 @@ function ai_chatbot_load_plugin() {
         require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot.php';
         AI_Chatbot::get_instance();
     }, 5);
+
+	add_action('plugins_loaded', function() {
+		$current_version = get_option('ai_chatbot_db_version', '1.0.0');
+		$plugin_version = AI_CHATBOT_VERSION;
+		if (is_admin()) {
+			require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot-activator.php';
+			if (version_compare($current_version, '2.0.0', '<')) {
+				AI_Chatbot_Activator::migrate_to_pro_schema();
+			}
+		}
+		
+	});
 }
 
 /**

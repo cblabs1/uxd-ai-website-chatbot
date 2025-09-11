@@ -1984,4 +1984,553 @@
         }, 3000);
     });
 
+    //----- Pro Upgrade -----//
+
+    // Check if AIChatbot exists (it should from your existing code)
+    if (typeof window.AIChatbot === 'undefined') {
+        console.error('AIChatbot not found - make sure base frontend.js is loaded first');
+        return;
+    }
+    
+    // Store original methods before extending
+    var originalMethods = {
+        sendMessageToServer: window.AIChatbot.sendMessageToServer,
+        addBotMessage: window.AIChatbot.addBotMessage,
+        buildMessageHtml: window.AIChatbot.buildMessageHtml,
+        showTypingIndicator: window.AIChatbot.showTypingIndicator,
+        hideTypingIndicator: window.AIChatbot.hideTypingIndicator
+    };
+    
+    // Pro feature detection
+    window.AIChatbot.isPro = function() {
+        return window.ai_chatbot_pro_enabled || false;
+    };
+    
+    // Enhanced sendMessageToServer with Pro routing
+    window.AIChatbot.sendMessageToServer = function(message) {
+        var self = this;
+        
+        // Use Pro endpoint if available
+        var action = this.isPro() ? 'ai_chatbot_message_pro' : 'ai_chatbot_message';
+        
+        // Prepare request data (keeping your existing structure)
+        var requestData = {
+            action: action,
+            message: message,
+            nonce: this.config.nonce,
+            session_id: this.currentSessionId,
+            conversation_id: this.currentConversationId
+        };
+        
+        // Add Pro context if available
+        if (this.isPro()) {
+            requestData.context = this.buildProContext();
+        }
+        
+        // Add user data if exists (preserve your existing logic)
+        var userData = this.currentUserData || {};
+        $.extend(requestData, userData);
+        
+        // Show enhanced typing for Pro users
+        if (this.isPro()) {
+            this.showProTypingIndicator();
+        } else {
+            this.showTypingIndicator();
+        }
+        
+        // Make AJAX request (keeping your existing error handling)
+        $.ajax({
+            url: this.config.ajaxUrl,
+            type: 'POST',
+            data: requestData,
+            timeout: 30000,
+            success: function(response) {
+                self.hideTypingIndicator();
+                self.setInputState(true);
+                
+                if (response.success) {
+                    var botResponse = response.data.response;
+                    self.currentConversationId = response.data.conversation_id;
+                    
+                    // Add message with Pro enhancements
+                    if (self.isPro()) {
+                        self.addProBotMessage(botResponse, response.data);
+                    } else {
+                        self.addBotMessage(botResponse);
+                    }
+                    
+                    // Your existing analytics code
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'chatbot_message_sent', {
+                            user_message: message,
+                            bot_response: botResponse,
+                            response_time: response.data.response_time,
+                            tokens_used: response.data.tokens_used,
+                            user_email: userData.email
+                        });
+                    }
+                    
+                    self.hideSuggestions();
+                } else {
+                    console.error('Server error:', response.data);
+                    self.showError(response.data.message || self.config.strings.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                // Keep your existing error handling exactly as is
+                console.error('AJAX Error:', {
+                    status: status,
+                    error: error,
+                    response: xhr.responseText,
+                    userData: userData
+                });
+                
+                self.hideTypingIndicator();
+                self.setInputState(true);
+                
+                // Retry logic (keep your existing logic)
+                if (self.retryCount < self.maxRetries) {
+                    self.retryCount++;
+                    setTimeout(function() {
+                        self.sendMessageToServer(message);
+                    }, 2000 * self.retryCount);
+                } else {
+                    var errorMessage = status === 'timeout' ? 
+                        'Request timed out. Please try again.' : 
+                        self.config.strings.networkError;
+                    self.showError(errorMessage);
+                    self.retryCount = 0;
+                }
+            }
+        });
+    };
+    
+    // Enhanced addBotMessage for Pro features
+    window.AIChatbot.addProBotMessage = function(message, responseData) {
+        // Use your existing addBotMessage as base
+        var messageId = this.generateRandomString(8);
+        
+        // Build enhanced HTML for Pro
+        var html = this.buildProMessageHtml(message, 'bot', Date.now(), messageId, responseData);
+        this.$messages.append(html);
+        this.scrollToBottom();
+        this.animateMessageAppearance(messageId);
+        
+        // Add Pro features
+        this.addProFeatures(messageId, responseData);
+    };
+    
+    // Enhanced message HTML builder for Pro
+    window.AIChatbot.buildProMessageHtml = function(message, sender, timestamp, messageId, responseData) {
+        // Start with your existing HTML structure
+        var senderClass = sender === 'user' ? ' ai-chatbot-message-user' : ' ai-chatbot-message-bot';
+        var timeString = this.formatTime(timestamp / 1000);
+        
+        // Add Pro enhancements
+        var sourceIndicator = this.isPro() ? this.getSourceIndicator(responseData.source) : '';
+        var proClass = this.isPro() ? ' pro-message' : '';
+        
+        var html = '<div class="ai-chatbot-message' + senderClass + proClass + '" data-message-id="' + messageId + '">';
+        
+        // Pro header
+        if (this.isPro() && sender === 'bot') {
+            html += '<div class="message-header">';
+            html += '<span class="message-source">' + sourceIndicator + '</span>';
+            html += '<span class="message-time">' + timeString + '</span>';
+            html += '</div>';
+        }
+        
+        html += '<div class="ai-chatbot-message-content">';
+        html += '<div class="ai-chatbot-message-text">' + this.formatMessage(message) + '</div>';
+        
+        // Regular time for non-Pro
+        if (!this.isPro() || sender === 'user') {
+            html += '<span class="ai-chatbot-message-time">' + timeString + '</span>';
+        }
+        
+        html += '</div>';
+        html += '</div>';
+        
+        return html;
+    };
+    
+    // Pro typing indicator
+    window.AIChatbot.showProTypingIndicator = function() {
+        if (!this.isPro()) {
+            return this.showTypingIndicator();
+        }
+        
+        var typingHtml = '<div class="ai-chatbot-typing-indicator pro-typing">' +
+            '<div class="thinking-animation">' +
+                '<div class="dot"></div>' +
+                '<div class="dot"></div>' +
+                '<div class="dot"></div>' +
+            '</div>' +
+            '<span class="thinking-text">' + this.config.strings.thinking + '</span>' +
+        '</div>';
+        
+        this.$messages.append(typingHtml);
+        this.scrollToBottom();
+        this.isTyping = true;
+    };
+    
+    // Enhanced hideTypingIndicator
+    var originalHideTyping = window.AIChatbot.hideTypingIndicator;
+    window.AIChatbot.hideTypingIndicator = function() {
+        // Remove both regular and Pro typing indicators
+        this.$messages.find('.ai-chatbot-typing-indicator, .pro-typing').remove();
+        this.isTyping = false;
+    };
+    
+    // Pro context building
+    window.AIChatbot.buildProContext = function() {
+        if (!this.isPro()) return {};
+        
+        return {
+            page_url: window.location.href,
+            page_title: document.title,
+            user_agent: navigator.userAgent,
+            timestamp: new Date().toISOString(),
+            scroll_position: $(window).scrollTop(),
+            time_on_page: this.lastActivityTime ? Math.round((Date.now() - this.lastActivityTime) / 1000) : 0,
+            message_count: this.messageCount
+        };
+    };
+    
+    // Source indicator for Pro
+    window.AIChatbot.getSourceIndicator = function(source) {
+        if (!this.isPro()) return '';
+        
+        var indicators = {
+            'semantic_training': '🧠 Smart Match',
+            'ai_provider_enhanced': '🤖 AI Enhanced',
+            'ai_provider': '🤖 AI Generated',
+            'semantic_search': '🔍 Semantic Search',
+            'training_data': '📚 Knowledge Base'
+        };
+        
+        return indicators[source] || '💬 Response';
+    };
+    
+    // Enhanced message formatting
+    var originalFormatMessage = window.AIChatbot.formatMessage;
+    window.AIChatbot.formatMessage = function(message) {
+        // Apply basic formatting first (your existing logic)
+        if (originalFormatMessage) {
+            message = originalFormatMessage.call(this, message);
+        }
+        
+        // Add Pro enhancements
+        if (this.isPro()) {
+            // Email links
+            message = message.replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, 
+                '<a href="mailto:$1">$1</a>');
+            
+            // Phone links
+            message = message.replace(/(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g, 
+                '<a href="tel:+1$2$3$4">$1($2) $3-$4</a>');
+            
+            // Enhanced formatting
+            message = message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            message = message.replace(/`([^`]+)`/g, '<code>$1</code>');
+        }
+        
+        return message;
+    };
+    
+    // Add Pro features to messages
+    window.AIChatbot.addProFeatures = function(messageId, responseData) {
+        if (!this.isPro()) return;
+        
+        var $message = $('[data-message-id="' + messageId + '"]');
+        
+        // Add confidence indicator
+        if (responseData.confidence && window.ai_chatbot_debug) {
+            this.addConfidenceIndicator(responseData.confidence, $message);
+        }
+        
+        // Add suggestions
+        if (responseData.suggestions && responseData.suggestions.length > 0) {
+            this.addSuggestions(responseData.suggestions);
+        }
+        
+        // Add feedback option
+        this.addFeedbackOption($message, responseData);
+    };
+    
+    // Add suggestions (Pro feature)
+    window.AIChatbot.addSuggestions = function(suggestions) {
+        if (!this.isPro() || !suggestions || suggestions.length === 0) return;
+        
+        var self = this;
+        var $suggestionsContainer = $('<div class="pro-suggestions">' +
+            '<div class="suggestions-header">💡 You might also ask:</div>' +
+            '<div class="suggestions-list"></div>' +
+        '</div>');
+        
+        var $suggestionsList = $suggestionsContainer.find('.suggestions-list');
+        
+        suggestions.forEach(function(suggestion) {
+            var $suggestionButton = $('<button class="suggestion-button">' + suggestion + '</button>');
+            
+            $suggestionButton.on('click', function() {
+                self.sendMessage(suggestion);
+                $suggestionsContainer.fadeOut();
+            });
+            
+            $suggestionsList.append($suggestionButton);
+        });
+        
+        this.$messages.append($suggestionsContainer);
+        this.scrollToBottom();
+        
+        // Auto-hide after 30 seconds
+        setTimeout(function() {
+            $suggestionsContainer.fadeOut();
+        }, 30000);
+    };
+    
+    // Add confidence indicator (Pro feature)
+    window.AIChatbot.addConfidenceIndicator = function(confidence, $messageElement) {
+        if (!this.isPro()) return;
+        
+        var confidencePercent = Math.round(confidence * 100);
+        var confidenceClass = confidencePercent > 80 ? 'high' : 
+                             confidencePercent > 60 ? 'medium' : 'low';
+        
+        var $confidenceIndicator = $('<div class="confidence-indicator ' + confidenceClass + '">' +
+            '<span class="confidence-label">Confidence:</span>' +
+            '<span class="confidence-value">' + confidencePercent + '%</span>' +
+        '</div>');
+        
+        $messageElement.find('.ai-chatbot-message-content').append($confidenceIndicator);
+    };
+    
+    // Add feedback option (Pro feature)
+    window.AIChatbot.addFeedbackOption = function($messageElement, responseData) {
+        if (!this.isPro()) return;
+        
+        var self = this;
+        var $feedbackContainer = $('<div class="message-feedback">' +
+            '<div class="feedback-question">Was this helpful?</div>' +
+            '<div class="feedback-buttons">' +
+                '<button class="feedback-btn positive" data-rating="5" title="Very helpful">👍</button>' +
+                '<button class="feedback-btn negative" data-rating="1" title="Not helpful">👎</button>' +
+            '</div>' +
+        '</div>');
+        
+        $feedbackContainer.find('.feedback-btn').on('click', function() {
+            var rating = $(this).data('rating');
+            var isPositive = $(this).hasClass('positive');
+            
+            // Send feedback
+            self.sendFeedback(responseData.conversation_id, rating);
+            
+            // Update UI
+            $feedbackContainer.html(
+                '<div class="feedback-thanks">' +
+                    (isPositive ? '✅ Thank you for your feedback!' : '📝 Thank you for your feedback!') +
+                '</div>'
+            );
+        });
+        
+        $messageElement.find('.ai-chatbot-message-content').append($feedbackContainer);
+    };
+    
+    // Send feedback (Pro feature)
+    window.AIChatbot.sendFeedback = function(conversationId, rating) {
+        if (!this.isPro()) return;
+        
+        $.ajax({
+            url: this.config.ajaxUrl,
+            method: 'POST',
+            data: {
+                action: 'ai_chatbot_conversation_feedback',
+                conversation_id: conversationId,
+                rating: rating,
+                nonce: this.config.nonce
+            }
+        });
+    };
+    
+    // Initialize Pro features when chatbot is ready
+    var originalInit = window.AIChatbot.init;
+    window.AIChatbot.init = function(config) {
+        // Call original init first
+        if (originalInit) {
+            originalInit.call(this, config);
+        }
+        
+        // Add Pro initialization
+        if (this.isPro()) {
+            this.initProFeatures();
+        }
+    };
+    
+    // Initialize Pro features
+    window.AIChatbot.initProFeatures = function() {
+        console.log('AIChatbot: Initializing Pro features...');
+        
+        // Add Pro badge to header
+        var $header = $('.ai-chatbot-header');
+        if ($header.length && !$header.find('.pro-badge').length) {
+            $header.append('<span class="pro-badge">⭐ Pro</span>');
+        }
+        
+        // Track page context
+        this.lastActivityTime = Date.now();
+        
+        // Load Pro styles
+        this.loadProStyles();
+    };
+    
+    // Load Pro styles
+    window.AIChatbot.loadProStyles = function() {
+        if (document.getElementById('ai-chatbot-pro-styles')) {
+            return; // Already loaded
+        }
+        
+        var proStyles = `
+            .pro-message {
+                border-left: 4px solid #6366f1;
+                background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            }
+            
+            .message-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.85em;
+                color: #64748b;
+                margin-bottom: 8px;
+            }
+            
+            .message-source {
+                font-weight: 600;
+                color: #6366f1;
+            }
+            
+            .pro-typing {
+                background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+                color: white;
+                border-radius: 20px;
+                padding: 15px 20px;
+            }
+            
+            .thinking-animation {
+                display: inline-flex;
+                align-items: center;
+                margin-right: 10px;
+            }
+            
+            .thinking-animation .dot {
+                width: 8px;
+                height: 8px;
+                background: white;
+                border-radius: 50%;
+                margin: 0 2px;
+                animation: thinking 1.4s infinite ease-in-out;
+            }
+            
+            .thinking-animation .dot:nth-child(1) { animation-delay: -0.32s; }
+            .thinking-animation .dot:nth-child(2) { animation-delay: -0.16s; }
+            
+            @keyframes thinking {
+                0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+                40% { transform: scale(1); opacity: 1; }
+            }
+            
+            .pro-suggestions {
+                margin: 15px 0;
+                padding: 15px;
+                background: #f8fafc;
+                border-radius: 12px;
+                border: 1px solid #e2e8f0;
+            }
+            
+            .suggestions-header {
+                font-weight: 600;
+                color: #374151;
+                margin-bottom: 10px;
+            }
+            
+            .suggestion-button {
+                background: white;
+                border: 1px solid #d1d5db;
+                border-radius: 20px;
+                padding: 8px 16px;
+                font-size: 0.9em;
+                color: #374151;
+                cursor: pointer;
+                margin: 0 8px 8px 0;
+                transition: all 0.2s ease;
+            }
+            
+            .suggestion-button:hover {
+                background: #6366f1;
+                color: white;
+                border-color: #6366f1;
+                transform: translateY(-1px);
+            }
+            
+            .confidence-indicator {
+                margin-top: 10px;
+                padding: 5px 10px;
+                border-radius: 15px;
+                font-size: 0.8em;
+                display: inline-block;
+            }
+            
+            .confidence-indicator.high { background: #dcfce7; color: #166534; }
+            .confidence-indicator.medium { background: #fef3c7; color: #92400e; }
+            .confidence-indicator.low { background: #fee2e2; color: #991b1b; }
+            
+            .message-feedback {
+                margin-top: 12px;
+                padding: 12px;
+                background: rgba(99, 102, 241, 0.05);
+                border-radius: 8px;
+            }
+            
+            .feedback-btn {
+                background: none;
+                border: 1px solid #d1d5db;
+                border-radius: 20px;
+                padding: 6px 12px;
+                font-size: 1.2em;
+                cursor: pointer;
+                margin-right: 10px;
+                transition: all 0.2s ease;
+            }
+            
+            .feedback-btn:hover { transform: scale(1.1); }
+            .feedback-btn.positive:hover { background: #dcfce7; border-color: #16a34a; }
+            .feedback-btn.negative:hover { background: #fee2e2; border-color: #dc2626; }
+            
+            .pro-badge {
+                background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+                color: #92400e;
+                font-size: 0.7em;
+                font-weight: bold;
+                padding: 2px 8px;
+                border-radius: 10px;
+                margin-left: 8px;
+            }
+        `;
+        
+        var styleSheet = document.createElement('style');
+        styleSheet.id = 'ai-chatbot-pro-styles';
+        styleSheet.textContent = proStyles;
+        document.head.appendChild(styleSheet);
+    };
+    
+    // Set Pro detection
+    $(document).ready(function() {
+        window.ai_chatbot_pro_enabled = typeof ai_chatbot_pro_enabled !== 'undefined' && ai_chatbot_pro_enabled;
+        
+        if (window.ai_chatbot_pro_enabled) {
+            console.log('AIChatbot: Pro features enabled');
+        }
+    });
+
 })(jQuery);

@@ -45,6 +45,9 @@ class AI_Chatbot_Activator {
 		// Schedule cleanup events
 		self::schedule_cleanup_events();
 
+		// migration for pro upgrade
+		self::migrate_to_pro_schema();
+
 		// Set activation flag
 		add_option( 'ai_chatbot_activation_redirect', true );
 
@@ -448,5 +451,562 @@ class AI_Chatbot_Activator {
 		if ( ! wp_next_scheduled( 'ai_chatbot_weekly_sync' ) ) {
 			wp_schedule_event( time(), 'weekly', 'ai_chatbot_weekly_sync' );
 		}
+	}
+
+	/**
+	 * Database schema migration for Pro features
+	 * Call this during plugin activation/update
+	 */
+	public static function migrate_to_pro_schema() {
+		global $wpdb;
+		
+		$current_db_version = get_option('ai_chatbot_db_version', '1.0.0');
+		$target_version = '2.0.0'; // Pro version with embeddings
+		
+		// Only run if we need to upgrade
+		if (version_compare($current_db_version, $target_version, '>=')) {
+			return;
+		}
+		
+		// Run migrations step by step
+		self::migrate_conversations_table();
+		self::migrate_content_table();
+		self::migrate_training_data_table();
+		self::create_pro_tables();
+		self::add_pro_options();
+		
+		// Update database version
+		update_option('ai_chatbot_db_version', $target_version);
+		
+		// Log successful migration
+		error_log('AI Chatbot Pro: Database migrated to version ' . $target_version);
+	}
+
+	/**
+	 * Migrate conversations table for Pro features
+	 */
+	private static function migrate_conversations_table() {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+		
+		// Check if table exists
+		if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+			// Table doesn't exist, create it with full Pro schema
+			self::create_conversations_table_pro();
+			return;
+		}
+		
+		// Add embedding columns if they don't exist
+		$columns_to_add = array(
+			'message_embedding' => "ADD COLUMN `message_embedding` LONGTEXT DEFAULT NULL",
+			'response_embedding' => "ADD COLUMN `response_embedding` LONGTEXT DEFAULT NULL", 
+			'embedding_status' => "ADD COLUMN `embedding_status` VARCHAR(20) DEFAULT 'pending'",
+			'intent' => "ADD COLUMN `intent` VARCHAR(255) DEFAULT NULL",
+			'confidence_score' => "ADD COLUMN `confidence_score` DECIMAL(5,4) DEFAULT NULL",
+			'satisfaction_rating' => "ADD COLUMN `satisfaction_rating` TINYINT(1) DEFAULT NULL",
+			'response_time_ms' => "ADD COLUMN `response_time_ms` INT(10) UNSIGNED DEFAULT NULL",
+			'tokens_used' => "ADD COLUMN `tokens_used` INT(10) UNSIGNED DEFAULT NULL",
+			'cost' => "ADD COLUMN `cost` DECIMAL(10,6) DEFAULT NULL",
+			'provider' => "ADD COLUMN `provider` VARCHAR(50) DEFAULT NULL",
+			'model' => "ADD COLUMN `model` VARCHAR(100) DEFAULT NULL"
+		);
+		
+		foreach ($columns_to_add as $column => $sql) {
+			if (!self::column_exists($table_name, $column)) {
+				$wpdb->query("ALTER TABLE $table_name $sql");
+			}
+		}
+		
+		// Add indexes if they don't exist
+		$indexes_to_add = array(
+			'idx_intent' => "ADD INDEX `idx_intent` (`intent`)",
+			'idx_embedding_status' => "ADD INDEX `idx_embedding_status` (`embedding_status`)",
+			'idx_provider' => "ADD INDEX `idx_provider` (`provider`)"
+		);
+		
+		foreach ($indexes_to_add as $index => $sql) {
+			if (!self::index_exists($table_name, $index)) {
+				$wpdb->query("ALTER TABLE $table_name $sql");
+			}
+		}
+	}
+
+	/**
+	 * Migrate content table for Pro features
+	 */
+	private static function migrate_content_table() {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_content';
+		
+		// Check if table exists
+		if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+			// Table doesn't exist, create it with full Pro schema
+			self::create_content_table_pro();
+			return;
+		}
+		
+		// Add embedding columns if they don't exist
+		$columns_to_add = array(
+			'embedding_vector' => "ADD COLUMN `embedding_vector` LONGTEXT DEFAULT NULL",
+			'embedding_status' => "ADD COLUMN `embedding_status` VARCHAR(20) DEFAULT 'pending'",
+			'embedding_model' => "ADD COLUMN `embedding_model` VARCHAR(100) DEFAULT 'text-embedding-ada-002'",
+			'embedding_generated_at' => "ADD COLUMN `embedding_generated_at` DATETIME DEFAULT NULL",
+			'embedding_tokens' => "ADD COLUMN `embedding_tokens` INT(10) UNSIGNED DEFAULT NULL",
+			'embedding_cost' => "ADD COLUMN `embedding_cost` DECIMAL(8,6) DEFAULT NULL",
+			'search_count' => "ADD COLUMN `search_count` INT(10) UNSIGNED DEFAULT 0",
+			'avg_similarity' => "ADD COLUMN `avg_similarity` DECIMAL(5,4) DEFAULT NULL"
+		);
+		
+		foreach ($columns_to_add as $column => $sql) {
+			if (!self::column_exists($table_name, $column)) {
+				$wpdb->query("ALTER TABLE $table_name $sql");
+			}
+		}
+		
+		// Add indexes
+		$indexes_to_add = array(
+			'idx_embedding_status' => "ADD INDEX `idx_embedding_status` (`embedding_status`)",
+			'idx_embedding_model' => "ADD INDEX `idx_embedding_model` (`embedding_model`)",
+			'idx_search_count' => "ADD INDEX `idx_search_count` (`search_count`)"
+		);
+		
+		foreach ($indexes_to_add as $index => $sql) {
+			if (!self::index_exists($table_name, $index)) {
+				$wpdb->query("ALTER TABLE $table_name $sql");
+			}
+		}
+	}
+
+	/**
+	 * Migrate training data table for Pro features  
+	 */
+	private static function migrate_training_data_table() {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
+		
+		// Check if table exists
+		if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+			// Table doesn't exist, create it with full Pro schema
+			self::create_training_data_table_pro();
+			return;
+		}
+		
+		// Add embedding columns if they don't exist
+		$columns_to_add = array(
+			'question_embedding' => "ADD COLUMN `question_embedding` LONGTEXT DEFAULT NULL",
+			'answer_embedding' => "ADD COLUMN `answer_embedding` LONGTEXT DEFAULT NULL",
+			'embedding_status' => "ADD COLUMN `embedding_status` VARCHAR(20) DEFAULT 'pending'",
+			'embedding_model' => "ADD COLUMN `embedding_model` VARCHAR(100) DEFAULT 'text-embedding-ada-002'",
+			'embedding_generated_at' => "ADD COLUMN `embedding_generated_at` DATETIME DEFAULT NULL",
+			'usage_count' => "ADD COLUMN `usage_count` INT(10) UNSIGNED DEFAULT 0",
+			'success_rate' => "ADD COLUMN `success_rate` DECIMAL(5,4) DEFAULT NULL",
+			'last_used' => "ADD COLUMN `last_used` DATETIME DEFAULT NULL"
+		);
+		
+		foreach ($columns_to_add as $column => $sql) {
+			if (!self::column_exists($table_name, $column)) {
+				$wpdb->query("ALTER TABLE $table_name $sql");
+			}
+		}
+		
+		// Add indexes
+		$indexes_to_add = array(
+			'idx_embedding_status' => "ADD INDEX `idx_embedding_status` (`embedding_status`)",
+			'idx_last_used' => "ADD INDEX `idx_last_used` (`last_used`)",
+			'idx_usage_count' => "ADD INDEX `idx_usage_count` (`usage_count`)"
+		);
+		
+		foreach ($indexes_to_add as $index => $sql) {
+			if (!self::index_exists($table_name, $index)) {
+				$wpdb->query("ALTER TABLE $table_name $sql");
+			}
+		}
+	}
+
+	/**
+	 * Create new Pro-specific tables
+	 */
+	private static function create_pro_tables() {
+		global $wpdb;
+		$charset_collate = $wpdb->get_charset_collate();
+		
+		// 1. Embedding Jobs Table
+		$embedding_jobs_table = $wpdb->prefix . 'ai_chatbot_embedding_jobs';
+		if ($wpdb->get_var("SHOW TABLES LIKE '$embedding_jobs_table'") != $embedding_jobs_table) {
+			$sql_embedding_jobs = "CREATE TABLE $embedding_jobs_table (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				job_type varchar(50) NOT NULL,
+				status varchar(20) DEFAULT 'pending',
+				total_items int(10) unsigned DEFAULT 0,
+				processed_items int(10) unsigned DEFAULT 0,
+				failed_items int(10) unsigned DEFAULT 0,
+				batch_size int(10) unsigned DEFAULT 10,
+				provider varchar(50) DEFAULT 'openai',
+				model varchar(100) DEFAULT 'text-embedding-ada-002',
+				error_message text DEFAULT NULL,
+				started_at datetime DEFAULT NULL,
+				completed_at datetime DEFAULT NULL,
+				created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				KEY idx_status (status),
+				KEY idx_job_type (job_type),
+				KEY idx_created_at (created_at)
+			) $charset_collate;";
+			
+			dbDelta($sql_embedding_jobs);
+		}
+		
+		// 2. Embedding Cache Table
+		$embedding_cache_table = $wpdb->prefix . 'ai_chatbot_embedding_cache';
+		if ($wpdb->get_var("SHOW TABLES LIKE '$embedding_cache_table'") != $embedding_cache_table) {
+			$sql_embedding_cache = "CREATE TABLE $embedding_cache_table (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				text_hash varchar(64) NOT NULL,
+				text_preview varchar(255) DEFAULT NULL,
+				embedding_vector longtext NOT NULL,
+				provider varchar(50) DEFAULT 'openai',
+				model varchar(100) DEFAULT 'text-embedding-ada-002',
+				usage_count int(10) unsigned DEFAULT 1,
+				last_used datetime DEFAULT CURRENT_TIMESTAMP,
+				created_at datetime DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY unique_text_hash (text_hash, provider, model),
+				KEY idx_last_used (last_used),
+				KEY idx_usage_count (usage_count)
+			) $charset_collate;";
+			
+			dbDelta($sql_embedding_cache);
+		}
+		
+		// 3. Semantic Analytics Table
+		$semantic_analytics_table = $wpdb->prefix . 'ai_chatbot_semantic_analytics';
+		if ($wpdb->get_var("SHOW TABLES LIKE '$semantic_analytics_table'") != $semantic_analytics_table) {
+			$sql_semantic_analytics = "CREATE TABLE $semantic_analytics_table (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				query text NOT NULL,
+				query_embedding_hash varchar(64) DEFAULT NULL,
+				results_found int(10) unsigned DEFAULT 0,
+				avg_similarity decimal(5,4) DEFAULT NULL,
+				top_similarity decimal(5,4) DEFAULT NULL,
+				search_type varchar(20) DEFAULT 'content',
+				response_quality enum('excellent','good','fair','poor') DEFAULT NULL,
+				user_feedback tinyint(1) DEFAULT NULL,
+				processing_time_ms int(10) unsigned DEFAULT NULL,
+				created_at datetime DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				KEY idx_search_type (search_type),
+				KEY idx_created_at (created_at),
+				KEY idx_response_quality (response_quality),
+				KEY idx_query_hash (query_embedding_hash)
+			) $charset_collate;";
+			
+			dbDelta($sql_semantic_analytics);
+		}
+		
+		// 4. Conversation Insights Table
+		$conversation_insights_table = $wpdb->prefix . 'ai_chatbot_conversation_insights';
+		if ($wpdb->get_var("SHOW TABLES LIKE '$conversation_insights_table'") != $conversation_insights_table) {
+			$sql_conversation_insights = "CREATE TABLE $conversation_insights_table (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				conversation_id bigint(20) unsigned NOT NULL,
+				primary_intent varchar(100) DEFAULT NULL,
+				intent_confidence decimal(5,4) DEFAULT NULL,
+				satisfaction_score decimal(3,2) DEFAULT NULL,
+				journey_stage varchar(50) DEFAULT NULL,
+				resolution_status enum('resolved','partial','unresolved','escalated') DEFAULT NULL,
+				engagement_level enum('high','medium','low') DEFAULT NULL,
+				lead_score tinyint(3) unsigned DEFAULT NULL,
+				insights_data longtext DEFAULT NULL,
+				created_at datetime DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				KEY idx_conversation_id (conversation_id),
+				KEY idx_primary_intent (primary_intent),
+				KEY idx_journey_stage (journey_stage),
+				KEY idx_resolution_status (resolution_status),
+				KEY idx_lead_score (lead_score),
+				KEY idx_created_at (created_at)
+			) $charset_collate;";
+			
+			dbDelta($sql_conversation_insights);
+		}
+		
+		// 5. Context Cache Table
+		$context_cache_table = $wpdb->prefix . 'ai_chatbot_context_cache';
+		if ($wpdb->get_var("SHOW TABLES LIKE '$context_cache_table'") != $context_cache_table) {
+			$sql_context_cache = "CREATE TABLE $context_cache_table (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				context_key varchar(255) NOT NULL,
+				context_type varchar(50) NOT NULL,
+				context_data longtext NOT NULL,
+				expires_at datetime NOT NULL,
+				usage_count int(10) unsigned DEFAULT 1,
+				created_at datetime DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY unique_context_key (context_key),
+				KEY idx_context_type (context_type),
+				KEY idx_expires_at (expires_at),
+				KEY idx_usage_count (usage_count)
+			) $charset_collate;";
+			
+			dbDelta($sql_context_cache);
+		}
+	}
+
+	/**
+	 * Add Pro-specific options
+	 */
+	private static function add_pro_options() {
+		$pro_options = array(
+			// Embedding Configuration
+			'ai_chatbot_embedding_provider' => 'openai',
+			'ai_chatbot_embedding_model' => 'text-embedding-ada-002',
+			'ai_chatbot_embedding_similarity_threshold' => '0.75',
+			'ai_chatbot_embedding_batch_size' => '10',
+			'ai_chatbot_embedding_cache_duration' => '86400', // 24 hours
+			'ai_chatbot_embedding_max_tokens' => '8192',
+			
+			// Semantic Search Configuration
+			'ai_chatbot_semantic_search_enabled' => '1',
+			'ai_chatbot_semantic_training_enabled' => '1',
+			'ai_chatbot_semantic_intent_enabled' => '1',
+			'ai_chatbot_semantic_context_enabled' => '1',
+			
+			// Intelligence Engine Configuration
+			'ai_chatbot_intent_recognition_enabled' => '1',
+			'ai_chatbot_intent_sensitivity' => 'medium',
+			'ai_chatbot_context_builder_enabled' => '1',
+			'ai_chatbot_response_reasoning_enabled' => '1',
+			'ai_chatbot_conversation_memory_enabled' => '1',
+			
+			// Analytics Configuration
+			'ai_chatbot_advanced_analytics_enabled' => '1',
+			'ai_chatbot_conversation_insights_enabled' => '1',
+			'ai_chatbot_lead_scoring_enabled' => '1',
+			'ai_chatbot_journey_tracking_enabled' => '1',
+			
+			// Business Context Configuration
+			'ai_chatbot_business_hours' => '',
+			'ai_chatbot_contact_phone' => '',
+			'ai_chatbot_contact_email' => '',
+			'ai_chatbot_location_info' => '',
+			'ai_chatbot_industry_keywords' => '',
+			'ai_chatbot_current_promotions' => '',
+			
+			// Pro Feature Toggles
+			'ai_chatbot_pro_enabled_features' => json_encode(array(
+				'intelligence_engine',
+				'context_builder', 
+				'intent_recognition',
+				'response_reasoning',
+				'advanced_analytics',
+				'conversation_insights'
+			)),
+			
+			// Performance Settings
+			'ai_chatbot_cache_embeddings' => '1',
+			'ai_chatbot_async_embedding_generation' => '1',
+			'ai_chatbot_embedding_cleanup_days' => '30',
+			
+			// Pro Version Info
+			'ai_chatbot_pro_version' => '1.0.0',
+			'ai_chatbot_pro_activated_at' => current_time('mysql'),
+			'ai_chatbot_features_cache_duration' => '3600' // 1 hour
+		);
+		
+		foreach ($pro_options as $option_name => $default_value) {
+			add_option($option_name, $default_value);
+		}
+	}
+
+	/**
+	 * Check if column exists in table
+	 */
+	private static function column_exists($table_name, $column_name) {
+		global $wpdb;
+		
+		$column = $wpdb->get_results($wpdb->prepare(
+			"SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+			WHERE TABLE_SCHEMA = %s 
+			AND TABLE_NAME = %s 
+			AND COLUMN_NAME = %s",
+			DB_NAME,
+			$table_name,
+			$column_name
+		));
+		
+		return !empty($column);
+	}
+
+	/**
+	 * Check if index exists in table
+	 */
+	private static function index_exists($table_name, $index_name) {
+		global $wpdb;
+		
+		$index = $wpdb->get_results($wpdb->prepare(
+			"SELECT * FROM INFORMATION_SCHEMA.STATISTICS 
+			WHERE TABLE_SCHEMA = %s 
+			AND TABLE_NAME = %s 
+			AND INDEX_NAME = %s",
+			DB_NAME,
+			$table_name,
+			$index_name
+		));
+		
+		return !empty($index);
+	}
+
+	/**
+	 * Create conversations table with full Pro schema
+	 */
+	private static function create_conversations_table_pro() {
+		global $wpdb;
+		$charset_collate = $wpdb->get_charset_collate();
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+		$sql = "CREATE TABLE $table_name (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			session_id varchar(255) NOT NULL,
+			conversation_id varchar(255) DEFAULT NULL,
+			message longtext NOT NULL,
+			response longtext NOT NULL,
+			message_embedding longtext DEFAULT NULL,
+			response_embedding longtext DEFAULT NULL,
+			embedding_status varchar(20) DEFAULT 'pending',
+			intent varchar(255) DEFAULT NULL,
+			confidence_score decimal(5,4) DEFAULT NULL,
+			satisfaction_rating tinyint(1) DEFAULT NULL,
+			user_id bigint(20) unsigned DEFAULT NULL,
+			ip_address varchar(45) DEFAULT NULL,
+			user_agent text DEFAULT NULL,
+			response_time_ms int(10) unsigned DEFAULT NULL,
+			tokens_used int(10) unsigned DEFAULT NULL,
+			cost decimal(10,6) DEFAULT NULL,
+			provider varchar(50) DEFAULT NULL,
+			model varchar(100) DEFAULT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY idx_session_id (session_id),
+			KEY idx_conversation_id (conversation_id),
+			KEY idx_user_id (user_id),
+			KEY idx_intent (intent),
+			KEY idx_embedding_status (embedding_status),
+			KEY idx_provider (provider),
+			KEY idx_created_at (created_at)
+		) $charset_collate;";
+		
+		dbDelta($sql);
+	}
+
+	/**
+	 * Create content table with full Pro schema
+	 */
+	private static function create_content_table_pro() {
+		global $wpdb;
+		$charset_collate = $wpdb->get_charset_collate();
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_content';
+		$sql = "CREATE TABLE $table_name (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			post_id bigint(20) unsigned DEFAULT NULL,
+			content_type varchar(50) NOT NULL,
+			title text,
+			content longtext,
+			url varchar(2048) DEFAULT '',
+			content_hash varchar(64) DEFAULT '',
+			embedding_vector longtext DEFAULT NULL,
+			embedding_status varchar(20) DEFAULT 'pending',
+			embedding_model varchar(100) DEFAULT 'text-embedding-ada-002',
+			embedding_generated_at datetime DEFAULT NULL,
+			embedding_tokens int(10) unsigned DEFAULT NULL,
+			embedding_cost decimal(8,6) DEFAULT NULL,
+			last_trained datetime DEFAULT NULL,
+			search_count int(10) unsigned DEFAULT 0,
+			avg_similarity decimal(5,4) DEFAULT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY idx_post_id (post_id),
+			KEY idx_content_type (content_type),
+			KEY idx_embedding_status (embedding_status),
+			KEY idx_content_hash (content_hash),
+			KEY idx_last_trained (last_trained),
+			KEY idx_search_count (search_count),
+			KEY idx_updated_at (updated_at)
+		) $charset_collate;";
+		
+		dbDelta($sql);
+	}
+
+	/**
+	 * Create training data table with full Pro schema
+	 */
+	private static function create_training_data_table_pro() {
+		global $wpdb;
+		$charset_collate = $wpdb->get_charset_collate();
+		
+		$table_name = $wpdb->prefix . 'ai_chatbot_training_data';
+		$sql = "CREATE TABLE $table_name (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			question longtext NOT NULL,
+			answer longtext NOT NULL,
+			intent varchar(255) DEFAULT '',
+			tags text DEFAULT '',
+			status varchar(20) DEFAULT 'active',
+			source varchar(20) DEFAULT 'manual',
+			source_id bigint(20) unsigned DEFAULT NULL,
+			user_id bigint(20) unsigned DEFAULT NULL,
+			question_embedding longtext DEFAULT NULL,
+			answer_embedding longtext DEFAULT NULL,
+			embedding_status varchar(20) DEFAULT 'pending',
+			embedding_model varchar(100) DEFAULT 'text-embedding-ada-002',
+			embedding_generated_at datetime DEFAULT NULL,
+			usage_count int(10) unsigned DEFAULT 0,
+			success_rate decimal(5,4) DEFAULT NULL,
+			last_used datetime DEFAULT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY idx_status (status),
+			KEY idx_intent (intent),
+			KEY idx_source_id (source_id),
+			KEY idx_user_id (user_id),
+			KEY idx_embedding_status (embedding_status),
+			KEY idx_last_used (last_used),
+			KEY idx_usage_count (usage_count),
+			KEY idx_created_at (created_at)
+		) $charset_collate;";
+		
+		dbDelta($sql);
+	}
+
+	/**
+	 * Clean up old embedding data (optional)
+	 */
+	public static function cleanup_embedding_data() {
+		global $wpdb;
+		
+		$cleanup_days = get_option('ai_chatbot_embedding_cleanup_days', 30);
+		
+		// Clean old cache entries
+		$cache_table = $wpdb->prefix . 'ai_chatbot_embedding_cache';
+		$wpdb->query($wpdb->prepare(
+			"DELETE FROM $cache_table 
+			WHERE last_used < DATE_SUB(NOW(), INTERVAL %d DAY)
+			AND usage_count < 5",
+			$cleanup_days
+		));
+		
+		// Clean old analytics data
+		$analytics_table = $wpdb->prefix . 'ai_chatbot_semantic_analytics';
+		$wpdb->query($wpdb->prepare(
+			"DELETE FROM $analytics_table 
+			WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)",
+			$cleanup_days * 2 // Keep analytics longer
+		));
 	}
 }

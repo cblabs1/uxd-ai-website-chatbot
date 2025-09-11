@@ -130,6 +130,7 @@ class AI_Chatbot {
         }
 
         // Initialize the loader
+        $this->load_pro_dependencies();
         $this->loader = new AI_Chatbot_Loader();
     }
 
@@ -233,6 +234,239 @@ class AI_Chatbot {
     public function get_version() {
         return $this->version;
     }
+
+    /**
+     * Load Pro dependencies if available and licensed
+     * 
+     * Add this to your load_dependencies() method
+     */
+    private function load_pro_dependencies() {
+        // Check if Pro should be loaded
+        if ($this->should_load_pro()) {
+            
+            // Load Pro main class
+            require_once AI_CHATBOT_PLUGIN_DIR . 'includes/pro/class-ai-chatbot-pro.php';
+            
+            // Load Pro intelligence modules
+            require_once AI_CHATBOT_PLUGIN_DIR . 'includes/pro/intelligence/class-embedding-reasoning.php';
+            
+            // Load Pro admin modules (only in admin)
+            if (is_admin()) {
+                require_once AI_CHATBOT_PLUGIN_DIR . 'includes/pro/admin/class-admin-embedding.php';
+            }
+            
+            // Initialize Pro
+            $this->init_pro_modules();
+        }
+    }
+
+    /**
+     * Check if Pro modules should be loaded
+     */
+    private function should_load_pro() {
+        // Check if Freemius functions exist
+        if (!function_exists('ai_chatbot_fs') || !function_exists('ai_chatbot_is_pro')) {
+            return false;
+        }
+        
+        // Check if user has Pro license
+        if (!ai_chatbot_is_pro()) {
+            return false;
+        }
+        
+        // Check if Pro files exist
+        $pro_main_file = AI_CHATBOT_PLUGIN_DIR . 'includes/pro/class-ai-chatbot-pro.php';
+        if (!file_exists($pro_main_file)) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
+     * Initialize Pro modules
+     */
+    private function init_pro_modules() {
+        // Initialize the main Pro class
+        if (class_exists('AI_Chatbot_Pro')) {
+            AI_Chatbot_Pro::get_instance();
+        }
+        
+        // Initialize embedding admin (admin only)
+        if (is_admin() && class_exists('AI_Chatbot_Embedding_Admin')) {
+            new AI_Chatbot_Embedding_Admin();
+        }
+    }
+
+    /**
+     * Enhanced response processing with Pro features
+     * 
+     * Add this method to integrate Pro into response processing
+     */
+    public function process_response_with_pro($message, $context = '', $conversation_id = null) {
+        // Get the appropriate AI provider
+        $provider_name = get_option('ai_chatbot_provider', 'openai');
+        $provider = $this->get_provider_instance($provider_name);
+        
+        if (!$provider) {
+            return new WP_Error('no_provider', 'AI provider not available');
+        }
+        
+        // If Pro is available, enhance the context
+        if (function_exists('ai_chatbot_pro') && ai_chatbot_pro()) {
+            $context = apply_filters('ai_chatbot_context_building', $context, $message);
+        }
+        
+        // Get response from provider
+        $response = $provider->generate_response($message, $context);
+        
+        if (is_wp_error($response)) {
+            return $response;
+        }
+        
+        // If Pro is available, enhance the response
+        if (function_exists('ai_chatbot_pro') && ai_chatbot_pro()) {
+            $response = apply_filters('ai_chatbot_response_processing', $response, $message, $context);
+        }
+        
+        return $response;
+    }
+
+    /**
+     * Get provider instance
+     */
+    private function get_provider_instance($provider_name) {
+        switch ($provider_name) {
+            case 'openai':
+                return new AI_Chatbot_OpenAI();
+            case 'claude':
+                return new AI_Chatbot_Claude();
+            case 'gemini':
+                return new AI_Chatbot_Gemini();
+            case 'custom':
+                return new AI_Chatbot_Custom();
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Check if specific Pro feature is available
+     */
+    public function has_pro_feature($feature) {
+        if (!function_exists('ai_chatbot_has_feature')) {
+            return false;
+        }
+        
+        return ai_chatbot_has_feature($feature);
+    }
+
+    /**
+     * Get Pro upgrade URL for specific feature
+     */
+    public function get_feature_upgrade_url($feature = 'general') {
+        if (function_exists('ai_chatbot_get_upgrade_url')) {
+            return ai_chatbot_get_upgrade_url($feature);
+        }
+        
+        return admin_url('admin.php?page=ai-chatbot-pricing');
+    }
+
+    /**
+     * Display Pro feature upgrade notice
+     */
+    public function show_pro_feature_notice($feature, $description = '') {
+        if ($this->has_pro_feature($feature)) {
+            return false;
+        }
+        
+        if (function_exists('ai_chatbot_show_upgrade_notice')) {
+            return ai_chatbot_show_upgrade_notice($feature, $description);
+        }
+        
+        return false;
+    }
+
+    /**
+     * Get available features (both free and pro)
+     */
+    public function get_available_features() {
+        $free_features = array(
+            'basic_chatbot' => array(
+                'name' => __('Basic Chatbot', 'ai-website-chatbot'),
+                'available' => true
+            ),
+            'training_data' => array(
+                'name' => __('Training Data', 'ai-website-chatbot'),
+                'available' => true
+            ),
+            'multiple_providers' => array(
+                'name' => __('Multiple AI Providers', 'ai-website-chatbot'),
+                'available' => true
+            ),
+            'basic_analytics' => array(
+                'name' => __('Basic Analytics', 'ai-website-chatbot'),
+                'available' => true
+            ),
+            'customization' => array(
+                'name' => __('Appearance Customization', 'ai-website-chatbot'),
+                'available' => true
+            )
+        );
+        
+        $pro_features = array(
+            'intelligence_engine' => array(
+                'name' => __('Intelligence Engine', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('intelligence_engine')
+            ),
+            'intent_recognition' => array(
+                'name' => __('Intent Recognition', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('intent_recognition')
+            ),
+            'advanced_analytics' => array(
+                'name' => __('Advanced Analytics', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('advanced_analytics')
+            ),
+            'conversation_context' => array(
+                'name' => __('Conversation Context', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('conversation_context')
+            ),
+            'smart_responses' => array(
+                'name' => __('Smart Response Generation', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('smart_responses')
+            ),
+            'lead_qualification' => array(
+                'name' => __('Lead Qualification', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('lead_qualification')
+            ),
+            'custom_integrations' => array(
+                'name' => __('Custom Integrations', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('custom_integrations')
+            ),
+            'priority_support' => array(
+                'name' => __('Priority Support', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('priority_support')
+            )
+        );
+        
+        return array_merge($free_features, $pro_features);
+    }
+
+    /**
+     * Get license information display
+     */
+    public function get_license_display() {
+        if (function_exists('ai_chatbot_get_license_info')) {
+            return ai_chatbot_get_license_info();
+        }
+        
+        return array(
+            'type' => 'free',
+            'status' => 'active'
+        );
+    }
+
+
 }
 
 /**
