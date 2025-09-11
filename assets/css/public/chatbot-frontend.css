@@ -377,6 +377,10 @@
     z-index: 10;
 }
 
+.ai-chatbot-shortcode .ai-chatbot-input-area {
+    border-top: none;
+}
+
 .ai-chatbot-input-form {
     padding: 16px;
 }
@@ -803,6 +807,7 @@
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
     animation: slideInRating 0.5s ease-out;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    justify-content: center
 }
 
 .rating-bubble {

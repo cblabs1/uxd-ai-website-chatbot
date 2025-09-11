@@ -548,11 +548,17 @@ class AI_Chatbot_Ajax {
         $user_email = sanitize_email($_POST['user_email'] ?? ''); // NEW
         $limit = intval($_POST['limit'] ?? 50);
 
+        if (empty($session_id)) {
+            wp_send_json_error('Session ID required');
+            return;
+        }
+
         $messages = $this->get_conversation_history($session_id, $user_email, $limit);
 
         wp_send_json_success(array(
             'messages' => $messages,
-            'count' => count($messages)
+            'count' => count($messages),
+            'session_id' => $session_id
         ));
     }
 
@@ -859,25 +865,14 @@ class AI_Chatbot_Ajax {
             return array();
         }
 
-        if ($user_email) {
-            $results = $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM {$table_name} 
-                WHERE user_email = %s 
-                ORDER BY created_at ASC 
-                LIMIT %d",
-                $user_email,
-                $limit
-            ));
-        } else {
-            $results = $wpdb->get_results($wpdb->prepare(
+        $results = $wpdb->get_results($wpdb->prepare(
                 "SELECT * FROM {$table_name} 
                 WHERE session_id = %s 
                 ORDER BY created_at ASC 
                 LIMIT %d",
                 $session_id,
                 $limit
-            ));
-        }
+        ));
 
         $messages = array();
         foreach ($results as $row) {

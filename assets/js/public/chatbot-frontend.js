@@ -65,7 +65,7 @@
             }, config);
 
             // Initialize session
-            this.currentSessionId = this.config.sessionId || this.generateSessionId();
+            this.currentSessionId = this.generateSessionId();
             this.currentConversationId = this.generateConversationId();
             this.lastActivityTime = Date.now();
 
@@ -216,43 +216,7 @@
                 }, 300);
                 
                 console.log('Pre-chat form injected into chat container');
-            } else {
-                console.error('Could not find messages container for pre-chat form');
-                // Fallback to overlay modal if container not found
-                this.createOverlayModal();
-            }
-        },
-
-        createOverlayModal: function() {
-            var modalHTML = `
-                <div id="ai-chatbot-prechat-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center;">
-                    <div id="ai-chatbot-pre-chat-modal" style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-                        <div class="ai-chatbot-form-container">
-                            <div class="ai-chatbot-form-header">
-                                <h3 style="margin: 0 0 10px 0; color: #333;">Welcome! 👋</h3>
-                                <p style="margin: 0 0 20px 0; color: #666;">Please provide your details to start chatting.</p>
-                            </div>
-                            <form id="ai-chatbot-user-form">
-                                <div class="ai-chatbot-form-group" style="margin-bottom: 15px;">
-                                    <label for="ai-chatbot-user-name">Name *</label>
-                                    <input type="text" id="ai-chatbot-user-name" name="name" required placeholder="Enter your full name">
-                                </div>
-                                <div class="ai-chatbot-form-group" style="margin-bottom: 20px;">
-                                    <label for="ai-chatbot-user-email">Email *</label>
-                                    <input type="email" id="ai-chatbot-user-email" name="email" required placeholder="Enter your email address">
-                                </div>
-                                <button type="submit" class="ai-chatbot-form-submit">Start Chatting</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            $('body').append(modalHTML);
-            
-            setTimeout(() => {
-                $('#ai-chatbot-user-name').focus();
-            }, 300);
+            } 
         },
 
 
@@ -295,9 +259,39 @@
 
         // Generate unique session ID
         generateSessionId: function() {
-            return 'session_' + Date.now() + '_' + this.generateRandomString(12);
-        },
+            var sessionKey = 'ai_chatbot_session_id';
 
+            // First, check localStorage
+            var sessionId = localStorage.getItem(sessionKey);
+            if (sessionId) {
+                console.log('✅ Using existing localStorage session:', sessionId);
+                return sessionId;
+            }
+
+            // Then, check cookie (to sync with backend)
+            sessionId = this.getCookie('ai_chatbot_session');
+            if (sessionId) {
+                console.log('✅ Using existing cookie session:', sessionId);
+                // Store in localStorage for faster access next time
+                localStorage.setItem(sessionKey, sessionId);
+                return sessionId;
+            }
+            
+            // Generate a new unique ID if none exists
+            sessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0,
+                    v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+
+            // Store in both localStorage and cookie
+            localStorage.setItem(sessionKey, sessionId);
+            this.setCookie('ai_chatbot_session', sessionId, 7); // 7 days
+
+            console.log('🆕 Created new session:', sessionId);
+            return sessionId;
+        },
+        
         // Generate conversation ID
         generateConversationId: function() {
             return 'conv_' + Date.now() + '_' + this.generateRandomString(12);
@@ -310,6 +304,28 @@
                 result += chars.charAt(Math.floor(Math.random() * chars.length));
             }
             return result;
+        },
+
+        // Add cookie helper methods (around line 150-170)
+        getCookie: function(name) {
+            var nameEQ = name + "=";
+            var ca = document.cookie.split(';');
+            for(var i = 0; i < ca.length; i++) {
+                var c = ca[i];
+                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        },
+
+        setCookie: function(name, value, days) {
+            var expires = "";
+            if (days) {
+                var date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Lax";
         },
 
         // UI Initialization
