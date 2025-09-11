@@ -51,6 +51,10 @@ class AI_Chatbot_Ajax {
         // Add this line to the constructor
         add_action('wp_ajax_ai_chatbot_conversation_rating', array($this, 'handle_conversation_rating'));
         add_action('wp_ajax_nopriv_ai_chatbot_conversation_rating', array($this, 'handle_conversation_rating'));
+
+        add_action('wp_ajax_ai_chatbot_get_conversation_rating_status', array($this, 'handle_get_conversation_rating_status'));
+        add_action('wp_ajax_nopriv_ai_chatbot_get_conversation_rating_status', array($this, 'handle_get_conversation_rating_status'));
+
     }
 
     /**
@@ -783,8 +787,15 @@ class AI_Chatbot_Ajax {
             return array();
         }
 
+        // Updated query to include rating and feedback data
         $results = $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM {$table_name} 
+                "SELECT *, 
+                rating as conversation_rating,
+                feedback as conversation_feedback,
+                rated_at as conversation_rated_at,
+                message_rating,
+                message_rated_at
+                FROM {$table_name} 
                 WHERE session_id = %s 
                 ORDER BY created_at ASC 
                 LIMIT %d",
@@ -794,23 +805,87 @@ class AI_Chatbot_Ajax {
 
         $messages = array();
         foreach ($results as $row) {
-            $messages[] = array(
+            // User message
+            $user_message = array(
                 'id' => $row->conversation_id,
                 'sender' => 'user',
                 'message' => $row->user_message,
                 'timestamp' => strtotime($row->created_at),
                 'user_email' => $row->user_email
             );
-            $messages[] = array(
+            
+            // Bot message with rating data
+            $bot_message = array(
                 'id' => $row->conversation_id,
                 'sender' => 'bot',
                 'message' => $row->ai_response,
                 'timestamp' => strtotime($row->created_at),
-                'user_email' => $row->user_email
+                'user_email' => $row->user_email,
+                // Add rating data to bot messages
+                'message_rating' => $row->message_rating,
+                'message_rated_at' => $row->message_rated_at,
+                'conversation_rating' => $row->conversation_rating,
+                'conversation_feedback' => $row->conversation_feedback,
+                'conversation_rated_at' => $row->conversation_rated_at
             );
+            
+            $messages[] = $user_message;
+            $messages[] = $bot_message;
         }
 
         return $messages;
+    }
+
+    /**
+     * Check if conversation has been rated (NEW FUNCTION - ADD THIS)
+     */
+    private function get_conversation_rating_status($session_id) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") != $table_name) {
+            return null;
+        }
+
+        // Get the most recent conversation rating for this session
+        $rating_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT rating, feedback, rated_at 
+            FROM {$table_name} 
+            WHERE session_id = %s 
+            AND rating IS NOT NULL 
+            ORDER BY rated_at DESC 
+            LIMIT 1",
+            $session_id
+        ));
+
+        return $rating_data;
+    }
+
+    /**
+     * Handle get conversation rating status (NEW FUNCTION - ADD THIS)
+     */
+    public function handle_get_conversation_rating_status() {
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'ai_chatbot_nonce')) {
+            wp_send_json_error(array('message' => __('Security check failed.', 'ai-website-chatbot')));
+            return;
+        }
+
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+
+        if (empty($session_id)) {
+            wp_send_json_error('Session ID required');
+            return;
+        }
+
+        $rating_status = $this->get_conversation_rating_status($session_id);
+
+        wp_send_json_success(array(
+            'has_rating' => !empty($rating_status),
+            'rating' => $rating_status ? intval($rating_status->rating) : null,
+            'feedback' => $rating_status ? $rating_status->feedback : '',
+            'rated_at' => $rating_status ? $rating_status->rated_at : null
+        ));
     }
 
     /**
@@ -1696,7 +1771,26 @@ class AI_Chatbot_Ajax {
      * @return string Session ID
      */
     private function generate_session_id() {
-        return 'sess_' . time() . '_' . wp_generate_password(12, false);
+        // Use more entropy for better uniqueness
+        $session_id = 'chat_' . wp_generate_uuid4() . '_' . time();
+        
+        // Ensure it's unique in database
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
+        
+        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") == $table_name) {
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table_name} WHERE session_id = %s",
+                $session_id
+            ));
+            
+            // If by rare chance it exists, generate another
+            if ($exists > 0) {
+                return $this->generate_session_id(); // Recursive call
+            }
+        }
+        
+        return $session_id;
     }
 
     /**
@@ -1993,9 +2087,14 @@ class AI_Chatbot_Ajax {
         $rating = intval($_POST['rating'] ?? 0);
         $feedback = sanitize_textarea_field($_POST['feedback'] ?? '');
 
-        // Validate rating (1-5 for smiley system)
-        if (empty($conversation_id) || !in_array($rating, [1, 2, 3, 4, 5])) {
-            wp_send_json_error(array('message' => __('Invalid rating data.', 'ai-website-chatbot')));
+        // Validate rating
+        if ($rating < 1 || $rating > 5) {
+            wp_send_json_error(array('message' => __('Invalid rating value.', 'ai-website-chatbot')));
+            return;
+        }
+
+        if (empty($conversation_id)) {
+            wp_send_json_error(array('message' => __('Invalid conversation ID.', 'ai-website-chatbot')));
             return;
         }
 
@@ -2006,16 +2105,49 @@ class AI_Chatbot_Ajax {
             // Log the rating event
             $this->log_conversation_rating_event($conversation_id, $rating, $feedback);
             
+            // Generate new session ID for next conversation
+            $new_session_id = $this->generate_session_id();
+            
+            // Clear the old session cookie and set new one
+            $this->reset_session_after_rating($new_session_id);
+            
             wp_send_json_success(array(
                 'message' => __('Thank you for your feedback!', 'ai-website-chatbot'),
                 'rating' => $rating,
-                'has_feedback' => !empty($feedback)
+                'has_feedback' => !empty($feedback),
+                'session_reset' => true,
+                'new_session_id' => $new_session_id,
+                'should_reload_chat' => true
             ));
         } else {
             wp_send_json_error(array(
                 'message' => __('Failed to save rating.', 'ai-website-chatbot')
             ));
         }
+    }
+
+    /**
+     * Reset session after rating submission (NEW FUNCTION - ADD THIS)
+     */
+    private function reset_session_after_rating($new_session_id) {
+        // Clear the old session cookie
+        if (isset($_COOKIE['ai_chatbot_session'])) {
+            setcookie('ai_chatbot_session', '', time() - 3600, '/');
+            unset($_COOKIE['ai_chatbot_session']);
+        }
+        
+        // Set new session cookie
+        setcookie('ai_chatbot_session', $new_session_id, time() + (86400 * 30), '/'); // 30 days
+        
+        // Also clear any session-based storage if you're using it
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            unset($_SESSION['ai_chatbot_session']);
+            unset($_SESSION['ai_chatbot_conversation_id']);
+            unset($_SESSION['ai_chatbot_user_data']);
+        }
+        
+        // Log the session reset
+        error_log("AI Chatbot: Session reset after rating. New session: " . $new_session_id);
     }
 
     /**

@@ -19,6 +19,9 @@
             this.input = null;
             this.isOpen = false;
             this.isMinimized = false;
+            this.inactivityTimer = null;
+            this.messageCount = 0;
+            this.feedbackMode = false;
             this.conversationId = this.generateConversationId();
             this.init();
         }
