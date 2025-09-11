@@ -211,11 +211,11 @@ $conversation_stats = $this->get_conversation_statistics();
                                     <?php endif; ?>
                                 </td>
                                 <td class="status-cell">
-                                    <select class="conversation-status-select" data-conversation-id="<?php echo esc_attr($conversation['id']); ?>">
+                                    <select id="conversation-status-select" class="conversation-status-select" data-conversation-id="<?php echo esc_attr($conversation['id']); ?>">
                                         <option value="active" <?php selected($conversation['status'], 'active'); ?>><?php _e('Active', 'ai-website-chatbot'); ?></option>
                                         <option value="pending" <?php selected($conversation['status'], 'pending'); ?>><?php _e('Pending', 'ai-website-chatbot'); ?></option>
                                         <option value="resolved" <?php selected($conversation['status'], 'resolved'); ?>><?php _e('Resolved', 'ai-website-chatbot'); ?></option>
-                                        <option value="closed" <?php selected($conversation['status'], 'closed'); ?>><?php _e('Closed', 'ai-website-chatbot'); ?></option>
+                                        <option value="closed" <?php selected($conversation['status'], 'completed'); ?>><?php _e('Closed', 'ai-website-chatbot'); ?></option>
                                     </select>
                                 </td>
                                 <td class="rating-cell">

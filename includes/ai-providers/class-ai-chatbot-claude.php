@@ -79,7 +79,7 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 			error_log('Claude Provider: Found exact training match for: ' . $message);
 			
 			// Log the training response (from base class)
-			$this->log_conversation($conversation_id, $message, $training_response, 0, 'training');
+			//$this->log_conversation($conversation_id, $message, $training_response, 0, 'training');
 			
 			return array(
 				'response' => $training_response,
@@ -100,7 +100,7 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 			// Use similar response with slight modification
 			$modified_response = $this->adapt_training_response($partial_match['response'], $message);
 			
-			$this->log_conversation($conversation_id, $message, $modified_response, 0, 'training_similar');
+			//$this->log_conversation($conversation_id, $message, $modified_response, 0, 'training_similar');
 			
 			return array(
 				'response' => $modified_response,
@@ -234,7 +234,7 @@ class AI_Chatbot_Claude extends AI_Chatbot_Provider_Base {
 
 		// Log conversation (from base class)
 		$response_time = microtime(true) - $start_time;
-		$this->log_conversation($conversation_id, $message, $ai_response, $tokens_used, 'ai');
+		//$this->log_conversation($conversation_id, $message, $ai_response, $tokens_used, 'ai');
 
 		return array(
 			'response' => $ai_response,

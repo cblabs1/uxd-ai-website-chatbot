@@ -1091,9 +1091,6 @@ abstract class AI_Chatbot_Provider_Base implements AI_Chatbot_Provider_Interface
         if (!is_wp_error($training_response) && !empty($training_response)) {
             error_log($this->get_display_name() . ' Provider: Found exact training match for: ' . $message);
             
-            // Log the training response
-            $this->log_conversation($conversation_id, $message, $training_response, 0, 'training');
-            
             return array(
                 'response' => $training_response,
                 'tokens_used' => 0,
@@ -1109,9 +1106,7 @@ abstract class AI_Chatbot_Provider_Base implements AI_Chatbot_Provider_Interface
             
             // Use similar response with slight modification
             $modified_response = $this->adapt_training_response($partial_match['response'], $message);
-            
-            $this->log_conversation($conversation_id, $message, $modified_response, 0, 'training_similar');
-            
+                        
             return array(
                 'response' => $modified_response,
                 'tokens_used' => 0,
