@@ -50,7 +50,10 @@ class AI_Chatbot_Response_Reasoning {
      */
     public function enhance_response($response, $message, $context = '') {
         // Start with the original response
-        $enhanced_response = $response;
+
+        error_log(print_r($response, true));
+
+        $enhanced_response = $response['response'];
         
         // Apply reasoning enhancements
         $enhanced_response = $this->apply_contextual_reasoning($enhanced_response, $message, $context);
@@ -368,21 +371,24 @@ class AI_Chatbot_Response_Reasoning {
      * @return string Tone-matched response
      */
     private function match_response_tone($response, $user_tone) {
+
+        $str_response = $response;
+
         switch ($user_tone) {
             case 'formal':
-                return $this->make_response_formal($response);
+                return $this->make_response_formal($str_response);
                 
             case 'casual':
-                return $this->make_response_casual($response);
+                return $this->make_response_casual($str_response);
                 
             case 'urgent':
-                return $this->make_response_urgent($response);
+                return $this->make_response_urgent($str_response);
                 
             case 'empathetic':
-                return $this->make_response_empathetic($response);
+                return $this->make_response_empathetic($str_response);
                 
             default:
-                return $response;
+                return $str_response;
         }
     }
     

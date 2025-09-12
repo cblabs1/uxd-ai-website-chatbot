@@ -1708,13 +1708,38 @@
         },
 
         setInputState: function(enabled) {
-            if (this.$input) {
-                this.$input.prop('disabled', !enabled);
-            }
-            if (this.$sendBtn) {
-                this.$sendBtn.prop('disabled', !enabled);
+            this.$input.prop('disabled', !enabled);
+            this.$sendBtn.prop('disabled', !enabled);
+            
+            if (enabled) {
+                this.onInputChange(); // Revalidate
             }
         },
+
+        onInputChange: function() {
+            var message = this.$input.val().trim();
+            var charCount = message.length;
+            
+            // Update character counter if exists
+            $('.char-count').text(charCount);
+            
+            // Update send button state
+            if (message && charCount <= this.config.settings.maxMessageLength && !this.isTyping) {
+                this.$sendBtn.prop('disabled', false);
+            } else {
+                this.$sendBtn.prop('disabled', true);
+            }
+            
+            // Handle validation styling
+            if (charCount > this.config.settings.maxMessageLength) {
+                this.$input.addClass('error');
+                $('.char-count').addClass('over-limit');
+            } else {
+                this.$input.removeClass('error');
+                $('.char-count').removeClass('over-limit');
+            }
+        },
+
 
         scrollToBottom: function() {
             if (this.$messages && this.$messages.length) {

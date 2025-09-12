@@ -354,9 +354,9 @@ class AI_Chatbot_Embedding_Reasoning {
         
         // Get all training data with embeddings
         $training_with_embeddings = $wpdb->get_results(
-            "SELECT id, question, answer, intent, embedding_vector 
+            "SELECT id, question, answer, intent, question_embedding 
              FROM $training_table 
-             WHERE embedding_vector IS NOT NULL 
+             WHERE question_embedding IS NOT NULL 
              AND status = 'active'",
             ARRAY_A
         );

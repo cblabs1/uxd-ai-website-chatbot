@@ -222,6 +222,8 @@ class AI_Chatbot_Pro_Ajax {
         
         // Generate response
         $ai_response = $provider->generate_response($message, $context);
+
+        error_log('AI Response: ' . print_r($ai_response, true)); // Log response for debugging
         
         if (is_wp_error($ai_response)) {
             return $ai_response;
@@ -260,8 +262,8 @@ class AI_Chatbot_Pro_Ajax {
         $conversation_data = array(
             'session_id' => $session_id,
             'conversation_id' => $conversation_id,
-            'message' => $message,
-            'response' => $response['text'],
+            'user_message' => $message,
+            'ai_response' => $response['text'],
             'intent' => $response['intent'] ?? null,
             'confidence_score' => $response['confidence'] ?? null,
             'provider' => $response['provider'] ?? null,
@@ -269,7 +271,7 @@ class AI_Chatbot_Pro_Ajax {
             'tokens_used' => $response['tokens_used'] ?? null,
             'cost' => $response['cost'] ?? null,
             'user_id' => get_current_user_id() ?: null,
-            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+            'user_ip' => $_SERVER['REMOTE_ADDR'] ?? null,
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
             'created_at' => current_time('mysql')
         );
