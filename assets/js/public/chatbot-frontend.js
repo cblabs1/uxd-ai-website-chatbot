@@ -192,6 +192,64 @@
                 e.preventDefault();
                 self.closeChat();
             });
+
+            // Widget toggle button
+            $(document).on('click.aichatbot', '.ai-chatbot-toggle', function(e) {
+                e.preventDefault();
+                self.toggleWidget();
+            });
+            
+            // Minimize button  
+            $(document).on('click.aichatbot', '.ai-chatbot-minimize', function(e) {
+                e.preventDefault();
+                self.minimizeWidget();
+            });
+        },
+
+        toggleWidget: function() {
+            if (this.$widget && this.$widget.length) {
+                if (this.$widget.hasClass('ai-chatbot-open')) {
+                    this.closeWidget();
+                } else {
+                    this.openWidget();
+                }
+            }
+        },
+
+        openWidget: function() {
+            if (this.$widget && this.$widget.length) {
+                this.$widget.addClass('ai-chatbot-open');
+                if (this.$container && this.$container.length) {
+                    this.$container.show();
+                }
+                
+                // Focus input after opening
+                setTimeout(() => {
+                    if (this.$input && this.$input.length) {
+                        this.$input.focus();
+                    }
+                }, 300);
+                
+                this.scrollToBottom();
+            }
+        },
+
+        closeWidget: function() {
+            if (this.$widget && this.$widget.length) {
+                this.$widget.removeClass('ai-chatbot-open');
+                if (this.$container && this.$container.length) {
+                    this.$container.hide();
+                }
+            }
+        },
+
+        minimizeWidget: function() {
+            if (this.$widget && this.$widget.length) {
+                this.$widget.addClass('ai-chatbot-minimized');
+                if (this.$container && this.$container.length) {
+                    this.$container.hide();
+                }
+            }
         },
 
         // =======================
