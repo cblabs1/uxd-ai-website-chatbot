@@ -230,7 +230,7 @@ class AI_Chatbot_Rate_Limiter {
      * @return bool
      * @since 1.0.0
      */
-    private function check_rate_limit($identifier) {
+    public function check_rate_limit($identifier) {
         $settings = get_option('ai_chatbot_settings', array());
         $rate_limit_enabled = $settings['rate_limit_enabled'] ?? false;
         

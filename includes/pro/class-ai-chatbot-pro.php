@@ -646,7 +646,7 @@ class AI_Chatbot_Pro_Ajax {
         $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
         
         return $wpdb->get_results($wpdb->prepare(
-            "SELECT message, response, created_at 
+            "SELECT user_message, ai_response, created_at 
              FROM $table_name 
              WHERE session_id = %s 
              ORDER BY created_at DESC 
