@@ -1,6 +1,6 @@
 /**
- * AI Chatbot Widget JavaScript - CAREFULLY FIXED VERSION
- * ALL ORIGINAL METHODS PRESERVED - Only fixing the AIChatbot loading issue
+ * AI Chatbot Widget JavaScript - Optimized Lightweight Version
+ * Delegates core functionality to chatbot-frontend.js
  *
  * @package AI_Website_Chatbot
  * @since 1.0.0
@@ -10,7 +10,8 @@
     'use strict';
 
     /**
-     * AI Chatbot Widget Class - ALL ORIGINAL METHODS PRESERVED
+     * AI Chatbot Widget Class - Lightweight Version
+     * Focuses only on widget-specific UI interactions
      */
     class AIChatbotWidget {
         constructor() {
@@ -20,37 +21,35 @@
             this.input = null;
             this.isOpen = false;
             this.isMinimized = false;
-            this.inactivityTimer = null;
-            this.messageCount = 0;
-            this.feedbackMode = false;
             this.conversationId = this.generateConversationId();
+            this.initializationAttempts = 0;
+            this.maxInitAttempts = 50; // 5 seconds max wait
             
-            // ONLY FIX: Wait for AIChatbot before initializing
+            // Wait for main AIChatbot before initializing
             this.waitForMainChatbot().then(() => {
                 this.init();
             }).catch((error) => {
                 console.error('AIChatbotWidget initialization failed:', error);
-                // Still try to initialize basic widget functionality
+                // Still initialize basic widget functionality
                 this.initBasicWidget();
             });
         }
 
         /**
-         * ADDED: Wait for main AIChatbot to be available
+         * Wait for main AIChatbot to be available
          */
         async waitForMainChatbot() {
-            let attempts = 0;
-            const maxAttempts = 50; // 5 seconds
-            
             return new Promise((resolve, reject) => {
                 const checkAIChatbot = () => {
-                    attempts++;
+                    this.initializationAttempts++;
                     
-                    if (typeof window.AIChatbot !== 'undefined' && window.AIChatbot.init) {
-                        console.log('AIChatbotWidget: Main AIChatbot found');
+                    if (typeof window.AIChatbot !== 'undefined' && 
+                        window.AIChatbot.init && 
+                        (window.AIChatbot.initialized || window.AIChatbot.config)) {
+                        console.log('AIChatbotWidget: Main AIChatbot found and ready');
                         resolve();
-                    } else if (attempts >= maxAttempts) {
-                        reject(new Error('Main AIChatbot not available'));
+                    } else if (this.initializationAttempts >= this.maxInitAttempts) {
+                        reject(new Error('Main AIChatbot not available after timeout'));
                     } else {
                         setTimeout(checkAIChatbot, 100);
                     }
@@ -61,104 +60,197 @@
         }
 
         /**
-         * ADDED: Initialize basic widget when main chatbot isn't available
-         */
-        initBasicWidget() {
-            console.warn('AIChatbotWidget: Initializing basic widget without main chatbot');
-            this.bindEvents();
-            this.setupAutoResize();
-        }
-
-        /**
-         * Initialize widget - ORIGINAL METHOD PRESERVED
+         * Initialize widget with main chatbot integration
          */
         init() {
+            console.log('AIChatbotWidget: Initializing with main AIChatbot integration');
+            
+            this.initializeElements();
             this.bindEvents();
             this.setupAutoResize();
-            this.loadConversationHistory();
             
-            // ADDED: Connect to main chatbot
-            this.connectToMainChatbot();
+            console.log('AIChatbotWidget: Initialization complete');
         }
 
         /**
-         * ADDED: Connect widget to main chatbot functionality
+         * Initialize basic widget functionality (fallback)
          */
-        connectToMainChatbot() {
-            if (typeof window.AIChatbot !== 'undefined') {
-                // Set DOM references in main chatbot
-                window.AIChatbot.$widget = $(this.widget);
-                window.AIChatbot.$messages = $(this.messages);
-                window.AIChatbot.$input = $(this.input);
-                
-                console.log('AIChatbotWidget: Connected to main chatbot');
-            }
+        initBasicWidget() {
+            console.log('AIChatbotWidget: Initializing basic widget (fallback mode)');
+            
+            this.initializeElements();
+            this.bindBasicEvents();
+            this.setupAutoResize();
+            
+            // Show error message in widget
+            setTimeout(() => {
+                if (this.messages && this.messages.length) {
+                    this.addErrorMessage('Chat functionality unavailable. Please refresh the page.');
+                }
+            }, 1000);
         }
 
         /**
-         * Bind events - ORIGINAL METHOD PRESERVED
+         * Initialize DOM elements
+         */
+        initializeElements() {
+            this.widget = $('#ai-chatbot-widget');
+            
+            if (this.widget.length) {
+                this.container = this.widget.find('.ai-chatbot-container');
+                this.messages = this.widget.find('.ai-chatbot-messages');
+                this.input = this.widget.find('.ai-chatbot-input');
+            } else {
+                // Try alternative selectors
+                this.widget = $('.ai-chatbot-widget');
+                this.container = $('.ai-chatbot-container');
+                this.messages = $('.ai-chatbot-messages, .messages-container, .inline-messages-container, .popup-messages-container');
+                this.input = $('.ai-chatbot-input');
+            }
+            
+            console.log('AIChatbotWidget: Elements initialized', {
+                widget: this.widget.length,
+                container: this.container.length,
+                messages: this.messages.length,
+                input: this.input.length
+            });
+        }
+
+        /**
+         * Bind events with main chatbot integration
          */
         bindEvents() {
             const self = this;
 
-            // Toggle chatbot
-            $(document).on('click', '#ai-chatbot-toggle', function() {
+            // Widget toggle
+            $(document).on('click.aiwidget', '.ai-chatbot-toggle', function(e) {
+                e.preventDefault();
                 self.toggle();
             });
 
-            // Close chatbot
-            $(document).on('click', '#ai-chatbot-close', function() {
+            // Close and minimize buttons
+            $(document).on('click.aiwidget', '.ai-chatbot-close', function(e) {
+                e.preventDefault();
                 self.close();
             });
 
-            // Minimize chatbot
-            $(document).on('click', '#ai-chatbot-minimize', function() {
+            $(document).on('click.aiwidget', '.ai-chatbot-minimize', function(e) {
+                e.preventDefault();
                 self.minimize();
             });
 
-            // Handle form submission
-            $(document).on('submit', '#ai-chatbot-input-form, #ai-chatbot-inline-input-form', function(e) {
+            // Message sending - DELEGATE to main chatbot
+            $(document).on('submit.aiwidget', '.ai-chatbot-input-form', function(e) {
                 e.preventDefault();
-                const form = $(this);
-                const input = form.find('input, textarea');
+                const input = $(this).find('.ai-chatbot-input');
                 const message = input.val().trim();
-                
                 if (message) {
-                    self.sendMessage(message, input);
+                    self.delegateMessageSending(message, input);
                 }
             });
 
-            // Handle Enter key on input
-            $(document).on('keydown', '.ai-chatbot-input', function(e) {
+            $(document).on('keydown.aiwidget', '.ai-chatbot-input', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     const message = $(this).val().trim();
                     if (message) {
-                        self.sendMessage(message, $(this));
+                        self.delegateMessageSending(message, $(this));
                     }
                 }
             });
 
-            // Handle send button click
-            $(document).on('click', '.ai-chatbot-send-button', function(e) {
+            $(document).on('click.aiwidget', '.ai-chatbot-send-button', function(e) {
                 e.preventDefault();
-                const container = $(this).closest('.ai-chatbot-input-container');
+                const container = $(this).closest('.ai-chatbot-input-container, .ai-chatbot-input-form');
                 const input = container.find('.ai-chatbot-input');
                 const message = input.val().trim();
                 
                 if (message) {
-                    self.sendMessage(message, input);
+                    self.delegateMessageSending(message, input);
                 }
             });
 
-            // Handle input changes
-            $(document).on('input keyup', '.ai-chatbot-input', function() {
+            // Input change handling
+            $(document).on('input.aiwidget keyup.aiwidget', '.ai-chatbot-input', function() {
                 self.handleInputChange($(this));
+            });
+
+            // Starter buttons - DELEGATE to main chatbot
+            $(document).on('click.aiwidget', '.starter-btn', function(e) {
+                e.preventDefault();
+                const message = $(this).data('message');
+                if (message && self.input && self.input.length) {
+                    self.delegateMessageSending(message, self.input);
+                    // Hide starter buttons
+                    $('.conversation-starters').fadeOut(300);
+                }
             });
         }
 
         /**
-         * Toggle widget - ORIGINAL METHOD PRESERVED
+         * Bind basic events (fallback mode)
+         */
+        bindBasicEvents() {
+            const self = this;
+
+            // Only widget control events
+            $(document).on('click.aiwidget', '.ai-chatbot-toggle', function(e) {
+                e.preventDefault();
+                self.toggle();
+            });
+
+            $(document).on('click.aiwidget', '.ai-chatbot-close', function(e) {
+                e.preventDefault();
+                self.close();
+            });
+
+            $(document).on('click.aiwidget', '.ai-chatbot-minimize', function(e) {
+                e.preventDefault();
+                self.minimize();
+            });
+
+            // Show error for message attempts
+            $(document).on('click.aiwidget', '.ai-chatbot-send-button, .starter-btn', function(e) {
+                e.preventDefault();
+                self.addErrorMessage('Please refresh the page to enable chat functionality.');
+            });
+        }
+
+        /**
+         * Delegate message sending to main chatbot
+         */
+        delegateMessageSending(message, inputElement) {
+            if (window.AIChatbot && typeof window.AIChatbot.handleSendMessage === 'function') {
+                // Method 1: Use handleSendMessage
+                window.AIChatbot.handleSendMessage(message);
+                
+            } else if (window.AIChatbot && typeof window.AIChatbot.sendMessageToServer === 'function') {
+                // Method 2: Add user message and send to server
+                if (window.AIChatbot.addUserMessage) {
+                    window.AIChatbot.addUserMessage(message);
+                }
+                window.AIChatbot.sendMessageToServer(message);
+                
+            } else if (window.AIChatbot && typeof window.AIChatbot.sendMessage === 'function') {
+                // Method 3: Use generic sendMessage
+                window.AIChatbot.sendMessage(message);
+                
+            } else {
+                // Fallback error
+                console.error('No main chatbot method available');
+                this.addErrorMessage('Chat functionality unavailable. Please refresh the page.');
+                return;
+            }
+            
+            // Clear input and update UI
+            if (inputElement && inputElement.length) {
+                inputElement.val('');
+                this.handleInputChange(inputElement);
+            }
+        }
+
+        /**
+         * Widget toggle functionality
          */
         toggle() {
             if (this.isOpen) {
@@ -169,48 +261,64 @@
         }
 
         /**
-         * Open widget - ORIGINAL METHOD PRESERVED
+         * Open widget
          */
         open() {
-            if (!this.widget) {
-                this.widget = $('#ai-chatbot-widget');
-                this.container = this.widget.find('.ai-chatbot-container');
-                this.messages = this.widget.find('.ai-chatbot-messages');
-                this.input = this.widget.find('.ai-chatbot-input');
+            if (!this.widget || !this.widget.length) {
+                this.initializeElements();
             }
 
             this.widget.addClass('ai-chatbot-open');
-            this.container.slideDown(300);
+            
+            if (this.container && this.container.length) {
+                this.container.slideDown(300);
+            }
+            
             this.isOpen = true;
             this.isMinimized = false;
 
             // Focus input after animation
             setTimeout(() => {
-                this.input.focus();
+                if (this.input && this.input.length) {
+                    this.input.focus();
+                }
             }, 350);
 
             // Scroll to bottom
             this.scrollToBottom();
+            
+            // Notify main chatbot of widget open
+            if (window.AIChatbot && window.AIChatbot.onWidgetOpen) {
+                window.AIChatbot.onWidgetOpen();
+            }
         }
 
         /**
-         * Close chatbot widget - ORIGINAL METHOD PRESERVED
+         * Close widget
          */
         close() {
-            if (this.container) {
+            if (this.container && this.container.length) {
                 this.container.slideUp(300, () => {
                     this.widget.removeClass('ai-chatbot-open ai-chatbot-minimized');
                 });
+            } else {
+                this.widget.removeClass('ai-chatbot-open ai-chatbot-minimized');
             }
+            
             this.isOpen = false;
             this.isMinimized = false;
+            
+            // Notify main chatbot of widget close
+            if (window.AIChatbot && window.AIChatbot.onWidgetClose) {
+                window.AIChatbot.onWidgetClose();
+            }
         }
 
         /**
-         * Minimize chatbot widget - ORIGINAL METHOD PRESERVED
+         * Minimize widget
          */
         minimize() {
-            if (this.container) {
+            if (this.container && this.container.length) {
                 this.widget.addClass('ai-chatbot-minimized');
                 this.container.slideUp(300);
             }
@@ -218,101 +326,13 @@
         }
 
         /**
-         * Send message to AI - ORIGINAL METHOD PRESERVED BUT ENHANCED
-         */
-        sendMessage(message, inputElement) {
-            // ENHANCED: Try main chatbot first, fallback to widget method
-            if (window.AIChatbot && typeof window.AIChatbot.sendMessageToServer === 'function') {
-                // Add user message first
-                if (window.AIChatbot.addUserMessage) {
-                    window.AIChatbot.addUserMessage(message);
-                }
-                
-                // Send to server via main chatbot
-                window.AIChatbot.sendMessageToServer(message);
-                
-                // Clear input
-                inputElement.val('');
-                this.handleInputChange(inputElement);
-                
-            } else if (window.AIChatbot && typeof window.AIChatbot.handleSendMessage === 'function') {
-                // Fallback to original method
-                window.AIChatbot.handleSendMessage(message);
-                inputElement.val('');
-                this.handleInputChange(inputElement);
-                
-            } else {
-                // Final fallback - show error
-                console.error('Main AIChatbot not available. Please refresh the page.');
-                this.addMessage('Please refresh the page and try again.', 'bot', 'error');
-            }
-        }
-
-        /**
-         * Add message to chat - ORIGINAL METHOD PRESERVED
-         */
-        addMessage(text, sender, type = 'normal') {
-            // Ensure text is always a string
-            if (text === null || text === undefined) {
-                text = '';
-            }
-            
-            if (typeof text !== 'string') {
-                if (typeof text === 'object' && text.message) {
-                    text = text.message;
-                } else {
-                    try {
-                        text = String(text);
-                    } catch (e) {
-                        text = 'Invalid message content';
-                    }
-                }
-            }
-            
-            const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            const messageClass = `ai-chatbot-message ai-chatbot-message-${sender}`;
-            const errorClass = type === 'error' ? ' ai-chatbot-message-error' : '';
-            
-            const messageHtml = `
-                <div class="${messageClass}${errorClass}">
-                    <div class="ai-chatbot-message-content">
-                        <div class="ai-chatbot-message-text">${this.escapeHtml(text)}</div>
-                        <div class="ai-chatbot-message-time">${timestamp}</div>
-                    </div>
-                </div>
-            `;
-            
-            if (this.messages) {
-                this.messages.append(messageHtml);
-                this.scrollToBottom();
-            } else {
-                // Fallback to standalone function
-                setTimeout(scrollToBottom, 100);
-            }
-            setTimeout(scrollToBottom, 100);
-        }
-
-        /**
-         * Show typing indicator - ORIGINAL METHOD PRESERVED
-         */
-        showTyping() {
-            $('#ai-chatbot-typing').show();
-            this.scrollToBottom();
-        }
-
-        /**
-         * Hide typing indicator - ORIGINAL METHOD PRESERVED
-         */
-        hideTyping() {
-            $('#ai-chatbot-typing').hide();
-        }
-
-        /**
-         * Handle input change - ORIGINAL METHOD PRESERVED
+         * Handle input changes
          */
         handleInputChange(input) {
+            if (!input || !input.length) return;
+            
             const message = input.val().trim();
-            const sendButton = input.closest('.ai-chatbot-input-container').find('.ai-chatbot-send-button');
+            const sendButton = input.closest('.ai-chatbot-input-container, .ai-chatbot-input-form').find('.ai-chatbot-send-button');
             
             if (message) {
                 sendButton.prop('disabled', false);
@@ -324,97 +344,96 @@
         }
 
         /**
-         * Setup auto-resize for textarea - ORIGINAL METHOD PRESERVED
+         * Setup auto-resize for textarea
          */
         setupAutoResize() {
-            $(document).on('input', '.ai-chatbot-input', function() {
+            $(document).on('input.aiwidget', '.ai-chatbot-input', function() {
                 this.style.height = 'auto';
                 this.style.height = Math.min(this.scrollHeight, 100) + 'px';
             });
         }
 
         /**
-         * Scroll messages to bottom - ORIGINAL METHOD PRESERVED
+         * Scroll to bottom - DELEGATE to main chatbot or use simple version
          */
         scrollToBottom() {
-            // Handle both class property and jQuery selector
-            var messagesContainer = this.messages || $('.ai-chatbot-messages');
-            
-            if (messagesContainer && messagesContainer.length) {
-                setTimeout(() => {
-                    if (messagesContainer.jquery) {
-                        // jQuery object
-                        messagesContainer[0].scrollTop = messagesContainer[0].scrollHeight;
-                    } else {
-                        // DOM element
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    }
-                }, 50);
-            }
-        }
-
-        /**
-         * Generate unique conversation ID - ORIGINAL METHOD PRESERVED
-         */
-        generateConversationId() {
-            return 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        }
-
-        /**
-         * Load conversation history - ORIGINAL METHOD PRESERVED
-         */
-        loadConversationHistory() {
-            // Implementation for loading previous conversations
-        }
-
-        /**
-         * Escape HTML to prevent XSS - ORIGINAL METHOD PRESERVED
-         */
-        escapeHtml(unsafe) {
-            // Handle null, undefined, or non-string values
-            if (unsafe === null || unsafe === undefined) {
-                return '';
-            }
-            
-            // Convert to string if it's not already a string
-            if (typeof unsafe !== 'string') {
-                // Handle objects (like error responses from API)
-                if (typeof unsafe === 'object') {
-                    // If it has a message property (common for error objects)
-                    if (unsafe.message && typeof unsafe.message === 'string') {
-                        unsafe = unsafe.message;
-                    } else {
-                        // Convert object to JSON string or fallback
-                        try {
-                            unsafe = JSON.stringify(unsafe);
-                        } catch (e) {
-                            unsafe = '[Object object]';
-                        }
-                    }
-                } else {
-                    // Convert other types to string
-                    unsafe = String(unsafe);
+            if (window.AIChatbot && window.AIChatbot.scrollToBottom) {
+                window.AIChatbot.scrollToBottom();
+            } else {
+                // Simple fallback
+                if (this.messages && this.messages.length) {
+                    setTimeout(() => {
+                        this.messages[0].scrollTop = this.messages[0].scrollHeight;
+                    }, 50);
                 }
             }
+        }
+
+        /**
+         * Add error message (fallback only)
+         */
+        addErrorMessage(text) {
+            if (!this.messages || !this.messages.length) return;
             
-            // Now safely escape the string
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const messageHtml = `
+                <div class="ai-chatbot-message ai-chatbot-message-bot ai-chatbot-message-error">
+                    <div class="ai-chatbot-message-content">
+                        <div class="ai-chatbot-message-text">${this.escapeHtml(text)}</div>
+                        <div class="ai-chatbot-message-time">${timestamp}</div>
+                    </div>
+                </div>
+            `;
+            
+            this.messages.append(messageHtml);
+            this.scrollToBottom();
+        }
+
+        /**
+         * Generate conversation ID
+         */
+        generateConversationId() {
+            return 'widget_conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        /**
+         * Escape HTML - MINIMAL version
+         */
+        escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        /**
+         * Destroy widget and cleanup
+         */
+        destroy() {
+            // Unbind all widget events
+            $(document).off('.aiwidget');
+            
+            // Reset state
+            this.isOpen = false;
+            this.isMinimized = false;
+            
+            console.log('AIChatbotWidget: Destroyed');
         }
     }
 
     /**
-     * AI Chatbot Utils - ORIGINAL PRESERVED
+     * Utility functions for widget
      */
-    window.AIChatbotUtils = {
+    window.AIChatbotWidget.utils = {
         /**
-         * Format message text (handle line breaks, links, etc.)
+         * Format message text
          */
         formatMessage: function(text) {
+            if (!text) return '';
+            
             // Convert line breaks
             text = text.replace(/\n/g, '<br>');
             
@@ -426,13 +445,6 @@
         },
 
         /**
-         * Get user timezone
-         */
-        getUserTimezone: function() {
-            return Intl.DateTimeFormat().resolvedOptions().timeZone;
-        },
-
-        /**
          * Check if user is on mobile
          */
         isMobile: function() {
@@ -441,33 +453,34 @@
     };
 
     /**
-     * Initialize when document is ready - ORIGINAL PRESERVED BUT ENHANCED
+     * Initialize when document is ready
      */
     $(document).ready(function() {
         console.log('chatbot-widget.js: DOM ready');
         
-        // Only initialize if chatbot widget exists
-        if ($('#ai-chatbot-widget').length) {
-            console.log('chatbot-widget.js: Found existing widget, initializing...');
-            new AIChatbotWidget();
-        } else {
-            console.log('chatbot-widget.js: No existing widget found, creating new one...');
-            // Initialize anyway - widget will be created dynamically
-            new AIChatbotWidget();
+        // Always initialize widget (it will wait for main chatbot)
+        if (!window.aiChatbotWidget) {
+            window.aiChatbotWidget = new AIChatbotWidget();
         }
 
-        // Handle inline chatbots - ORIGINAL PRESERVED
+        // Handle inline chatbots
         $('.ai-chatbot-inline').each(function() {
-            // Initialize inline chatbot functionality
-            // Similar to widget but without toggle functionality
+            // Basic inline initialization - delegate complex functionality to main chatbot
+            console.log('chatbot-widget.js: Found inline chatbot, delegating to main chatbot');
         });
     });
 
     /**
-     * Standalone scroll function - ORIGINAL PRESERVED
+     * Standalone scroll function for compatibility
      */
     function scrollToBottom() {
-        // Handle multiple possible containers
+        // Delegate to main chatbot if available
+        if (window.AIChatbot && window.AIChatbot.scrollToBottom) {
+            window.AIChatbot.scrollToBottom();
+            return;
+        }
+        
+        // Fallback for multiple containers
         const containers = [
             '.ai-chatbot-messages',
             '.messages-container', 
@@ -486,7 +499,7 @@
     }
 
     /**
-     * Additional event listener for chat toggle - ORIGINAL PRESERVED
+     * Additional event listener for chat toggle - for backward compatibility
      */
     document.addEventListener('DOMContentLoaded', function() {
         const chatToggle = document.querySelector('.ai-chatbot-toggle');
@@ -497,7 +510,7 @@
         }
     });
 
-    // Expose the widget class globally - ADDED
+    // Expose the widget class globally
     window.AIChatbotWidget = AIChatbotWidget;
 
 })(jQuery);
