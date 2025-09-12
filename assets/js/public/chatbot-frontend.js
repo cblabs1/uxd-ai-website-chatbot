@@ -1717,7 +1717,11 @@
         },
 
         onInputChange: function() {
-            var message = this.$input.val().trim();
+            var inputVal = this.$input.val();
+            if (typeof inputVal === 'undefined' || inputVal === null) {
+                inputVal = '';
+            }
+            var message = inputVal.trim();
             var charCount = message.length;
             
             // Update character counter if exists
@@ -1818,6 +1822,8 @@
 
         // Pro typing indicator
         window.AIChatbot.showProTypingIndicator = function() {
+
+            console.log('💡 Showing Pro typing indicator');
             // Enhanced typing with semantic indicators
             if (!this.$messages) return;
             
