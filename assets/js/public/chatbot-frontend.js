@@ -85,6 +85,7 @@
             
             this.initializeUI();
             this.bindEvents();
+            this.bindWidgetEvents();
             this.initializeAuth();
             this.initialized = true;
             
@@ -93,6 +94,120 @@
             // Notify Pro features (if loaded) that core is ready
             $(document).trigger('aichatbot:core:ready');
         },
+
+        // =======================
+        // WIDGET FUNCTIONALITY
+        // =======================
+
+        bindWidgetEvents: function() {
+            var self = this;
+            
+            console.log('AIChatbot: Binding widget events...');
+            
+            // Widget toggle button - CRITICAL MISSING EVENT
+            $(document).on('click.aichatbot', '.ai-chatbot-toggle', function(e) {
+                e.preventDefault();
+                console.log('AIChatbot: Toggle button clicked');
+                self.toggleWidget();
+            });
+            
+            // Close button
+            $(document).on('click.aichatbot', '.ai-chatbot-close', function(e) {
+                e.preventDefault();
+                console.log('AIChatbot: Close button clicked');
+                self.closeWidget();
+            });
+            
+            // Minimize button  
+            $(document).on('click.aichatbot', '.ai-chatbot-minimize', function(e) {
+                e.preventDefault();
+                console.log('AIChatbot: Minimize button clicked');
+                self.minimizeWidget();
+            });
+        },
+
+        toggleWidget: function() {
+            console.log('AIChatbot: Toggle widget called');
+            if (this.$widget && this.$widget.length) {
+                if (this.$widget.hasClass('ai-chatbot-open')) {
+                    this.closeWidget();
+                } else {
+                    this.openWidget();
+                }
+            } else {
+                console.log('AIChatbot: Widget element not found');
+            }
+        },
+
+        openWidget: function() {
+            console.log('AIChatbot: Opening widget');
+            if (this.$widget && this.$widget.length) {
+                this.$widget.addClass('ai-chatbot-open');
+                if (this.$container && this.$container.length) {
+                    this.$container.show();
+                }
+                
+                // Focus input after opening
+                setTimeout(() => {
+                    if (this.$input && this.$input.length) {
+                        this.$input.focus();
+                    }
+                }, 300);
+                
+                this.scrollToBottom();
+                
+                // Update toggle icons
+                this.$widget.find('.ai-chatbot-icon-chat').hide();
+                this.$widget.find('.ai-chatbot-icon-close').show();
+                
+                // Update toggle text
+                this.$widget.find('.ai-chatbot-toggle-open-text').hide();
+                this.$widget.find('.ai-chatbot-toggle-close-text').show();
+                
+                console.log('AIChatbot: Widget opened successfully');
+            }
+        },
+
+        closeWidget: function() {
+            console.log('AIChatbot: Closing widget');
+            if (this.$widget && this.$widget.length) {
+                this.$widget.removeClass('ai-chatbot-open ai-chatbot-minimized');
+                if (this.$container && this.$container.length) {
+                    this.$container.hide();
+                }
+                
+                // Update toggle icons
+                this.$widget.find('.ai-chatbot-icon-chat').show();
+                this.$widget.find('.ai-chatbot-icon-close').hide();
+                
+                // Update toggle text
+                this.$widget.find('.ai-chatbot-toggle-open-text').show();
+                this.$widget.find('.ai-chatbot-toggle-close-text').hide();
+                
+                console.log('AIChatbot: Widget closed successfully');
+            }
+        },
+
+        minimizeWidget: function() {
+            console.log('AIChatbot: Minimizing widget');
+            if (this.$widget && this.$widget.length) {
+                this.$widget.addClass('ai-chatbot-minimized').removeClass('ai-chatbot-open');
+                if (this.$container && this.$container.length) {
+                    this.$container.hide();
+                }
+            }
+        },
+
+        disableWidgetJS: function() {
+            // Disable the widget.js functionality to prevent conflicts
+            if (window.aiChatbotWidget && window.aiChatbotWidget.destroy) {
+                window.aiChatbotWidget.destroy();
+            }
+            // Remove widget.js event handlers
+            $(document).off('.aiwidget');
+            console.log('AIChatbot: Widget.js functionality disabled - using core handlers');
+        },
+
 
         // =======================
         // UI INITIALIZATION
@@ -112,6 +227,13 @@
                 input: this.$input.length,
                 sendBtn: this.$sendBtn.length
             });
+
+            // ADDED: Auto-show widget if it exists and disable widget.js conflicts
+            if (this.$widget.length > 0) {
+                console.log('AIChatbot: Widget found, ready for interaction');
+                // Disable widget.js to prevent conflicts
+                setTimeout(() => this.disableWidgetJS(), 100);
+            }
         },
 
         // =======================
@@ -192,64 +314,6 @@
                 e.preventDefault();
                 self.closeChat();
             });
-
-            // Widget toggle button
-            $(document).on('click.aichatbot', '.ai-chatbot-toggle', function(e) {
-                e.preventDefault();
-                self.toggleWidget();
-            });
-            
-            // Minimize button  
-            $(document).on('click.aichatbot', '.ai-chatbot-minimize', function(e) {
-                e.preventDefault();
-                self.minimizeWidget();
-            });
-        },
-
-        toggleWidget: function() {
-            if (this.$widget && this.$widget.length) {
-                if (this.$widget.hasClass('ai-chatbot-open')) {
-                    this.closeWidget();
-                } else {
-                    this.openWidget();
-                }
-            }
-        },
-
-        openWidget: function() {
-            if (this.$widget && this.$widget.length) {
-                this.$widget.addClass('ai-chatbot-open');
-                if (this.$container && this.$container.length) {
-                    this.$container.show();
-                }
-                
-                // Focus input after opening
-                setTimeout(() => {
-                    if (this.$input && this.$input.length) {
-                        this.$input.focus();
-                    }
-                }, 300);
-                
-                this.scrollToBottom();
-            }
-        },
-
-        closeWidget: function() {
-            if (this.$widget && this.$widget.length) {
-                this.$widget.removeClass('ai-chatbot-open');
-                if (this.$container && this.$container.length) {
-                    this.$container.hide();
-                }
-            }
-        },
-
-        minimizeWidget: function() {
-            if (this.$widget && this.$widget.length) {
-                this.$widget.addClass('ai-chatbot-minimized');
-                if (this.$container && this.$container.length) {
-                    this.$container.hide();
-                }
-            }
         },
 
         // =======================

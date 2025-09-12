@@ -270,7 +270,7 @@ class AI_Chatbot {
      */
     private function define_public_hooks() {
         // Initialize frontend
-        $plugin_public = new AI_Chatbot_Frontend($this->get_plugin_name(), $this->get_version());
+        $plugin_public = new AI_Chatbot_Frontend();
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_styles');
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_scripts');
 
