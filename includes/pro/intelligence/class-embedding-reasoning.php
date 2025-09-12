@@ -243,10 +243,18 @@ class AI_Chatbot_Embedding_Reasoning {
      * Get OpenAI embedding
      */
     private function get_openai_embedding( $text ) {
-        $api_key = get_option( 'ai_chatbot_openai_api_key' );
+        // Use the SAME logic as the provider classes to get the API key
+        $api_key = $this->get_provider_api_key('openai');
         
         if ( empty( $api_key ) ) {
+            error_log('AI Chatbot: No OpenAI API key found using provider logic');
             return new WP_Error( 'no_api_key', 'OpenAI API key not configured' );
+        }
+        
+        // Validate API key format
+        if ( strlen($api_key) < 40 || strpos($api_key, 'sk-') !== 0 ) {
+            error_log('AI Chatbot: Invalid API key format');
+            return new WP_Error( 'invalid_api_key', 'Invalid OpenAI API key format' );
         }
         
         $response = wp_remote_post( 'https://api.openai.com/v1/embeddings', array(
@@ -262,16 +270,28 @@ class AI_Chatbot_Embedding_Reasoning {
         ) );
         
         if ( is_wp_error( $response ) ) {
+            error_log('AI Chatbot: HTTP request failed: ' . $response->get_error_message());
             return $response;
         }
         
+        $status_code = wp_remote_retrieve_response_code( $response );
         $body = json_decode( wp_remote_retrieve_body( $response ), true );
         
+        if ( $status_code !== 200 ) {
+            $error_message = isset( $body['error']['message'] ) 
+                ? $body['error']['message'] 
+                : 'HTTP ' . $status_code . ' error';
+            error_log('AI Chatbot: API returned error: ' . $error_message);
+            return new WP_Error( 'api_error', $error_message );
+        }
+        
         if ( isset( $body['error'] ) ) {
+            error_log('AI Chatbot: API error: ' . $body['error']['message']);
             return new WP_Error( 'api_error', $body['error']['message'] );
         }
         
         if ( ! isset( $body['data'][0]['embedding'] ) ) {
+            error_log('AI Chatbot: Invalid response structure');
             return new WP_Error( 'invalid_response', 'Invalid embedding response' );
         }
         
@@ -604,22 +624,28 @@ class AI_Chatbot_Embedding_Reasoning {
     public function batch_generate_embeddings( $batch_size = 10 ) {
         global $wpdb;
         
+        error_log('AI Chatbot Debug: Starting batch_generate_embeddings with batch_size: ' . $batch_size);
+        
         $content_table = $wpdb->prefix . 'ai_chatbot_content';
         
         // Get content without embeddings
         $content_items = $wpdb->get_results( $wpdb->prepare(
             "SELECT id, title, content 
-             FROM $content_table 
-             WHERE embedding_vector IS NULL 
-             OR embedding_status = 'pending'
-             LIMIT %d",
+            FROM $content_table 
+            WHERE embedding_vector IS NULL 
+            OR embedding_status = 'pending'
+            LIMIT %d",
             $batch_size
         ), ARRAY_A );
+        
+        error_log('AI Chatbot Debug: Found ' . count($content_items) . ' items to process');
         
         $processed = 0;
         $errors = 0;
         
         foreach ( $content_items as $item ) {
+            error_log('AI Chatbot Debug: Processing item ID: ' . $item['id'] . ', Title: ' . substr($item['title'], 0, 50));
+            
             // Update status to processing
             $wpdb->update(
                 $content_table,
@@ -629,9 +655,15 @@ class AI_Chatbot_Embedding_Reasoning {
             
             // Generate embedding for title + content
             $text = $item['title'] . ' ' . $item['content'];
+            $text = trim($text);
+            
+            error_log('AI Chatbot Debug: Text length: ' . strlen($text) . ' chars');
+            
             $embedding = $this->generate_embedding( $text );
             
             if ( is_wp_error( $embedding ) ) {
+                error_log('AI Chatbot Debug: Embedding generation failed: ' . $embedding->get_error_message());
+                
                 // Mark as error
                 $wpdb->update(
                     $content_table,
@@ -640,6 +672,8 @@ class AI_Chatbot_Embedding_Reasoning {
                 );
                 $errors++;
             } else {
+                error_log('AI Chatbot Debug: Embedding generated successfully, vector length: ' . count($embedding));
+                
                 // Save embedding
                 $wpdb->update(
                     $content_table,
@@ -656,10 +690,12 @@ class AI_Chatbot_Embedding_Reasoning {
             usleep( 100000 ); // 100ms
         }
         
+        error_log('AI Chatbot Debug: Batch complete. Processed: ' . $processed . ', Errors: ' . $errors);
+        
         return array(
             'processed' => $processed,
             'errors' => $errors,
-            'remaining' => $this->get_pending_embedding_count()
+            'remaining' => $this->get_pending_embedding_count(),
         );
     }
     
@@ -687,5 +723,31 @@ class AI_Chatbot_Embedding_Reasoning {
         
         // Future: Return specific provider instance
         return $provider;
+    }
+
+    private function get_provider_api_key($provider_name) {
+        $main_settings = get_option('ai_chatbot_settings', array());
+        
+        // Check if this provider is selected and API key exists in main settings
+        if (!empty($main_settings['api_key']) && 
+            isset($main_settings['ai_provider']) && 
+            $main_settings['ai_provider'] === $provider_name) {
+            
+            error_log('AI Chatbot: Found API key in main settings for provider: ' . $provider_name);
+            return $main_settings['api_key'];
+        }
+        
+        // Fallback to old structure: individual options
+        $fallback_key = get_option('ai_chatbot_' . $provider_name . '_api_key', '');
+        if (!empty($fallback_key)) {
+            error_log('AI Chatbot: Found API key in fallback option: ai_chatbot_' . $provider_name . '_api_key');
+            return $fallback_key;
+        }
+        
+        error_log('AI Chatbot: No API key found for provider: ' . $provider_name);
+        error_log('AI Chatbot: Main settings provider: ' . ($main_settings['ai_provider'] ?? 'not set'));
+        error_log('AI Chatbot: Main settings has api_key: ' . (empty($main_settings['api_key']) ? 'NO' : 'YES'));
+        
+        return null;
     }
 }

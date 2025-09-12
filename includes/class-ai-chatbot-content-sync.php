@@ -602,8 +602,31 @@ class AI_Chatbot_Content_Sync {
         // Get post content
         $content = $post->post_content;
         
-        // Apply content filters (shortcodes, etc.)
+        // CRITICAL: Apply WordPress content filters to expand shortcodes
+        // This turns [arm_setup id="1"] into actual HTML content
         $content = apply_filters('the_content', $content);
+        
+        if ($this->is_mostly_shortcodes($content)) {
+            // Try to render shortcodes manually
+            $content = do_shortcode($post->post_content);
+            
+            // If still shortcodes, try rendering in context
+            if ($this->is_mostly_shortcodes($content)) {
+                // Proper way to set post context
+                $original_post = $GLOBALS['post'] ?? null;
+                $GLOBALS['post'] = $post;
+                setup_postdata($post);
+                
+                $content = apply_filters('the_content', $post->post_content);
+                
+                // Restore original context
+                if ($original_post) {
+                    $GLOBALS['post'] = $original_post;
+                    setup_postdata($original_post);
+                }
+                wp_reset_postdata();
+            }
+        }
         
         // Extract structured information
         $structured_info = $this->extract_structured_information($content, $post);
@@ -611,10 +634,147 @@ class AI_Chatbot_Content_Sync {
         // Clean HTML but preserve structure
         $content = $this->clean_content_intelligently($content);
         
+        // If content is still empty or just shortcodes, get alternative content
+        if (strlen(trim($content)) < 50 || $this->is_mostly_shortcodes($content)) {
+            $content = $this->get_alternative_content($post);
+        }
+        
         // Build enhanced content
         $enhanced_content = $this->build_enhanced_content_structure($post, $content, $structured_info);
         
         return $enhanced_content;
+    }
+
+    /**
+     * Check if content is mostly shortcodes - ADD this method
+     */
+    private function is_mostly_shortcodes($content) {
+        // Count shortcodes vs regular content
+        $shortcode_count = preg_match_all('/\[[^\]]+\]/', $content);
+        $content_length = strlen(strip_tags($content));
+        $text_only = preg_replace('/\[[^\]]+\]/', '', strip_tags($content));
+        $meaningful_content = strlen(trim($text_only));
+        
+        // If less than 100 chars of meaningful content, it's mostly shortcodes
+        return $meaningful_content < 100;
+    }
+
+    /**
+     * Get alternative content when shortcodes don't expand - ADD this method
+     */
+    private function get_alternative_content($post) {
+        $content_parts = array();
+        
+        // Get post excerpt
+        if (!empty($post->post_excerpt)) {
+            $content_parts[] = $post->post_excerpt;
+        }
+        
+        // Get custom fields that might contain content
+        $meta_keys_to_check = array(
+            'description', 'summary', 'content', 'details', 'info',
+            'pricing', 'features', 'benefits', 'services'
+        );
+        
+        foreach ($meta_keys_to_check as $key) {
+            $meta_value = get_post_meta($post->ID, $key, true);
+            if (!empty($meta_value) && is_string($meta_value) && strlen($meta_value) > 20) {
+                $content_parts[] = $meta_value;
+            }
+        }
+        
+        // Get ACF fields if available
+        if (function_exists('get_fields')) {
+            $acf_fields = get_fields($post->ID);
+            if ($acf_fields) {
+                foreach ($acf_fields as $field_name => $field_value) {
+                    if (is_string($field_value) && strlen($field_value) > 20) {
+                        $content_parts[] = $field_name . ': ' . $field_value;
+                    }
+                }
+            }
+        }
+        
+        // Try to extract content from the page by actually loading it
+        if (empty($content_parts)) {
+            $alternative_content = $this->scrape_page_content($post);
+            if (!empty($alternative_content)) {
+                $content_parts[] = $alternative_content;
+            }
+        }
+        
+        return implode("\n\n", $content_parts);
+    }
+
+    /**
+     * Scrape actual page content - ADD this method
+     */
+    private function scrape_page_content($post) {
+        $url = get_permalink($post->ID);
+        
+        // Only try this for published posts with URLs
+        if (empty($url) || $post->post_status !== 'publish') {
+            return '';
+        }
+        
+        $response = wp_remote_get($url, array('timeout' => 10));
+        
+        if (is_wp_error($response)) {
+            return '';
+        }
+        
+        $html = wp_remote_retrieve_body($response);
+        
+        // Extract content from common content areas
+        $content_areas = array(
+            '/<main[^>]*>(.*?)<\/main>/si',
+            '/<article[^>]*>(.*?)<\/article>/si', 
+            '/<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)<\/div>/si',
+            '/<div[^>]*class="[^"]*entry[^"]*"[^>]*>(.*?)<\/div>/si',
+            '/<div[^>]*id="content"[^>]*>(.*?)<\/div>/si'
+        );
+        
+        foreach ($content_areas as $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                $content = $matches[1];
+                
+                // Clean the scraped content
+                $content = $this->clean_scraped_content($content);
+                
+                if (strlen($content) > 100) {
+                    return substr($content, 0, 1000);
+                }
+            }
+        }
+        
+        return '';
+    }
+
+    /**
+     * Clean scraped content - ADD this method
+     */
+    private function clean_scraped_content($content) {
+        // Remove scripts, styles, and other non-content elements
+        $content = preg_replace('/<script[^>]*>.*?<\/script>/si', '', $content);
+        $content = preg_replace('/<style[^>]*>.*?<\/style>/si', '', $content);
+        $content = preg_replace('/<nav[^>]*>.*?<\/nav>/si', '', $content);
+        $content = preg_replace('/<header[^>]*>.*?<\/header>/si', '', $content);
+        $content = preg_replace('/<footer[^>]*>.*?<\/footer>/si', '', $content);
+        $content = preg_replace('/<aside[^>]*>.*?<\/aside>/si', '', $content);
+        
+        // Convert common HTML elements to text
+        $content = str_replace(array('<br>', '<br/>', '<br />'), "\n", $content);
+        $content = str_replace(array('<p>', '</p>'), array('', "\n"), $content);
+        $content = str_replace(array('<li>', '</li>'), array('• ', "\n"), $content);
+        
+        // Remove all remaining HTML
+        $content = wp_strip_all_tags($content);
+        
+        // Clean up whitespace
+        $content = preg_replace('/\s+/', ' ', $content);
+        $content = preg_replace('/\n\s*\n/', "\n", $content);
+        
+        return trim($content);
     }
 
 	/**

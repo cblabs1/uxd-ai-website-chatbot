@@ -41,6 +41,11 @@ class AI_Chatbot_Admin {
      * The conversations instance
      */
     private $conversations;
+
+    /**
+     * The embeddings instance
+     */
+    private $embeddings;
     
     /**
      * Constructor
@@ -73,6 +78,9 @@ class AI_Chatbot_Admin {
         // Load conversations
         require_once AI_CHATBOT_PLUGIN_DIR . 'admin/class-ai-chatbot-admin-conversations.php';
         $this->conversations = new AI_Chatbot_Admin_Conversations();
+
+        require_once AI_CHATBOT_PLUGIN_DIR . 'includes/pro/admin/class-embedding-admin.php';
+        $this->embeddings = new AI_Chatbot_Embedding_Admin();
 
     }
     
@@ -175,7 +183,7 @@ class AI_Chatbot_Admin {
                 __('Semantic Intelligence', 'ai-website-chatbot'),
                 'manage_options',
                 'ai-chatbot-embeddings',
-                array($this, 'display_embeddings_page')
+                array($this->embeddings, 'render_embedding_page')
             );
             
             // Advanced Analytics (Pro)
@@ -185,7 +193,7 @@ class AI_Chatbot_Admin {
                 __('Advanced Analytics', 'ai-website-chatbot'),
                 'manage_options',
                 'ai-chatbot-pro-analytics',
-                array($this, 'display_pro_analytics_page')
+                array($this, 'render_analytics_page')
             );
             
         } else {

@@ -41,14 +41,6 @@ class AI_Chatbot_Frontend {
             return;
         }
 
-        // Enqueue frontend CSS
-        wp_enqueue_style(
-            'ai-chatbot-frontend-css',
-            AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-frontend.css',
-            array(),
-            AI_CHATBOT_VERSION
-        );
-
 		// Enqueue main CSS if not already loaded
 		if (!wp_style_is('ai-chatbot-frontend-css', 'enqueued')) {
 			wp_enqueue_style(
@@ -89,6 +81,10 @@ class AI_Chatbot_Frontend {
             true
         );
 
+        //$pro_enabled = defined('AI_CHATBOT_PRO_VERSION') || function_exists('ai_chatbot_pro_init');
+
+        $pro_enabled = true;
+
         // Localize script for AJAX
         wp_localize_script('ai-chatbot-frontend-js', 'ai_chatbot_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -116,12 +112,26 @@ class AI_Chatbot_Frontend {
                 'start_chat' => __('Start Chatting', 'ai-website-chatbot'),
             ),
             'settings' => array(
+                'enabled' => $this->is_chatbot_enabled(),
+                'enableRating' => !empty($settings['enable_rating']),
+                'enableHistory' => !empty($settings['enable_history']),
+                'maxMessageLength' => intval($settings['max_message_length'] ?? 1000),
+                'theme' => $settings['theme'] ?? 'dark',
+                'welcomeMessage' => $settings['welcome_message'] ?? '',
                 'user_collection_enabled' => get_option('ai_chatbot_user_collection_enabled', true),
                 'require_email' => get_option('ai_chatbot_require_email', true),
                 'require_name' => get_option('ai_chatbot_require_name', false),
                 'max_message_length' => get_option('ai_chatbot_max_message_length', 1000),
+                'pro_enabled' => $pro_enabled,
             )
         ));
+
+        if ($pro_enabled) {
+            wp_add_inline_script('ai-chatbot-frontend-js', 
+                'window.ai_chatbot_pro_enabled = true;', 
+                'before'
+            );
+        }
     }
 
     /**

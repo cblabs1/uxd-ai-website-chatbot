@@ -707,20 +707,27 @@ class AI_Chatbot_Pro_Ajax {
     private function reset_all_embeddings() {
         global $wpdb;
         
-        $wpdb->update(
-            $wpdb->prefix . 'ai_chatbot_content',
-            array('embedding_status' => 'pending', 'embedding_vector' => null),
-            array(),
-            array('%s', '%s'),
-            array()
+        // Use 1=1 as WHERE condition to update all rows
+        $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$wpdb->prefix}ai_chatbot_content 
+                SET embedding_status = %s, embedding_vector = NULL 
+                WHERE 1=1",
+                'pending'
+            )
         );
         
-        $wpdb->update(
-            $wpdb->prefix . 'ai_chatbot_training_data',
-            array('embedding_status' => 'pending', 'question_embedding' => null, 'answer_embedding' => null),
-            array(),
-            array('%s', '%s', '%s'),
-            array()
-        );
+        // Check if training table exists before updating
+        $training_table = $wpdb->prefix . 'ai_chatbot_training_data';
+        if ($wpdb->get_var("SHOW TABLES LIKE '$training_table'") == $training_table) {
+            $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$training_table} 
+                    SET embedding_status = %s, question_embedding = NULL, answer_embedding = NULL 
+                    WHERE 1=1",
+                    'pending'
+                )
+            );
+        }
     }
 }
