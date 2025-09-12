@@ -123,6 +123,10 @@ class AI_Chatbot {
         require_once AI_CHATBOT_PLUGIN_DIR . 'public/class-ai-chatbot-ajax.php';
         require_once AI_CHATBOT_PLUGIN_DIR . 'public/class-ai-chatbot-shortcodes.php';
         require_once AI_CHATBOT_PLUGIN_DIR . 'public/class-ai-chatbot-widgets.php';
+
+        if (is_admin()) {
+            require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot-testing.php';
+        }
         
         // Load Gutenberg blocks if WordPress version supports it
         if (function_exists('register_block_type')) {
@@ -252,7 +256,7 @@ class AI_Chatbot {
             
             // Load Pro admin modules (only in admin)
             if (is_admin()) {
-                require_once AI_CHATBOT_PLUGIN_DIR . 'includes/pro/admin/class-admin-embedding.php';
+                require_once AI_CHATBOT_PLUGIN_DIR . 'includes/pro/admin/class-embedding-admin.php';
             }
             
             // Initialize Pro

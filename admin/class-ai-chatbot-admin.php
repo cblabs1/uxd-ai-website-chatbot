@@ -73,6 +73,7 @@ class AI_Chatbot_Admin {
         // Load conversations
         require_once AI_CHATBOT_PLUGIN_DIR . 'admin/class-ai-chatbot-admin-conversations.php';
         $this->conversations = new AI_Chatbot_Admin_Conversations();
+
     }
     
     /**
@@ -109,7 +110,7 @@ class AI_Chatbot_Admin {
             __('AI Chatbot', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot',
-            array($this, 'display_dashboard_page'),
+            array($this, 'render_main_page'),
             'dashicons-format-chat',
             30
         );
@@ -121,7 +122,7 @@ class AI_Chatbot_Admin {
             __('Dashboard', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot',
-            array($this, 'display_dashboard_page')
+            array($this, 'render_main_page')
         );
         
         // Settings
@@ -131,7 +132,7 @@ class AI_Chatbot_Admin {
             __('Settings', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot-settings',
-            array($this, 'display_settings_page')
+            array($this->settings, 'render_settings_page')
         );
         
         // Training
@@ -141,7 +142,7 @@ class AI_Chatbot_Admin {
             __('Training', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot-training',
-            array($this, 'display_training_page')
+            array($this->training, 'render_training_page')
         );
         
         // Analytics
@@ -151,7 +152,7 @@ class AI_Chatbot_Admin {
             __('Analytics', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot-analytics',
-            array($this, 'display_analytics_page')
+            array($this->analytics, 'render_analytics_page')
         );
         
         // Conversations
@@ -161,7 +162,7 @@ class AI_Chatbot_Admin {
             __('Conversations', 'ai-website-chatbot'),
             'manage_options',
             'ai-chatbot-conversations',
-            array($this, 'display_conversations_page')
+            array($this->conversations, 'render_conversations_page')
         );
         
         // PRO MENU ITEMS - Only show if Pro is available

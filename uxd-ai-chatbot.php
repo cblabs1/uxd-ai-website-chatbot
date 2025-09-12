@@ -4,7 +4,7 @@
  * Plugin URI: https://wordpress.org/plugins/ai-website-chatbot
  * GitHub Plugin URI: https://github.com/cblabs1/uxd-ai-website-chatbot.git
  * Description: An intelligent chatbot that learns from your website content and integrates with multiple AI platforms. GDPR compliant with privacy controls.
- * Version: 10.3.8
+ * Version: 10.3.9
  * Requires at least: 5.0
  * Requires PHP: 7.4
  * Author: Your Name
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'AI_CHATBOT_VERSION', '10.3.8' );
+define( 'AI_CHATBOT_VERSION', '10.3.9' );
 define( 'AI_CHATBOT_PLUGIN_FILE', __FILE__ );
 define( 'AI_CHATBOT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AI_CHATBOT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -141,6 +141,88 @@ function ai_chatbot_deactivate_plugin() {
 	// Load deactivation class
 	require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot-deactivator.php';
 	AI_Chatbot_Deactivator::deactivate();
+}
+
+// Pro Feature Bypass Functions (TESTING ONLY)
+if (!function_exists('ai_chatbot_has_feature')) {
+    /**
+     * Bypass function - always returns true for testing
+     */
+    function ai_chatbot_has_feature($feature) {
+        // Always return true to bypass Pro checks
+        return true;
+    }
+}
+
+if (!function_exists('ai_chatbot_get_upgrade_url')) {
+    /**
+     * Bypass function for upgrade URL
+     */
+    function ai_chatbot_get_upgrade_url($feature = 'general') {
+        return admin_url('admin.php?page=ai-chatbot');
+    }
+}
+
+if (!function_exists('ai_chatbot_show_upgrade_notice')) {
+    /**
+     * Bypass function - don't show upgrade notices during testing
+     */
+    function ai_chatbot_show_upgrade_notice($feature, $description = '') {
+        return false; // Don't show any upgrade notices
+    }
+}
+
+if (!function_exists('ai_chatbot_is_pro')) {
+    /**
+     * Bypass function - always return true for testing
+     */
+    function ai_chatbot_is_pro() {
+        return true;
+    }
+}
+
+if (!function_exists('ai_chatbot_fs')) {
+    /**
+     * Mock Freemius function for testing
+     */
+    function ai_chatbot_fs() {
+        return (object) array(
+            'is_plan' => function($plan) { return true; },
+            'is_premium' => function() { return true; },
+            'can_use_premium_code' => function() { return true; }
+        );
+    }
+}
+
+if (!function_exists('ai_chatbot_get_license_info')) {
+    /**
+     * Mock license info for testing
+     */
+    function ai_chatbot_get_license_info() {
+        return array(
+            'type' => 'pro',
+            'status' => 'active',
+            'expires' => date('Y-m-d', strtotime('+1 year'))
+        );
+    }
+}
+
+// Set Pro testing mode option
+if (!get_option('ai_chatbot_testing_mode')) {
+    update_option('ai_chatbot_testing_mode', '1');
+    update_option('ai_chatbot_pro_enabled_features', json_encode(array(
+        'intelligence_engine',
+        'context_builder', 
+        'intent_recognition',
+        'response_reasoning',
+        'advanced_analytics',
+        'conversation_insights',
+        'lead_qualification',
+        'custom_integrations',
+        'priority_support',
+        'smart_responses',
+        'conversation_context'
+    )));
 }
 
 /**
