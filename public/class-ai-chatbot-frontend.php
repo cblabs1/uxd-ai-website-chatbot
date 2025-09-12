@@ -290,7 +290,8 @@ class AI_Chatbot_Frontend {
      * Check if chatbot is enabled
      */
     private function is_chatbot_enabled() {
-        return get_option('ai_chatbot_enabled', true);
+        $settings = get_option('ai_chatbot_settings', array());
+    	return !empty($settings['enabled']) && ($settings['enabled'] === true || $settings['enabled'] === 1 || $settings['enabled'] === '1');
     }
 
     /**

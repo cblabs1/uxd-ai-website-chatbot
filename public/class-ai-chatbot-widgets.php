@@ -40,7 +40,9 @@ class AI_Chatbot_Widget extends WP_Widget {
      */
     public function widget($args, $instance) {
         // Check if chatbot is enabled
-        if (!get_option('ai_chatbot_enabled', false)) {
+        $settings = get_option('ai_chatbot_settings', array());
+        // Check if chatbot is enabled
+        if (empty($settings['enabled']) || $settings['enabled'] !== true) {
             if (current_user_can('manage_options')) {
                 echo '<div class="ai-chatbot-disabled">' . 
                      esc_html__('AI Chatbot is currently disabled.', 'ai-website-chatbot') . 

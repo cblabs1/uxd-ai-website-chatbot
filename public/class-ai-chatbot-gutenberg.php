@@ -98,6 +98,8 @@ class AI_Chatbot_Gutenberg {
      * @since 1.0.0
      */
     public function enqueue_block_editor_assets() {
+
+        $settings = get_option('ai_chatbot_settings', array());
         // Enqueue block editor script
         wp_enqueue_script(
             'ai-chatbot-blocks',
@@ -135,7 +137,7 @@ class AI_Chatbot_Gutenberg {
             'ai-chatbot-blocks',
             'aiChatbotBlocks',
             array(
-                'isEnabled' => get_option('ai_chatbot_enabled', false),
+                'isEnabled' => $settings['enabled'] ?? false,
                 'themes' => $this->get_available_themes(),
                 'strings' => array(
                     'title' => __('AI Chatbot', 'ai-website-chatbot'),
@@ -249,8 +251,9 @@ class AI_Chatbot_Gutenberg {
      * @since 1.0.0
      */
     public function render_chatbot_block($attributes) {
+        $settings = get_option('ai_chatbot_settings', array());
         // Check if chatbot is enabled
-        if (!get_option('ai_chatbot_enabled', false)) {
+        if (empty($settings['enabled']) || $settings['enabled'] !== true) {
             return $this->get_disabled_block_message();
         }
 
@@ -282,8 +285,9 @@ class AI_Chatbot_Gutenberg {
      * @since 1.0.0
      */
     public function render_button_block($attributes) {
+        $settings = get_option('ai_chatbot_settings', array());
         // Check if chatbot is enabled
-        if (!get_option('ai_chatbot_enabled', false)) {
+        if (empty($settings['enabled']) || $settings['enabled'] !== true) {
             return $this->get_disabled_block_message();
         }
 
@@ -323,7 +327,9 @@ class AI_Chatbot_Gutenberg {
      */
     public function render_popup_block($attributes) {
         // Check if chatbot is enabled
-        if (!get_option('ai_chatbot_enabled', false)) {
+        $settings = get_option('ai_chatbot_settings', array());
+        // Check if chatbot is enabled
+        if (empty($settings['enabled']) || $settings['enabled'] !== true) {
             return $this->get_disabled_block_message();
         }
 
