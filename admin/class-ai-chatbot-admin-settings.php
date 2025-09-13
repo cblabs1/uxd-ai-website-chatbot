@@ -158,7 +158,7 @@ class AI_Chatbot_Admin_Settings {
             // Advanced Settings
             'debug_mode' => false,
             'log_conversations' => true,
-            'cache_responses' => false,
+            'cache_responses' => true,
             'custom_css' => '',
             'custom_js' => ''
         );

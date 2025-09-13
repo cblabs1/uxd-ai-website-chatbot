@@ -63,6 +63,8 @@ class AI_Chatbot_Ajax {
     public function handle_send_message() {
         $start_time = microtime(true);
 
+        $settings = get_option('ai_chatbot_settings', array());
+        $provider_name = $settings['ai_provider'] ?? 'openai';
         // Enhanced logging
         error_log('AI Chatbot: handle_send_message called');
 
@@ -140,8 +142,8 @@ class AI_Chatbot_Ajax {
         }
 
         // Get AI provider settings
-        $ai_provider = get_option('ai_chatbot_provider', 'openai');
-        $model = get_option('ai_chatbot_model', 'gpt-4');
+        $ai_provider = $provider_name;
+        $model = $settings['model'] ?? 'gpt-3.5-turbo';
 
         try {
             // Initialize AI provider
@@ -195,7 +197,7 @@ class AI_Chatbot_Ajax {
             $response_time = microtime(true) - $start_time;
 
             // Cache response if enabled
-            $cache_enabled = get_option('ai_chatbot_enable_cache', false);
+            $cache_enabled = $settings['cache_responses'] ?? false;
             if ($cache_enabled) {
                 $this->cache_response($message, $response_text);
             }
@@ -212,7 +214,7 @@ class AI_Chatbot_Ajax {
                 'response_time' => round($response_time, 3),
                 'source' => 'ai_provider',
                 'model' => $model_used,
-                'cached' => false
+                'cached' => ($cache_enabled ? true : false)
             ));
 
         } catch (Exception $e) {
@@ -224,6 +226,13 @@ class AI_Chatbot_Ajax {
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }
+    }
+
+    protected function cache_response($message, $response) {
+        $cache_key = 'ai_chatbot_response_' . md5(strtolower(trim($message)));
+        $cache_duration = 12 * HOUR_IN_SECONDS; // Cache for 12 hours
+        
+        set_transient($cache_key, $response, $cache_duration);
     }
 
     /**

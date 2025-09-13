@@ -403,7 +403,7 @@
     font-size: 14px;
     line-height: 1.4;
     max-height: 100px;
-    min-height: 44px;
+    min-height: 18px;
     transition: all 0.2s ease;
 }
 
@@ -1287,6 +1287,11 @@
     text-align: center;
     animation: slideInUp 0.4s ease;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    width: 85%;
+    top: 74px;
+    left: 5px;
+    position: absolute;
+    z-index: 99999;
 }
 
 .prechat-header {

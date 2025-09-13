@@ -57,11 +57,6 @@ $theme = 'dark';
                     <p class="ai-chatbot-subtitle"><?php echo esc_html($settings['welcome_message'] ?? __('How can I help you today?', 'ai-website-chatbot')); ?></p>
                 </div>
                 <div class="ai-chatbot-header-actions">
-                    <button class="ai-chatbot-minimize" id="ai-chatbot-minimize" title="<?php _e('Minimize', 'ai-website-chatbot'); ?>">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M4 8H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                    </button>
                     <button class="ai-chatbot-close" id="ai-chatbot-close" title="<?php _e('Close', 'ai-website-chatbot'); ?>">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>

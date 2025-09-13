@@ -236,7 +236,7 @@ class AI_Chatbot_Shortcodes {
                 <div class="ai-chatbot-input-area">
                     <form class="ai-chatbot-input-form" id="ai-chatbot-input-form">
                         <div class="ai-chatbot-input-container">
-                            <textarea class="ai-chatbot-input ai-chatbot-input-empty" id="ai-chatbot-input" placeholder="Type your message..." rows="1" maxlength="1000" style="height: 44px;"></textarea>
+                            <textarea class="ai-chatbot-input ai-chatbot-input-empty" id="ai-chatbot-input" placeholder="Type your message..." rows="1" maxlength="1000" ></textarea>
                             <button type="submit" class="ai-chatbot-send-button" id="ai-chatbot-send-button" disabled="">
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M18 10L2 18L5 10L2 2L18 10Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>

@@ -71,7 +71,7 @@
                 settings: {
                     maxMessageLength: 1000,
                     enableRating: true,
-                    enableHistory: true
+                    enableHistory: true,
                 },
                 strings: {
                     loading: 'Loading...',
@@ -89,6 +89,8 @@
             this.initializeAuth();
             this.initialized = true;
             
+            this.loadConversationHistory();
+            
             console.log('AIChatbot: Core initialization complete');
             
             // Notify Pro features (if loaded) that core is ready
@@ -101,46 +103,37 @@
 
         bindWidgetEvents: function() {
             var self = this;
-            
-            console.log('AIChatbot: Binding widget events...');
-            
+                    
             // Widget toggle button - CRITICAL MISSING EVENT
             $(document).on('click.aichatbot', '.ai-chatbot-toggle', function(e) {
                 e.preventDefault();
-                console.log('AIChatbot: Toggle button clicked');
                 self.toggleWidget();
             });
             
             // Close button
             $(document).on('click.aichatbot', '.ai-chatbot-close', function(e) {
                 e.preventDefault();
-                console.log('AIChatbot: Close button clicked');
                 self.closeWidget();
             });
             
             // Minimize button  
             $(document).on('click.aichatbot', '.ai-chatbot-minimize', function(e) {
                 e.preventDefault();
-                console.log('AIChatbot: Minimize button clicked');
                 self.minimizeWidget();
             });
         },
 
         toggleWidget: function() {
-            console.log('AIChatbot: Toggle widget called');
             if (this.$widget && this.$widget.length) {
                 if (this.$widget.hasClass('ai-chatbot-open')) {
                     this.closeWidget();
                 } else {
                     this.openWidget();
                 }
-            } else {
-                console.log('AIChatbot: Widget element not found');
             }
         },
 
         openWidget: function() {
-            console.log('AIChatbot: Opening widget');
             if (this.$widget && this.$widget.length) {
                 this.$widget.addClass('ai-chatbot-open');
                 if (this.$container && this.$container.length) {
@@ -164,12 +157,10 @@
                 this.$widget.find('.ai-chatbot-toggle-open-text').hide();
                 this.$widget.find('.ai-chatbot-toggle-close-text').show();
                 
-                console.log('AIChatbot: Widget opened successfully');
             }
         },
 
         closeWidget: function() {
-            console.log('AIChatbot: Closing widget');
             if (this.$widget && this.$widget.length) {
                 this.$widget.removeClass('ai-chatbot-open ai-chatbot-minimized');
                 if (this.$container && this.$container.length) {
@@ -184,12 +175,10 @@
                 this.$widget.find('.ai-chatbot-toggle-open-text').show();
                 this.$widget.find('.ai-chatbot-toggle-close-text').hide();
                 
-                console.log('AIChatbot: Widget closed successfully');
             }
         },
 
         minimizeWidget: function() {
-            console.log('AIChatbot: Minimizing widget');
             if (this.$widget && this.$widget.length) {
                 this.$widget.addClass('ai-chatbot-minimized').removeClass('ai-chatbot-open');
                 if (this.$container && this.$container.length) {
@@ -205,7 +194,6 @@
             }
             // Remove widget.js event handlers
             $(document).off('.aiwidget');
-            console.log('AIChatbot: Widget.js functionality disabled - using core handlers');
         },
 
 
@@ -215,25 +203,11 @@
         
         initializeUI: function() {
             this.$widget = $('.ai-chatbot-widget, #ai-chatbot-widget');
-            this.$container = $('#ai-chatbot-container, .ai-chatbot-container');
+            this.$container = $('#ai-chatbot-container, .ai-chatbot-container, ai-chatbot-inline');
             this.$messages = $('.ai-chatbot-messages, .messages-container, .inline-messages-container, .popup-messages-container');
             this.$input = $('.ai-chatbot-input');
             this.$sendBtn = $('.ai-chatbot-send-button, .send-button, .ai-chatbot-send');
-            
-            console.log('AIChatbot: UI elements initialized', {
-                widget: this.$widget.length,
-                container: this.$container.length,
-                messages: this.$messages.length,
-                input: this.$input.length,
-                sendBtn: this.$sendBtn.length
-            });
-
-            // ADDED: Auto-show widget if it exists and disable widget.js conflicts
-            if (this.$widget.length > 0) {
-                console.log('AIChatbot: Widget found, ready for interaction');
-                // Disable widget.js to prevent conflicts
-                setTimeout(() => this.disableWidgetJS(), 100);
-            }
+            this.$typing = $('.ai-chatbot-typing, .typing-indicator');
         },
 
         // =======================
@@ -254,7 +228,7 @@
                     self.handleSendMessage(message);
                     input.val('');
                 } else if (!self.isUserAuthenticated()) {
-                    self.showPreChatForm();
+                    console.log('AIChatbot: User not authenticated, showing pre-chat form');
                 }
             });
 
@@ -267,7 +241,7 @@
                         self.handleSendMessage(message);
                         $(this).val('');
                     } else if (!self.isUserAuthenticated()) {
-                        self.showPreChatForm();
+                        console.log('AIChatbot: User not authenticated, showing pre-chat form');
                     }
                 }
             });
@@ -278,7 +252,7 @@
             });
 
             // Pre-chat form submission
-            $(document).on('submit.aichatbot', '.pre-chat-form', function(e) {
+            $(document).on('submit.aichatbot', '.prechat-form', function(e) {
                 e.preventDefault();
                 self.handlePreChatSubmission($(this));
             });
@@ -323,39 +297,61 @@
         initializeAuth: function() {
             var userData = localStorage.getItem('ai_chatbot_user_data');
             var isAuthenticated = localStorage.getItem('ai_chatbot_authenticated');
+            console.log('AIChatbot: Initializing authentication...', userData);
             
             if (userData && isAuthenticated === 'true') {
                 try {
                     this.currentUserData = JSON.parse(userData);
-                    console.log('User data loaded from storage');
                 } catch (e) {
-                    console.error('Error parsing stored user data:', e);
                     this.clearUserData();
                 }
+            }else {
+                this.showPreChatForm();
             }
         },
 
         showPreChatForm: function() {
-            if ($('.pre-chat-form').length > 0) return;
-            
+            console.log('AIChatbot: Showing pre-chat form');
             var formHtml = `
-                <div class="pre-chat-overlay">
-                    <div class="pre-chat-form">
-                        <h3>Start Conversation</h3>
+            <div class="pre-chat-overlay">
+                <div class="ai-chatbot-prechat-form">
+                    <div class="prechat-header">
+                        <div class="prechat-avatar">👋</div>
+                        <h3>Hi, I am Teekeydee!</h3>
+                        <p>To get started, please share your details.</p>
+                    </div>
+                    <form id="ai-chatbot-prechat-inline-form" class="prechat-form">
                         <div class="form-group">
-                            <input type="text" name="user_name" placeholder="Your Name" required>
+                            <input type="text" id="prechat-name" name="user_name" required 
+                                placeholder="Enter your full name" autocomplete="name">
                         </div>
                         <div class="form-group">
-                            <input type="email" name="user_email" placeholder="Your Email" required>
+                            <input type="email" id="prechat-email" name="user_email" required 
+                                placeholder="Enter your email" autocomplete="email">
                         </div>
                         <div class="form-actions">
-                            <button type="submit" class="btn-primary">Start Chat</button>
+                            <button type="submit" class="start-chat-btn">
+                                <span class="btn-text">Start Chatting</span>
+                                <span class="btn-icon">💬</span>
+                            </button>
                         </div>
-                    </div>
+                        <div class="form-footer">
+                            <small>🔒 Your information is secure and private</small>
+                        </div>
+                    </form>
                 </div>
+            </div>
             `;
-            
-            $('body').append(formHtml);
+
+            console.log('AIChatbot: Preparing to display pre-chat form');
+            console.log('AIChatbot: Current user data:', this.$container.length);
+            if (this.$messages && this.$messages.length) {
+                console.log('AIChatbot: Displaying pre-chat form');
+                console.log('AIChatbot: Current user data:', this.currentUserData);
+                console.log('AIChatbot: Is user authenticated?', this.isUserAuthenticated());
+                this.$messages.append(formHtml);
+            }
+
         },
 
         handlePreChatSubmission: function($form) {
@@ -380,6 +376,7 @@
             
             this.saveUserData();
             $('.pre-chat-overlay').remove();
+            this.enableChatInterface();
         },
 
         saveUserData: function() {
@@ -530,31 +527,13 @@
         // =======================
         
         showTypingIndicator: function() {
-            if (!this.$messages) return;
-            
-            if (!this.$typing || !this.$typing.length) {
-                var typingHtml = '<div class="ai-chatbot-message ai-chatbot-message-bot ai-chatbot-typing">';
-                typingHtml += '<div class="ai-chatbot-message-content">';
-                typingHtml += '<div class="ai-chatbot-typing-indicator">';
-                typingHtml += '<span></span><span></span><span></span>';
-                typingHtml += '</div>';
-                typingHtml += '</div>';
-                typingHtml += '</div>';
-                
-                this.$messages.append(typingHtml);
-                this.$typing = this.$messages.find('.ai-chatbot-typing');
-            }
-            
             this.$typing.show();
             this.scrollToBottom();
             this.isTyping = true;
         },
 
         hideTypingIndicator: function() {
-            if (this.$typing && this.$typing.length) {
-                this.$typing.remove();
-            }
-            this.$typing = null;
+            this.$typing.hide();
             this.isTyping = false;
         },
 
@@ -586,15 +565,46 @@
         showEndOfConversationRating: function() {
             if ($('.end-conversation-rating').length > 0) return;
             
+            $('.ai-chatbot-container').addClass('has-feedback-form');
+            
             var ratingHtml = `
-                <div class="end-conversation-rating">
-                    <div class="rating-title">How was your experience?</div>
-                    <div class="rating-buttons">
-                        <button class="end-rating-btn" data-rating="5">😊 Great</button>
-                        <button class="end-rating-btn" data-rating="3">😐 Okay</button>
-                        <button class="end-rating-btn" data-rating="1">😞 Poor</button>
+                <div class="ai-chatbot-message bot-message end-conversation-rating">
+                    <div class="message-content">
+                        <div class="message-bubble rating-bubble">
+                            <h4>How was your experience?</h4>
+                            <div class="conversation-rating">
+                                <div class="rating-smilies">
+                                    <button class="end-rating-btn smiley-btn" data-rating="1" title="Very Poor">
+                                        <span class="smiley">😡</span>
+                                        <span class="smiley-label">Very Poor</span>
+                                    </button>
+                                    <button class="end-rating-btn smiley-btn" data-rating="2" title="Poor">
+                                        <span class="smiley">😞</span>
+                                        <span class="smiley-label">Poor</span>
+                                    </button>
+                                    <button class="end-rating-btn smiley-btn" data-rating="3" title="Okay">
+                                        <span class="smiley">😐</span>
+                                        <span class="smiley-label">Okay</span>
+                                    </button>
+                                    <button class="end-rating-btn smiley-btn" data-rating="4" title="Good">
+                                        <span class="smiley">😊</span>
+                                        <span class="smiley-label">Good</span>
+                                    </button>
+                                    <button class="end-rating-btn smiley-btn" data-rating="5" title="Excellent">
+                                        <span class="smiley">🤩</span>
+                                        <span class="smiley-label">Excellent</span>
+                                    </button>
+                                </div>
+                                <div class="rating-feedback" style="display: none;">
+                                    <textarea placeholder="Tell us more about your experience (optional)..." class="feedback-text" maxlength="500"></textarea>
+                                    <div class="rating-actions">
+                                        <button class="submit-rating-btn">Submit Feedback</button>
+                                        <button class="skip-rating-btn">Skip</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <button class="skip-rating-btn">Skip</button>
                 </div>
             `;
             
@@ -645,6 +655,161 @@
                     }
                 }, 3000);
             }
+        },
+
+        loadConversationHistory: function() {
+            var self = this;
+            console.log('Loading conversation history for session:', this.config.sessionId);
+            console.log('Current session ID:', this.currentSessionId);
+            // Check if we have a session - if not, start fresh
+            if (!this.currentSessionId) {
+                this.currentSessionId = this.generateSessionId();
+                localStorage.setItem('ai_chatbot_session', this.currentSessionId);
+                return;
+            }
+            
+            $.ajax({
+                url: this.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_get_history',
+                    session_id: this.currentSessionId,
+                    user_email: this.currentUserData ? this.currentUserData.email : '', 
+                    nonce: this.config.nonce
+                },
+                success: function(response) {
+                    if (response.success && response.data.messages && response.data.messages.length > 0) {
+                        self.displayConversationHistory(response.data.messages);
+                        self.scrollToBottom();
+                    } else {
+                        // No history found - start fresh
+                        console.log('No conversation history found for session:', self.currentSessionId);
+                    }
+                },
+                error: function() {
+                    console.log('Could not load conversation history');
+                }
+            });
+        },
+
+        displayConversationHistory: function(messages) {
+            for (var i = 0; i < messages.length; i++) {
+                var msg = messages[i];
+                if (msg.sender === 'user') {
+                    this.addUserMessage(msg.message);
+                } else {
+                    this.addBotMessage(msg.message, msg.id);
+                    
+                    // Restore individual message ratings if they exist
+                    if (msg.message_rating && msg.message_rated_at) {
+                        this.restoreMessageRating(msg.id, msg.message_rating);
+                    }
+                }
+            }
+            
+            // Check for overall conversation rating
+            this.checkAndRestoreConversationRating();
+        },
+
+        // NEW: Restore individual message rating display
+        restoreMessageRating: function(messageId, rating) {
+            var self = this;
+            var $rating = $('[data-message-id="' + messageId + '"] .message-rating');
+            
+            if ($rating.length > 0) {
+                var ratingDetails = this.getRatingDetails(rating);
+                $rating.html(`
+                    <div class="rating-thanks-enhanced">
+                        <span class="rating-emoji">${ratingDetails.emoji}</span>
+                        <span class="rating-text">Rated: ${ratingDetails.label}</span>
+                        <span class="thank-icon">🙏</span>
+                    </div>
+                `);
+                
+                // Add completed class for styling
+                $rating.addClass('rating-completed');
+            }
+        },
+
+        // NEW: Check and restore conversation rating
+        checkAndRestoreConversationRating: function() {
+            var self = this;
+            
+            $.ajax({
+                url: this.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_get_conversation_rating_status',
+                    session_id: this.currentSessionId,
+                    nonce: this.config.nonce
+                },
+                success: function(response) {
+                    if (response.success && response.data.has_rating) {
+                        // Show the submitted rating instead of rating form
+                        self.showRestoredConversationRating(
+                            response.data.rating, 
+                            response.data.feedback || ''
+                        );
+                    }
+                },
+                error: function() {
+                    console.log('Could not check conversation rating status');
+                }
+            });
+        },
+
+        // NEW: Show restored conversation rating from database
+        showRestoredConversationRating: function(rating, feedback) {
+            var self = this;
+            
+            // Don't show if rating form already exists or if already restored
+            if ($('.end-conversation-rating').length > 0) {
+                return;
+            }
+
+            $('.ai-chatbot-container').addClass('has-feedback-form');
+            
+            // Get the rating details
+            var ratingDetails = this.getRatingDetails(rating);
+            
+            var restoredRatingHtml = `
+                <div class="ai-chatbot-message bot-message end-conversation-rating rating-completed">
+                    <div class="message-content">
+                        <div class="message-bubble rating-bubble">
+                            <div class="rating-submitted">
+                                <div class="submitted-header">
+                                    <span class="check-icon">✅</span>
+                                    <span class="submitted-text">Previous Rating</span>
+                                </div>
+                                <div class="submitted-rating">
+                                    <div class="rating-display" data-rating="${rating}">
+                                        <span class="submitted-emoji">${ratingDetails.emoji}</span>
+                                        <div class="rating-info">
+                                            <div class="rating-label">${ratingDetails.label}</div>
+                                            <div class="rating-stars">${self.generateStars(rating)}</div>
+                                        </div>
+                                    </div>
+                                    ${feedback ? `
+                                        <div class="submitted-feedback">
+                                            <div class="feedback-label">Your previous feedback:</div>
+                                            <div class="feedback-text-display">"${feedback}"</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="restored-note">
+                                    <span class="history-icon">📋</span>
+                                    <span>Loaded from conversation history</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.$messages.append(restoredRatingHtml);
+            this.scrollToBottom();
+            
+            console.log('Restored conversation rating from database');
         },
 
         clearConversation: function() {

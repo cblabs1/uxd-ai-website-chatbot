@@ -50,9 +50,6 @@ $enable_conversation_save = isset($config['enable_conversation_save']) ? $config
                 <span class="dashicons dashicons-download"></span>
             </button>
             <?php endif; ?>
-            <button type="button" class="control-btn minimize-modal-btn" aria-label="<?php esc_attr_e('Minimize', 'ai-website-chatbot'); ?>">
-                <span class="dashicons dashicons-minus"></span>
-            </button>
             <button type="button" class="control-btn close-modal-btn" aria-label="<?php esc_attr_e('Close', 'ai-website-chatbot'); ?>">
                 <span class="dashicons dashicons-no"></span>
             </button>

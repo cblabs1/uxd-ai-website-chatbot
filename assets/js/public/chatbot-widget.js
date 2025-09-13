@@ -425,34 +425,6 @@
     }
 
     /**
-     * Utility functions for widget
-     */
-    window.AIChatbotWidget.utils = {
-        /**
-         * Format message text
-         */
-        formatMessage: function(text) {
-            if (!text) return '';
-            
-            // Convert line breaks
-            text = text.replace(/\n/g, '<br>');
-            
-            // Convert URLs to links (basic implementation)
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
-            text = text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-            
-            return text;
-        },
-
-        /**
-         * Check if user is on mobile
-         */
-        isMobile: function() {
-            return window.innerWidth <= 768;
-        }
-    };
-
-    /**
      * Initialize when document is ready
      */
     $(document).ready(function() {

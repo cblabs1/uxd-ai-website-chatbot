@@ -293,7 +293,7 @@ class AI_Chatbot_Widget extends WP_Widget {
         wp_enqueue_script(
             'ai-chatbot-widget',
             AI_CHATBOT_PLUGIN_URL . 'assets/js/public/chatbot-widget.js',
-            array('jquery'),
+            array('jquery', 'ai-chatbot-frontend-js'),
             AI_CHATBOT_VERSION,
             true
         );
