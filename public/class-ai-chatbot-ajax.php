@@ -623,9 +623,9 @@ class AI_Chatbot_Ajax {
         $security = new AI_Chatbot_Security();
         $session_id = $security->generate_session_id();
         
-        // Set cookie (valid for 7 days)
+        // Set cookie (valid for 30 days)
         if (!headers_sent()) {
-            setcookie('ai_chatbot_session', $session_id, time() + (7 * 24 * 60 * 60), '/', '', is_ssl(), true);
+            setcookie('ai_chatbot_session', $session_id, time() + (30 * 24 * 60 * 60), '/', '', is_ssl(), true);
         }
         
         return $session_id;
@@ -2113,12 +2113,6 @@ class AI_Chatbot_Ajax {
         if ($result) {
             // Log the rating event
             $this->log_conversation_rating_event($conversation_id, $rating, $feedback);
-            
-            // Generate new session ID for next conversation
-            $new_session_id = $this->generate_session_id();
-            
-            // Clear the old session cookie and set new one
-            $this->reset_session_after_rating($new_session_id);
             
             wp_send_json_success(array(
                 'message' => __('Thank you for your feedback!', 'ai-website-chatbot'),

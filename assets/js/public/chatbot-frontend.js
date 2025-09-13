@@ -80,7 +80,7 @@
                 }
             }, config);
 
-            this.currentSessionId = this.config.sessionId || this.generateSessionId();
+            this.currentSessionId = this.generateSessionId();
             this.currentConversationId = this.generateConversationId();
             
             this.initializeUI();
@@ -375,8 +375,7 @@
             };
             
             this.saveUserData();
-            $('.pre-chat-overlay').remove();
-            this.enableChatInterface();
+            $('.pre-chat-overlay').fadeOut();
         },
 
         saveUserData: function() {
@@ -659,13 +658,12 @@
 
         loadConversationHistory: function() {
             var self = this;
-            console.log('Loading conversation history for session:', this.config.sessionId);
-            console.log('Current session ID:', this.currentSessionId);
-            // Check if we have a session - if not, start fresh
+            console.log('Loading conversation history for session:', this.currentSessionId);
+            
+            // Don't generate new session if we already have one
             if (!this.currentSessionId) {
                 this.currentSessionId = this.generateSessionId();
-                localStorage.setItem('ai_chatbot_session', this.currentSessionId);
-                return;
+                return; // No history to load for new session
             }
             
             $.ajax({
@@ -674,41 +672,91 @@
                 data: {
                     action: 'ai_chatbot_get_history',
                     session_id: this.currentSessionId,
-                    user_email: this.currentUserData ? this.currentUserData.email : '', 
+                    user_email: this.currentUserData ? this.currentUserData.email : '',
                     nonce: this.config.nonce
                 },
                 success: function(response) {
                     if (response.success && response.data.messages && response.data.messages.length > 0) {
+                        console.log('Found conversation history:', response.data.messages.length + ' messages');
                         self.displayConversationHistory(response.data.messages);
                         self.scrollToBottom();
                     } else {
-                        // No history found - start fresh
                         console.log('No conversation history found for session:', self.currentSessionId);
                     }
                 },
-                error: function() {
-                    console.log('Could not load conversation history');
+                error: function(xhr, status, error) {
+                    console.log('Could not load conversation history:', error);
                 }
             });
         },
 
         displayConversationHistory: function(messages) {
+            var messageIndex = 0;
+            
             for (var i = 0; i < messages.length; i++) {
                 var msg = messages[i];
+                
                 if (msg.sender === 'user') {
                     this.addUserMessage(msg.message);
+                    messageIndex++;
                 } else {
                     this.addBotMessage(msg.message, msg.id);
+                    messageIndex++;
                     
-                    // Restore individual message ratings if they exist
+                    // Check if there's a rating for this message
                     if (msg.message_rating && msg.message_rated_at) {
-                        this.restoreMessageRating(msg.id, msg.message_rating);
+                        // Add rating separator after this bot message
+                        this.addRatingSeparator(msg.id, msg.message_rating, messageIndex);
                     }
                 }
             }
             
             // Check for overall conversation rating
             this.checkAndRestoreConversationRating();
+        },
+
+        addRatingSeparator: function(messageId, rating, position) {
+            var ratingDetails = this.getRatingDetails(rating);
+            
+            var ratingSeparatorHtml = `
+                <div class="rating-separator" data-message-id="${messageId}" data-position="${position}">
+                    <div class="rating-line"></div>
+                    <div class="rating-indicator">
+                        <span class="rating-emoji">${ratingDetails.emoji}</span>
+                        <span class="rating-text">Rated: ${ratingDetails.label}</span>
+                        <div class="rating-stars">${this.generateStars(rating)}</div>
+                    </div>
+                    <div class="rating-line"></div>
+                </div>
+            `;
+            
+            this.$messages.append(ratingSeparatorHtml);
+        },
+
+        // NEW: Get rating details for display
+        getRatingDetails: function(rating) {
+            var ratingMap = {
+                1: { emoji: '😞', label: 'Poor' },
+                2: { emoji: '😐', label: 'Fair' },
+                3: { emoji: '🙂', label: 'Good' },
+                4: { emoji: '😊', label: 'Very Good' },
+                5: { emoji: '🤩', label: 'Excellent' }
+            };
+            
+            return ratingMap[rating] || { emoji: '⭐', label: 'Rated' };
+        },
+
+        // NEW: Generate star display
+        generateStars: function(rating) {
+            var stars = '';
+            for (var i = 1; i <= 5; i++) {
+                if (i <= rating) {
+                    stars += '<span class="star filled">★</span>';
+                } else {
+                    stars += '<span class="star empty">☆</span>';
+                }
+            }
+            return stars;
         },
 
         // NEW: Restore individual message rating display
@@ -863,22 +911,26 @@
         // =======================
         
         generateSessionId: function() {
-            var sessionKey = 'ai_chatbot_session_' + window.location.hostname;
-            var existingSession = localStorage.getItem(sessionKey) || this.getCookie('ai_chatbot_session');
             
-            if (existingSession && existingSession.length > 10) {
+            var existingSession = this.getCookie('ai_chatbot_session') || localStorage.getItem('ai_chatbot_session');
+            
+            if (existingSession && existingSession.length >= 20) {
+                console.log('Using existing session:', existingSession);
+                // Sync to localStorage if not there
+                localStorage.setItem('ai_chatbot_session', existingSession);
                 return existingSession;
             }
 
-            var sessionId = 'session_' + Date.now() + '_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
 
-            localStorage.setItem(sessionKey, sessionId);
-            this.setCookie('ai_chatbot_session', sessionId, 7);
-
+            var sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+            // Store in both localStorage and cookie with SAME NAME as PHP
+            localStorage.setItem('ai_chatbot_session', sessionId);
+            this.setCookie('ai_chatbot_session', sessionId, 30); // Match PHP 30 days
+            
+            console.log('Generated new session:', sessionId);
             return sessionId;
+
         },
         
         generateConversationId: function() {
