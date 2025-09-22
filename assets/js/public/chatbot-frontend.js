@@ -57,6 +57,10 @@
         $sendBtn: null,
         $typing: null,
 
+        inactivityTimer: null,
+        inactivityTimeout: 10000, // 3 minutes (configurable)
+        inactivityFeedbackShown: false,
+
         // =======================
         // INITIALIZATION
         // =======================
@@ -86,6 +90,7 @@
             this.initializeUI();
             this.bindEvents();
             this.bindWidgetEvents();
+            this.bindInactivityEvents();
             this.initializeAuth();
             this.initialized = true;
             
@@ -95,6 +100,19 @@
             
             // Notify Pro features (if loaded) that core is ready
             $(document).trigger('aichatbot:core:ready');
+        },
+
+        // =======================
+        // UI INITIALIZATION
+        // =======================
+        
+        initializeUI: function() {
+            this.$widget = $('.ai-chatbot-widget, #ai-chatbot-widget');
+            this.$container = $('#ai-chatbot-container, .ai-chatbot-container, ai-chatbot-inline');
+            this.$messages = $('.ai-chatbot-messages, .messages-container, .inline-messages-container, .popup-messages-container');
+            this.$input = $('.ai-chatbot-input');
+            this.$sendBtn = $('.ai-chatbot-send-button, .send-button, .ai-chatbot-send');
+            this.$typing = $('.ai-chatbot-typing, .typing-indicator');
         },
 
         // =======================
@@ -194,20 +212,6 @@
             }
             // Remove widget.js event handlers
             $(document).off('.aiwidget');
-        },
-
-
-        // =======================
-        // UI INITIALIZATION
-        // =======================
-        
-        initializeUI: function() {
-            this.$widget = $('.ai-chatbot-widget, #ai-chatbot-widget');
-            this.$container = $('#ai-chatbot-container, .ai-chatbot-container, ai-chatbot-inline');
-            this.$messages = $('.ai-chatbot-messages, .messages-container, .inline-messages-container, .popup-messages-container');
-            this.$input = $('.ai-chatbot-input');
-            this.$sendBtn = $('.ai-chatbot-send-button, .send-button, .ai-chatbot-send');
-            this.$typing = $('.ai-chatbot-typing, .typing-indicator');
         },
 
         // =======================
@@ -419,7 +423,7 @@
 
         sendMessageToServer: function(message) {
             var self = this;
-            
+            this.resetInactivityTimer();
             this.showTypingIndicator();
             
             var requestData = {
@@ -492,6 +496,11 @@
                 this.scrollToBottom();
                 this.animateMessageAppearance(messageId);
             }
+
+            var self = this;
+            setTimeout(function() {
+                self.startInactivityTimer();
+            }, 2000);
         },
 
         buildMessageHtml: function(message, sender, timestamp, messageId) {
@@ -520,6 +529,72 @@
             
             return text;
         },
+
+        // =======================
+        // INACTIVITY MONITORING
+        // =======================
+
+        bindInactivityEvents: function() {
+            var self = this;
+            var events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+            
+            events.forEach(function(event) {
+                $(document).on(event + '.inactivity', function() {
+                    self.resetInactivityTimer();
+                });
+            });
+        },
+
+        startInactivityTimer: function() {
+            var self = this;
+            
+            // Don't start if feedback already shown or no conversation
+            if (this.inactivityFeedbackShown || this.messageCount < 2) {
+                return;
+            }
+            
+            // Clear existing timer
+            if (this.inactivityTimer) {
+                clearTimeout(this.inactivityTimer);
+            }
+            
+            this.inactivityTimer = setTimeout(function() {
+                self.showInactivityFeedback();
+            }, this.inactivityTimeout);
+            
+            console.log('Inactivity timer started');
+        },
+        
+        /**
+         * Reset inactivity timer
+         */
+        resetInactivityTimer: function() {
+            if (this.inactivityTimer) {
+                clearTimeout(this.inactivityTimer);
+            }
+            
+            // Restart timer if chat is open and has conversation
+            if (this.$widget && this.$widget.hasClass('ai-chatbot-open') && 
+                this.messageCount >= 2 && !this.inactivityFeedbackShown) {
+                this.startInactivityTimer();
+            }
+        },
+        
+        /**
+         * Show feedback due to inactivity
+         */
+        showInactivityFeedback: function() {
+            // Only show if no rating form is currently visible
+            if ($('.end-conversation-rating').length === 0) {
+                this.inactivityFeedbackShown = true;
+                
+                // Use your existing showEndOfConversationRating method
+                this.showEndOfConversationRating();
+                
+                console.log('Feedback form shown due to inactivity');
+            }
+        },
+        
 
         // =======================
         // TYPING INDICATOR
@@ -861,6 +936,12 @@
         },
 
         clearConversation: function() {
+
+            if (this.inactivityTimer) {
+                clearTimeout(this.inactivityTimer);
+            }
+            this.inactivityFeedbackShown = false;
+
             if (confirm('Are you sure you want to clear this conversation?')) {
                 var self = this;
                 

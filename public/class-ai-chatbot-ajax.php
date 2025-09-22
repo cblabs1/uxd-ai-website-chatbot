@@ -239,6 +239,9 @@ class AI_Chatbot_Ajax {
      * NEW: Validate user session method
      */
     private function validate_user_session($email, $name, $session_id, $user_id) {
+        // Enhanced logging
+        error_log('AI Chatbot: validate_user_session called - Email: ' . $email . ', Session: ' . $session_id);
+        
         // Start session if needed
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
@@ -246,20 +249,24 @@ class AI_Chatbot_Ajax {
         
         // Check WordPress session first
         if (isset($_SESSION['ai_chatbot_user']) && $_SESSION['ai_chatbot_user']['email'] === $email) {
+            error_log('AI Chatbot: Found valid session data for: ' . $email);
             return $_SESSION['ai_chatbot_user'];
         }
         
-        // Validate against database
+        // Validate against database - FIXED THE INCOMPLETE QUERY
         global $wpdb;
         $users_table = $wpdb->prefix . 'ai_chatbot_users';
         
+        // First try to find user by email
         $user = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$users_table} WHERE email = %s AND status = 'active'",
             $email
         ), ARRAY_A);
         
         if ($user) {
-            // Update session
+            error_log('AI Chatbot: Found user in database: ' . $email);
+            
+            // Update session data
             $_SESSION['ai_chatbot_user'] = array(
                 'id' => $user['id'],
                 'email' => $user['email'],
@@ -267,9 +274,41 @@ class AI_Chatbot_Ajax {
                 'session_id' => $session_id
             );
             
-            return $user;
+            // Update last_seen and session_id in database
+            $wpdb->update(
+                $users_table,
+                array(
+                    'last_seen' => current_time('mysql'),
+                    'session_id' => $session_id,
+                    'updated_at' => current_time('mysql')
+                ),
+                array('email' => $email),
+                array('%s', '%s', '%s'),
+                array('%s')
+            );
+            
+            return $_SESSION['ai_chatbot_user'];
         }
         
+        // If user not found, try to create/get user data
+        error_log('AI Chatbot: User not found in database, attempting to create: ' . $email);
+        $user_data = $this->get_or_create_user($email, $name, $session_id);
+        
+        if ($user_data) {
+            error_log('AI Chatbot: Successfully created/retrieved user: ' . $email);
+            
+            // Store in session
+            $_SESSION['ai_chatbot_user'] = array(
+                'id' => $user_data['id'],
+                'email' => $user_data['email'],
+                'name' => $user_data['name'],
+                'session_id' => $session_id
+            );
+            
+            return $_SESSION['ai_chatbot_user'];
+        }
+        
+        error_log('AI Chatbot: Failed to validate/create user session for: ' . $email);
         return false;
     }
 
