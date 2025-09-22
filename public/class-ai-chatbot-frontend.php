@@ -111,96 +111,138 @@ class AI_Chatbot_Frontend {
      * Build frontend configuration - UPDATE EXISTING METHOD
      */
     private function build_frontend_config($pro_enabled = false) {
-        $settings = get_option('ai_chatbot_settings', array());
-        
-        // EXISTING configuration building...
-        $config = array(
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('ai_chatbot_nonce'),
-            'enabledFeatures' => array(),
-            'settings' => array(
-                'position' => $settings['widget_position'] ?? 'bottom-right',
-                'theme' => $settings['chatbot_theme'] ?? 'default',
-                'enable_typing_indicator' => $settings['enable_typing_indicator'] ?? true,
-                'enable_sound_effects' => $settings['enable_sound_effects'] ?? true,
-            ),
-            'strings' => array(
-                'placeholder' => __('Type your message...', 'ai-website-chatbot'),
-                'send' => __('Send', 'ai-website-chatbot'),
-                'minimize' => __('Minimize', 'ai-website-chatbot'),
-                'close' => __('Close', 'ai-website-chatbot'),
-            ),
-        );
-
-        // EXISTING Pro features loading...
-        if ($pro_enabled) {
-            // Use the Pro AJAX action instead of basic
-            $config['ajaxAction'] = 'ai_chatbot_message_pro';
+        try {
+            $settings = get_option('ai_chatbot_settings', array());
             
-            // Add Pro features
-            if (function_exists('ai_chatbot_has_feature')) {
-                if (ai_chatbot_has_feature('intelligence_engine')) {
+            $config = array(
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('ai_chatbot_nonce'),
+                'enabledFeatures' => array(),
+                'settings' => array(
+                    'position' => $settings['widget_position'] ?? 'bottom-right',
+                    'theme' => $settings['chatbot_theme'] ?? 'default',
+                    'enable_typing_indicator' => $settings['enable_typing_indicator'] ?? true,
+                    'enable_sound_effects' => $settings['enable_sound_effects'] ?? true,
+                ),
+                'strings' => array(
+                    'placeholder' => __('Type your message...', 'ai-website-chatbot'),
+                    'send' => __('Send', 'ai-website-chatbot'),
+                    'minimize' => __('Minimize', 'ai-website-chatbot'),
+                    'close' => __('Close', 'ai-website-chatbot'),
+                ),
+            );
+
+            if ($pro_enabled) {
+                // Use Pro AJAX action
+                $config['ajaxAction'] = 'ai_chatbot_message_pro';
+                
+                // Add Pro features safely
+                if ($this->check_feature_enabled('intelligence_engine')) {
                     $config['enabledFeatures'][] = 'intelligence_engine';
                 }
                 
-                // NEW: Add audio features if available
-                if (ai_chatbot_has_feature('audio_features')) {
+                if ($this->check_feature_enabled('audio_features')) {
                     $config['enabledFeatures'][] = 'audio_features';
-                    
-                    // Get audio configuration from Audio Manager
-                    if (class_exists('AI_Chatbot_Pro_Audio_Manager')) {
-                        $audio_manager = AI_Chatbot_Pro_Audio_Manager::get_instance();
-                        $config = apply_filters('ai_chatbot_pro_config', $config);
-                    }
                 }
+            } else {
+                $config['ajaxAction'] = 'ai_chatbot_send_message';
             }
-            
-            // EXISTING: Load Pro features script
-            if ($this->pro_features_file_exists()) {
-                wp_enqueue_script(
-                    'ai-chatbot-pro-features-js',
-                    AI_CHATBOT_PLUGIN_URL . 'assets/js/public/pro/ai-chatbot-pro-features.js',
-                    array('jquery', 'ai-chatbot-frontend-js'),
-                    AI_CHATBOT_VERSION,
-                    true
-                );
-            }
-        } else {
-            // EXISTING: Use basic AJAX action
-            $config['ajaxAction'] = 'ai_chatbot_message';
-        }
 
-        return $config;
+            return $config;
+
+        } catch (Exception $e) {
+            error_log('AI Chatbot: Error in build_frontend_config: ' . $e->getMessage());
+            
+            // Return minimal safe config
+            return array(
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('ai_chatbot_nonce'),
+                'ajaxAction' => 'ai_chatbot_send_message',
+                'enabledFeatures' => array(),
+                'settings' => array(),
+                'strings' => array()
+            );
+        }
     }
 
     /**
      * Build Pro-specific configuration
      */
     private function build_pro_config() {
-        return array(
-            'features' => array(
-                'semantic_search' => $this->is_feature_enabled('semantic_search'),
-                'intelligence_engine' => $this->is_feature_enabled('intelligence_engine'),
-                'intent_recognition' => $this->is_feature_enabled('intent_recognition'),
-                'file_upload' => $this->is_feature_enabled('file_upload'),
-                'advanced_analytics' => $this->is_feature_enabled('advanced_analytics'),
-                'audio_features' => $this->is_feature_enabled('audio_features')  // ADD THIS LINE
-            ),
-            'settings' => array(
-                'max_file_size' => 5 * 1024 * 1024, // 5MB
-                'allowed_file_types' => array('image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain'),
-                'voice_language' => get_option('ai_chatbot_voice_language', 'en-US'),
-                'semantic_threshold' => get_option('ai_chatbot_semantic_threshold', 0.7),
-                'audio' => array(
-                    'voice_input_enabled' => get_option('ai_chatbot_voice_input_enabled', true),
-                    'tts_enabled' => get_option('ai_chatbot_tts_enabled', false),
-                    'audio_mode_enabled' => get_option('ai_chatbot_audio_mode_enabled', false),
-                    'voice_commands_enabled' => get_option('ai_chatbot_voice_commands_enabled', false),
+        // Add error handling and checks
+        if (!function_exists('ai_chatbot_has_feature')) {
+            error_log('AI Chatbot: ai_chatbot_has_feature function not found');
+            return array();
+        }
+
+        try {
+            $config = array(
+                'features' => array(
+                    'semantic_search' => $this->check_feature_enabled('semantic_search'),
+                    'intelligence_engine' => $this->check_feature_enabled('intelligence_engine'),
+                    'intent_recognition' => $this->check_feature_enabled('intent_recognition'),
+                    'file_upload' => $this->check_feature_enabled('file_upload'),
+                    'advanced_analytics' => $this->check_feature_enabled('advanced_analytics'),
+                    'audio_features' => $this->check_feature_enabled('audio_features')
+                ),
+                'settings' => array(
+                    'max_file_size' => 5 * 1024 * 1024, // 5MB
+                    'allowed_file_types' => array('image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain'),
                     'voice_language' => get_option('ai_chatbot_voice_language', 'en-US'),
-                    'tts_auto_play' => get_option('ai_chatbot_tts_auto_play', false)
-                )
-            )
-        );
+                    'semantic_threshold' => get_option('ai_chatbot_semantic_threshold', 0.7)
+                ),
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('ai_chatbot_pro_nonce')
+            );
+
+            // Only add audio config if audio features are available
+            if ($this->check_feature_enabled('audio_features')) {
+                $config['settings']['audio'] = $this->get_safe_audio_config();
+            }
+
+            return $config;
+
+        } catch (Exception $e) {
+            error_log('AI Chatbot: Error in build_pro_config: ' . $e->getMessage());
+            return array();
+        }
+    }
+
+    /**
+     * Safely check if a feature is enabled
+     */
+    private function check_feature_enabled($feature) {
+        try {
+            if (function_exists('ai_chatbot_has_feature')) {
+                return ai_chatbot_has_feature($feature);
+            }
+            return false;
+        } catch (Exception $e) {
+            error_log('AI Chatbot: Error checking feature ' . $feature . ': ' . $e->getMessage());
+            return false;
+        }
+    }
+
+
+    /**
+     * Get audio configuration safely
+     */
+    private function get_safe_audio_config() {
+        try {
+            return array(
+                'voice_input_enabled' => get_option('ai_chatbot_voice_input_enabled', false),
+                'tts_enabled' => get_option('ai_chatbot_tts_enabled', false),
+                'audio_mode_enabled' => get_option('ai_chatbot_audio_mode_enabled', false),
+                'voice_commands_enabled' => get_option('ai_chatbot_voice_commands_enabled', false),
+                'voice_language' => get_option('ai_chatbot_voice_language', 'en-US'),
+                'tts_voice' => get_option('ai_chatbot_tts_voice', 'default'),
+                'tts_speed' => get_option('ai_chatbot_tts_speed', 1.0),
+                'tts_pitch' => get_option('ai_chatbot_tts_pitch', 1.0)
+            );
+        } catch (Exception $e) {
+            error_log('AI Chatbot: Error getting audio config: ' . $e->getMessage());
+            return array();
+        }
     }
 
     /**
