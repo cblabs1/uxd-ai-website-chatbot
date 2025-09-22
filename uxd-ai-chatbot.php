@@ -221,7 +221,8 @@ if (!get_option('ai_chatbot_testing_mode')) {
         'custom_integrations',
         'priority_support',
         'smart_responses',
-        'conversation_context'
+        'conversation_context',
+        'audio_features'
     )));
 }
 

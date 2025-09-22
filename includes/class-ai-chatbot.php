@@ -164,8 +164,29 @@ class AI_Chatbot {
                     error_log("AI Chatbot Pro: Missing class file - " . $class_file);
                 }
             }
+
+            // 3. Load Pro Audio Classes - NEW ADDITION
+            if (ai_chatbot_has_feature('audio_features')) {
+                $pro_audio_classes = array(
+                    'includes/pro/audio/class-audio-manager.php',
+                    'includes/pro/audio/class-voice-input.php',
+                    'includes/pro/audio/class-text-to-speech.php',
+                    'includes/pro/audio/class-audio-mode.php',
+                    'includes/pro/audio/class-voice-commands.php',
+                    'includes/pro/audio/class-audio-settings.php'
+                );
+                
+                foreach ($pro_audio_classes as $class_file) {
+                    $full_path = AI_CHATBOT_PLUGIN_DIR . $class_file;
+                    if (file_exists($full_path)) {
+                        require_once $full_path;
+                    } else {
+                        error_log("AI Chatbot Pro Audio: Missing class file - " . $class_file);
+                    }
+                }
+            }
             
-            // 3. Load Pro admin modules (only in admin)
+            // 4. Load Pro admin modules (only in admin)
             if (is_admin() && file_exists(AI_CHATBOT_PLUGIN_DIR . 'includes/pro/admin/class-embedding-admin.php')) {
                 require_once AI_CHATBOT_PLUGIN_DIR . 'includes/pro/admin/class-embedding-admin.php';
             }
@@ -215,6 +236,11 @@ class AI_Chatbot {
         // Initialize the main Pro class if it exists
         if (class_exists('AI_Chatbot_Pro')) {
             AI_Chatbot_Pro::get_instance();
+        }
+
+        // NEW: Initialize Audio Manager if available
+        if (class_exists('AI_Chatbot_Pro_Audio_Manager') && ai_chatbot_has_feature('audio_features')) {
+            AI_Chatbot_Pro_Audio_Manager::get_instance();
         }
         
         // Initialize embedding admin (admin only)
@@ -467,6 +493,17 @@ class AI_Chatbot {
             'priority_support' => array(
                 'name' => __('Priority Support', 'ai-website-chatbot'),
                 'available' => $this->has_pro_feature('priority_support')
+            ),
+            'audio_features' => array(
+                'name' => __('Audio Chat Features', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('audio_features'),
+                'description' => __('Voice input, text-to-speech, hands-free conversation mode, and voice commands', 'ai-website-chatbot'),
+                'modules' => array(
+                    'voice_input_enhanced' => __('Enhanced Voice Input', 'ai-website-chatbot'),
+                    'text_to_speech' => __('Text-to-Speech Responses', 'ai-website-chatbot'),
+                    'audio_conversation_mode' => __('Hands-free Audio Mode', 'ai-website-chatbot'),
+                    'voice_commands' => __('Voice Commands', 'ai-website-chatbot')
+                )
             )
         );
         

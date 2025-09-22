@@ -795,6 +795,36 @@ class AI_Chatbot_Activator {
 			'ai_chatbot_location_info' => '',
 			'ai_chatbot_industry_keywords' => '',
 			'ai_chatbot_current_promotions' => '',
+
+			// Audio Features Configuration
+			'ai_chatbot_audio_features_enabled' => '1',
+			'ai_chatbot_voice_input_enabled' => '1',
+			'ai_chatbot_tts_enabled' => '0',
+			'ai_chatbot_audio_mode_enabled' => '0',
+			'ai_chatbot_voice_commands_enabled' => '0',
+			
+			// Voice Input Settings
+			'ai_chatbot_voice_language' => 'en-US',
+			'ai_chatbot_voice_continuous' => '0',
+			'ai_chatbot_voice_interim_results' => '1',
+			'ai_chatbot_voice_confidence_threshold' => '0.7',
+			
+			// Text-to-Speech Settings
+			'ai_chatbot_tts_voice' => '',
+			'ai_chatbot_tts_rate' => '1.0',
+			'ai_chatbot_tts_pitch' => '1.0',
+			'ai_chatbot_tts_volume' => '0.8',
+			'ai_chatbot_tts_auto_play' => '0',
+			
+			// Audio Mode Settings
+			'ai_chatbot_audio_mode_auto_listen' => '1',
+			'ai_chatbot_audio_mode_silence_timeout' => '3',
+			'ai_chatbot_audio_mode_listening_timeout' => '30',
+			
+			// Voice Commands Settings
+			'ai_chatbot_voice_commands_enabled_list' => json_encode(array(
+				'clear_chat', 'repeat_last', 'help', 'close_chat'
+			)),
 			
 			// Pro Feature Toggles
 			'ai_chatbot_pro_enabled_features' => json_encode(array(
@@ -803,7 +833,8 @@ class AI_Chatbot_Activator {
 				'intent_recognition',
 				'response_reasoning',
 				'advanced_analytics',
-				'conversation_insights'
+				'conversation_insights',
+				'audio_features'
 			)),
 			
 			// Performance Settings
