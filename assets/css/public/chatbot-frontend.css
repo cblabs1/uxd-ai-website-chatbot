@@ -1896,6 +1896,70 @@
     animation: slideInStart 0.6s ease-out;
 }
 
+/* Voice Input Button */
+.ai-chatbot-voice-btn {
+    background: transparent;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--ai-chatbot-primary, #6366f1);
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-chatbot-voice-btn:hover {
+    background: rgba(99, 102, 241, 0.1);
+    transform: scale(1.05);
+}
+
+.ai-chatbot-voice-btn.listening {
+    background: #ef4444;
+    color: white;
+    animation: voice-pulse 1.5s infinite;
+}
+
+@keyframes voice-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+.ai-chatbot-voice-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.ai-chatbot-input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+}
+
+/* Voice Status Indicator */
+.voice-status {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    margin-bottom: 8px;
+    pointer-events: none;
+}
+
 @keyframes slideInEnd {
     from {
         opacity: 0;
