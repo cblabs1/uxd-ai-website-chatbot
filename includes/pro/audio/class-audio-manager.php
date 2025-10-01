@@ -418,7 +418,7 @@ class AI_Chatbot_Pro_Audio_Manager {
             // Enqueue audio-specific CSS
             wp_enqueue_style(
                 'ai-chatbot-audio-css',
-                AI_CHATBOT_PLUGIN_URL . 'assets/css/public/audio-features.css',
+                AI_CHATBOT_PLUGIN_URL . 'assets/css/public/pro/audio-controls.css',
                 array(),
                 AI_CHATBOT_VERSION
             );
@@ -426,7 +426,25 @@ class AI_Chatbot_Pro_Audio_Manager {
             // Enqueue audio-specific JS
             wp_enqueue_script(
                 'ai-chatbot-audio-js',
-                AI_CHATBOT_PLUGIN_URL . 'assets/js/public/audio-features.js',
+                AI_CHATBOT_PLUGIN_URL . 'assets/js/public/pro/audio-core.js',
+                array('jquery'),
+                AI_CHATBOT_VERSION,
+                true
+            );
+
+             // Enqueue audio-specific JS
+            wp_enqueue_script(
+                'ai-chatbot-tts-js',
+                AI_CHATBOT_PLUGIN_URL . 'assets/js/public/pro/text-to-speech.js',
+                array('jquery'),
+                AI_CHATBOT_VERSION,
+                true
+            );
+
+            // Enqueue audio-specific JS
+            wp_enqueue_script(
+                'ai-chatbot-tts-js',
+                AI_CHATBOT_PLUGIN_URL . 'assets/js/public/pro/voice-enhanced.js',
                 array('jquery'),
                 AI_CHATBOT_VERSION,
                 true
