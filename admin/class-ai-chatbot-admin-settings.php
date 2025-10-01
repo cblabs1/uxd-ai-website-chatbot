@@ -154,6 +154,32 @@ class AI_Chatbot_Admin_Settings {
                 'cookie_consent' => false,
                 'anonymize_data' => true
             ),
+
+            // Audio Features Settings
+            'audio_features_enabled' => false,
+            
+            // Voice Input
+            'voice_input_enabled' => false,
+            'voice_language' => 'en-US',
+            'voice_continuous' => false,
+            'voice_interim_results' => true,
+            'voice_auto_send' => false,
+            'voice_confidence_threshold' => 0.7,
+            
+            // Text-to-Speech
+            'tts_enabled' => false,
+            'tts_auto_play' => false,
+            'tts_rate' => 1.0,
+            'tts_pitch' => 1.0,
+            'tts_volume' => 0.8,
+            'tts_voice' => '',
+            
+            // Audio Mode (for future)
+            'audio_mode_enabled' => false,
+            'audio_mode_auto_start' => false,
+            
+            // Voice Commands (for future)
+            'voice_commands_enabled' => false,
             
             // Advanced Settings
             'debug_mode' => false,
@@ -419,6 +445,42 @@ class AI_Chatbot_Admin_Settings {
             case 'animation_style':
             case 'content_sync_frequency':
                 return sanitize_text_field($value);
+
+            // Audio boolean fields
+            case 'audio_features_enabled':
+            case 'voice_input_enabled':
+            case 'voice_continuous':
+            case 'voice_interim_results':
+            case 'voice_auto_send':
+            case 'tts_enabled':
+            case 'tts_auto_play':
+            case 'audio_mode_enabled':
+            case 'audio_mode_auto_start':
+            case 'voice_commands_enabled':
+                return !empty($value) ? 1 : 0;
+            
+            // Audio language
+            case 'voice_language':
+                $allowed_languages = array(
+                    'en-US', 'en-GB', 'es-ES', 'es-MX', 'fr-FR', 'de-DE',
+                    'it-IT', 'pt-BR', 'pt-PT', 'ru-RU', 'ja-JP', 'ko-KR',
+                    'zh-CN', 'zh-TW', 'ar-SA', 'hi-IN'
+            );
+            return in_array($value, $allowed_languages) ? $value : 'en-US';
+        
+        // Audio numeric settings
+        case 'tts_rate':
+        case 'tts_pitch':
+            return max(0.5, min(2.0, floatval($value)));
+        
+        case 'tts_volume':
+            return max(0, min(1.0, floatval($value)));
+        
+        case 'voice_confidence_threshold':
+            return max(0, min(1.0, floatval($value)));
+        
+        case 'tts_voice':
+            return sanitize_text_field($value);
 
             // Decimals
             case 'temperature':

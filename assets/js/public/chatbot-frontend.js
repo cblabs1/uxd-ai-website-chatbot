@@ -459,11 +459,22 @@
                         self.checkEndOfConversation(response.data.response);
                         
                         // Trigger Pro processing if available
-                        $(document).trigger('aichatbot:message:received', [response.data, message]);
-                        
-                    } else {
-                        self.addBotMessage(response.data.message || 'Sorry, something went wrong.');
-                    }
+                       $(document).trigger('aichatbot:message:received', [response.data, message]);
+        
+                        } else {
+                            // Handle both string and object error responses
+                            var errorMessage = 'Sorry, something went wrong.';
+                            
+                            if (typeof response.data === 'string') {
+                                // When wp_send_json_error() is called with a string
+                                errorMessage = response.data;
+                            } else if (response.data && response.data.message) {
+                                // When wp_send_json_error() is called with an array
+                                errorMessage = response.data.message;
+                            }
+                            
+                            self.addBotMessage(errorMessage);
+                        }
                 },
                 error: function() {
                     self.hideTypingIndicator();

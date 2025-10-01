@@ -239,8 +239,13 @@ class AI_Chatbot {
         }
 
         // NEW: Initialize Audio Manager if available
-        if (class_exists('AI_Chatbot_Pro_Audio_Manager') && ai_chatbot_has_feature('audio_features')) {
-            AI_Chatbot_Pro_Audio_Manager::get_instance();
+        if (class_exists('AI_Chatbot_Pro_Audio_Manager')) {
+        $audio_enabled = get_option('ai_chatbot_voice_input_enabled', false) || 
+                        get_option('ai_chatbot_tts_enabled', false);
+        
+            if ($audio_enabled && ai_chatbot_has_feature('audio_features')) {
+                AI_Chatbot_Pro_Audio_Manager::get_instance();
+            }
         }
         
         // Initialize embedding admin (admin only)
