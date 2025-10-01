@@ -240,12 +240,27 @@ class AI_Chatbot {
 
         // NEW: Initialize Audio Manager if available
         if (class_exists('AI_Chatbot_Pro_Audio_Manager')) {
-        $audio_enabled = get_option('ai_chatbot_voice_input_enabled', false) || 
-                        get_option('ai_chatbot_tts_enabled', false);
-        
-            if ($audio_enabled && ai_chatbot_has_feature('audio_features')) {
+            // Get settings from the unified array
+            $settings = get_option('ai_chatbot_settings', array());
+            
+            // Check if any audio feature is enabled
+            $audio_enabled = !empty($settings['voice_input_enabled']) || 
+                            !empty($settings['tts_enabled']) ||
+                            !empty($settings['audio_mode_enabled']) ||
+                            !empty($settings['voice_commands_enabled']);
+            
+            error_log('AI Chatbot: Audio enabled check: ' . ($audio_enabled ? 'YES' : 'NO'));
+            error_log('AI Chatbot: Voice input: ' . (!empty($settings['voice_input_enabled']) ? 'YES' : 'NO'));
+            error_log('AI Chatbot: TTS: ' . (!empty($settings['tts_enabled']) ? 'YES' : 'NO'));
+            
+            if ($audio_enabled && function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('audio_features')) {
+                error_log('AI Chatbot: Initializing Audio Manager');
                 AI_Chatbot_Pro_Audio_Manager::get_instance();
+            } else {
+                error_log('AI Chatbot: Audio Manager NOT initialized - requirements not met');
             }
+        } else {
+            error_log('AI Chatbot: Audio Manager class not found');
         }
         
         // Initialize embedding admin (admin only)
