@@ -1,1 +1,7 @@
 vendor/
+.ds_store
+.idea/
+*.log
+*.env
+*.cache
+*.tmp
