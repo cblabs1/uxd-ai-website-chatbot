@@ -270,8 +270,8 @@
             this.stopListening();
 
             // Get AJAX URL and nonce
-            const ajaxUrl = window.aiChatbotPublic?.ajax_url || '/wp-admin/admin-ajax.php';
-            const nonce = window.aiChatbotPublic?.nonce || '';
+            const ajaxUrl = window.aiChatbotAudio?.ajaxUrl || '/wp-admin/admin-ajax.php';
+            const nonce = window.aiChatbotAudio?.nonce || '';
 
             $.ajax({
                 url: ajaxUrl,

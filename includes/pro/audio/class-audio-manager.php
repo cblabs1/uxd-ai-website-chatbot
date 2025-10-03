@@ -78,14 +78,15 @@ class AI_Chatbot_Pro_Audio_Manager {
         $audio_config = $this->get_audio_configuration();
 
         // Localize audio configuration
-        wp_localize_script('ai-chatbot-audio-js', 'aiChatbotAudio', $this->get_audio_configuration());
+        wp_localize_script('ai-chatbot-audio-features', 'aiChatbotAudio', $this->get_audio_configuration());
     }
 
     /**
-     * Get audio configuration - FIXED
+     * Get audio configuration
      */
     private function get_audio_configuration() {
         $settings = get_option('ai_chatbot_settings', array());
+        $audio_settings = $settings['audio_features'] ?? array(); // ← ADD THIS LINE
         
         return array(
             'nonce' => wp_create_nonce('ai_chatbot_nonce'),
@@ -112,7 +113,6 @@ class AI_Chatbot_Pro_Audio_Manager {
                 'silence_timeout' => intval($audio_settings['audio_mode_silence_timeout'] ?? 30),
                 'max_time' => intval($audio_settings['audio_mode_max_time'] ?? 300),
             ),
-            'analytics_enabled' => true,
             'strings' => array(
                 'listening' => __('Listening...', 'ai-website-chatbot'),
                 'speaking' => __('Speaking...', 'ai-website-chatbot'),
