@@ -59,9 +59,18 @@ class AI_Chatbot_Pro_Audio_Manager {
 
         // Enqueue audio JS
         wp_enqueue_script(
-            'ai-chatbot-audio-js',
+            'ai-chatbot-audio-features',
             AI_CHATBOT_PLUGIN_URL . 'assets/js/public/pro/audio-features.js',
             array('jquery', 'ai-chatbot-frontend-js'),
+            AI_CHATBOT_VERSION,
+            true
+        );
+
+        // Audio mode logic
+        wp_enqueue_script(
+            'ai-chatbot-audio-mode',
+            AI_CHATBOT_PLUGIN_URL . 'assets/js/public/pro/audio-mode.js',
+            array('jquery', 'ai-chatbot-audio-features'),
             AI_CHATBOT_VERSION,
             true
         );
@@ -69,7 +78,7 @@ class AI_Chatbot_Pro_Audio_Manager {
         $audio_config = $this->get_audio_configuration();
 
         // Localize audio configuration
-        wp_localize_script('ai-chatbot-audio-js', 'ai_chatbot_audio', $this->get_audio_configuration());
+        wp_localize_script('ai-chatbot-audio-js', 'aiChatbotAudio', $this->get_audio_configuration());
     }
 
     /**
@@ -81,27 +90,35 @@ class AI_Chatbot_Pro_Audio_Manager {
         return array(
             'nonce' => wp_create_nonce('ai_chatbot_nonce'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
+            'audio_enabled' => !empty($audio_settings['enabled']),
             'voice_input' => array(
-                'enabled' => !empty($settings['voice_input_enabled']),
-                'language' => $settings['voice_language'] ?? 'en-US',
-                'continuous' => !empty($settings['voice_continuous']),
-                'interim_results' => isset($settings['voice_interim_results']) ? !empty($settings['voice_interim_results']) : true,
-                'auto_send' => !empty($settings['voice_auto_send'])
+                'enabled' => !empty($audio_settings['voice_input_enabled']),
+                'language' => $audio_settings['voice_language'] ?? 'en-US',
+                'continuous' => !empty($audio_settings['voice_continuous']),
+                'interim_results' => isset($audio_settings['voice_interim_results']) ? !empty($audio_settings['voice_interim_results']) : true,
+                'auto_send' => !empty($audio_settings['voice_auto_send']),
             ),
-            'text_to_speech' => array(
-                'enabled' => !empty($settings['tts_enabled']),
-                'voice' => $settings['tts_voice'] ?? '',
-                'rate' => floatval($settings['tts_rate'] ?? 1.0),
-                'pitch' => floatval($settings['tts_pitch'] ?? 1.0),
-                'volume' => floatval($settings['tts_volume'] ?? 0.8),
-                'auto_play' => !empty($settings['tts_auto_play'])
+            'tts' => array(
+                'enabled' => !empty($audio_settings['tts_enabled']),
+                'auto_play' => !empty($audio_settings['tts_auto_play']),
+                'rate' => floatval($audio_settings['tts_rate'] ?? 1.0),
+                'pitch' => floatval($audio_settings['tts_pitch'] ?? 1.0),
+                'volume' => floatval($audio_settings['tts_volume'] ?? 0.8),
+                'language' => $audio_settings['voice_language'] ?? 'en-US',
             ),
+            'audio_mode' => array(
+                'enabled' => !empty($audio_settings['audio_mode_enabled']),
+                'auto_listen' => true,
+                'silence_timeout' => intval($audio_settings['audio_mode_silence_timeout'] ?? 30),
+                'max_time' => intval($audio_settings['audio_mode_max_time'] ?? 300),
+            ),
+            'analytics_enabled' => true,
             'strings' => array(
                 'listening' => __('Listening...', 'ai-website-chatbot'),
+                'speaking' => __('Speaking...', 'ai-website-chatbot'),
                 'processing' => __('Processing...', 'ai-website-chatbot'),
+                'paused' => __('Paused', 'ai-website-chatbot'),
                 'error' => __('Error occurred', 'ai-website-chatbot'),
-                'permission_denied' => __('Microphone permission denied', 'ai-website-chatbot'),
-                'not_supported' => __('Voice input not supported in your browser', 'ai-website-chatbot')
             )
         );
     }

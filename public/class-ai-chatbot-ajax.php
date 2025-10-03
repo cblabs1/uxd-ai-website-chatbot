@@ -32,6 +32,9 @@ class AI_Chatbot_Ajax {
         add_action('wp_ajax_ai_chatbot_send_message', array($this, 'handle_send_message'));
         add_action('wp_ajax_nopriv_ai_chatbot_send_message', array($this, 'handle_send_message'));
 
+        add_action('wp_ajax_ai_chatbot_audio_session_log', array($this, 'handle_audio_session_log'));
+        add_action('wp_ajax_nopriv_ai_chatbot_audio_session_log', array($this, 'handle_audio_session_log'));
+
         add_action('wp_ajax_ai_chatbot_save_user_data', array($this, 'ajax_save_user_data'));
         add_action('wp_ajax_nopriv_ai_chatbot_save_user_data', array($this, 'ajax_save_user_data'));
         
@@ -83,6 +86,7 @@ class AI_Chatbot_Ajax {
         // Get and validate input
         $message = sanitize_textarea_field($_POST['message'] ?? '');
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        $audio_mode = isset($_POST['audio_mode']) && $_POST['audio_mode'] === 'true' ? 1 : 0;
         $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
         $user_email = sanitize_email($_POST['user_email'] ?? '');
         $user_name = sanitize_text_field($_POST['user_name'] ?? '');
@@ -184,6 +188,7 @@ class AI_Chatbot_Ajax {
                 'ai_response' => $response_text,
                 'tokens_used' => $tokens_used,
                 'model' => $model_used,
+                'audio_mode' => $audio_mode,
                 'provider' => $ai_provider,
                 'response_time' => microtime(true) - $start_time,
                 'user_ip' => $this->get_client_ip(),
@@ -204,11 +209,14 @@ class AI_Chatbot_Ajax {
                 $this->cache_response($message, $response_text);
             }
 
+            $final_response = $audio_mode ? $this->optimize_response_for_audio($response_text) : $response_text;
+
             // Send success response
             wp_send_json_success(array(
-                'response' => $response_text,
+                'response' => $final_response,
                 'conversation_id' => $conversation_id,
                 'session_id' => $session_id,
+                'audio_mode' => $audio_mode,
                 'user_id' => $user_data['id'],
                 'user_email' => $user_email,
                 'user_name' => $user_name,
@@ -228,6 +236,74 @@ class AI_Chatbot_Ajax {
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }
+    }
+
+    /**
+     * Handle audio session logging
+     */
+    public function handle_audio_session_log() {
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'ai_chatbot_nonce')) {
+            wp_send_json_error(array('message' => 'Security check failed', 'code' => 'NONCE_FAILED'));
+            return;
+        }
+
+        $event = sanitize_text_field($_POST['event'] ?? '');
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+
+        if (empty($event) || empty($session_id)) {
+            wp_send_json_error(array('message' => 'Missing parameters', 'code' => 'MISSING_PARAMS'));
+            return;
+        }
+
+        $logged = $this->log_audio_session($session_id, $event);
+        wp_send_json_success(array('logged' => $logged, 'event' => $event));
+    }
+
+    /**
+     * Log audio session event
+     */
+    private function log_audio_session($session_id, $event) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_chatbot_audio_sessions';
+
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+            return false;
+        }
+
+        $result = $wpdb->insert(
+            $table_name,
+            array(
+                'session_id' => $session_id,
+                'event' => $event,
+                'timestamp' => current_time('mysql'),
+                'user_id' => get_current_user_id(),
+                'user_ip' => $this->get_client_ip()
+            ),
+            array('%s', '%s', '%s', '%d', '%s')
+        );
+
+        return $result !== false;
+    }
+
+    /**
+     * Optimize response for audio
+     */
+    private function optimize_response_for_audio($text) {
+        $text = preg_replace('/\*\*(.*?)\*\*/', '$1', $text); // Remove bold
+        $text = preg_replace('/\*(.*?)\*/', '$1', $text);     // Remove italic
+        $text = preg_replace('/`(.*?)`/', '$1', $text);       // Remove code
+        $text = preg_replace('/#+ /', '', $text);             // Remove headers
+        $text = preg_replace('/^\s*[-*•]\s+/m', '', $text);   // Remove bullets
+        $text = preg_replace('/^\s*\d+\.\s+/m', '', $text);   // Remove numbers
+        
+        $replacements = array(
+            'e.g.' => 'for example',
+            'i.e.' => 'that is',
+            'etc.' => 'and so on',
+        );
+        $text = str_replace(array_keys($replacements), array_values($replacements), $text);
+        $text = preg_replace('/\s+/', ' ', $text);
+        return trim($text);
     }
 
     protected function cache_response($message, $response) {
@@ -806,6 +882,7 @@ class AI_Chatbot_Ajax {
             'user_ip' => $this->get_client_ip(),
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
             'status' => $message_data['status'] ?? 'completed',
+            'audio_mode' => $message_data['audio_mode'] ?? 0,
             'created_at' => current_time('mysql')
         );
         

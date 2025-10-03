@@ -340,6 +340,27 @@ $settings = wp_parse_args($all_settings, $default_settings);
             </p>
 
             <table class="form-table">
+                <!-- Enable Audio Features -->
+                <tr>
+                    <th scope="row">
+                        <label for="audio_features_enabled">
+                            <?php _e('Enable Audio Features', 'ai-website-chatbot'); ?>
+                        </label>
+                    </th>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" id="audio_features_enabled" 
+                                name="ai_chatbot_settings[audio_features][enabled]" 
+                                value="1" 
+                                <?php checked($settings['audio_features']['enabled'] ?? false); ?>>
+                            <span class="slider"></span>
+                        </label>
+                        <p class="description">
+                            <?php _e('Enable voice input and text-to-speech features.', 'ai-website-chatbot'); ?>
+                        </p>
+                    </td>
+                </tr>
+
                 <!-- Voice Input Settings -->
                 <tr>
                     <th colspan="2">
@@ -354,14 +375,11 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <td>
                         <label class="switch">
                             <input type="checkbox" id="voice_input_enabled" 
-                                name="ai_chatbot_settings[voice_input_enabled]" 
+                                name="ai_chatbot_settings[audio_features][voice_input_enabled]" 
                                 value="1" 
-                                <?php checked($settings['voice_input_enabled'] ?? false); ?>>
+                                <?php checked($settings['audio_features']['voice_input_enabled'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
-                        <p class="description">
-                            <?php _e('Allow users to speak their messages instead of typing.', 'ai-website-chatbot'); ?>
-                        </p>
                     </td>
                 </tr>
 
@@ -370,7 +388,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                         <label for="voice_language"><?php _e('Voice Language', 'ai-website-chatbot'); ?></label>
                     </th>
                     <td>
-                        <select id="voice_language" name="ai_chatbot_settings[voice_language]">
+                        <select id="voice_language" name="ai_chatbot_settings[audio_features][voice_language]">
                             <?php
                             $voice_languages = array(
                                 'en-US' => __('English (US)', 'ai-website-chatbot'),
@@ -383,7 +401,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                                 'ja-JP' => __('Japanese', 'ai-website-chatbot'),
                                 'zh-CN' => __('Chinese (Simplified)', 'ai-website-chatbot'),
                             );
-                            $current_language = $settings['voice_language'] ?? 'en-US';
+                            $current_language = $settings['audio_features']['voice_language'] ?? 'en-US';
                             foreach ($voice_languages as $code => $name) {
                                 printf(
                                     '<option value="%s" %s>%s</option>',
@@ -404,9 +422,9 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <td>
                         <label class="switch">
                             <input type="checkbox" id="voice_continuous" 
-                                name="ai_chatbot_settings[voice_continuous]" 
+                                name="ai_chatbot_settings[audio_features][voice_continuous]" 
                                 value="1" 
-                                <?php checked($settings['voice_continuous'] ?? false); ?>>
+                                <?php checked($settings['audio_features']['voice_continuous'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                     </td>
@@ -419,9 +437,9 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <td>
                         <label class="switch">
                             <input type="checkbox" id="voice_interim_results" 
-                                name="ai_chatbot_settings[voice_interim_results]" 
+                                name="ai_chatbot_settings[audio_features][voice_interim_results]" 
                                 value="1" 
-                                <?php checked($settings['voice_interim_results'] ?? true); ?>>
+                                <?php checked($settings['audio_features']['voice_interim_results'] ?? true); ?>>
                             <span class="slider"></span>
                         </label>
                     </td>
@@ -434,9 +452,9 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <td>
                         <label class="switch">
                             <input type="checkbox" id="voice_auto_send" 
-                                name="ai_chatbot_settings[voice_auto_send]" 
+                                name="ai_chatbot_settings[audio_features][voice_auto_send]" 
                                 value="1" 
-                                <?php checked($settings['voice_auto_send'] ?? false); ?>>
+                                <?php checked($settings['audio_features']['voice_auto_send'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                     </td>
@@ -456,9 +474,9 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <td>
                         <label class="switch">
                             <input type="checkbox" id="tts_enabled" 
-                                name="ai_chatbot_settings[tts_enabled]" 
+                                name="ai_chatbot_settings[audio_features][tts_enabled]" 
                                 value="1" 
-                                <?php checked($settings['tts_enabled'] ?? false); ?>>
+                                <?php checked($settings['audio_features']['tts_enabled'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
                     </td>
@@ -471,11 +489,14 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <td>
                         <label class="switch">
                             <input type="checkbox" id="tts_auto_play" 
-                                name="ai_chatbot_settings[tts_auto_play]" 
+                                name="ai_chatbot_settings[audio_features][tts_auto_play]" 
                                 value="1" 
-                                <?php checked($settings['tts_auto_play'] ?? false); ?>>
+                                <?php checked($settings['audio_features']['tts_auto_play'] ?? false); ?>>
                             <span class="slider"></span>
                         </label>
+                        <p class="description">
+                            <?php _e('Only plays in audio conversation mode.', 'ai-website-chatbot'); ?>
+                        </p>
                     </td>
                 </tr>
 
@@ -485,10 +506,10 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </th>
                     <td>
                         <input type="range" id="tts_rate" 
-                            name="ai_chatbot_settings[tts_rate]" 
+                            name="ai_chatbot_settings[audio_features][tts_rate]" 
                             min="0.5" max="2" step="0.1" 
-                            value="<?php echo esc_attr($settings['tts_rate'] ?? 1.0); ?>">
-                        <span class="range-value"><?php echo esc_html($settings['tts_rate'] ?? 1.0); ?>x</span>
+                            value="<?php echo esc_attr($settings['audio_features']['tts_rate'] ?? 1.0); ?>">
+                        <span class="range-value"><?php echo esc_html($settings['audio_features']['tts_rate'] ?? 1.0); ?>x</span>
                         <script>
                             document.getElementById('tts_rate').addEventListener('input', function(e) {
                                 e.target.nextElementSibling.textContent = e.target.value + 'x';
@@ -503,10 +524,10 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </th>
                     <td>
                         <input type="range" id="tts_pitch" 
-                            name="ai_chatbot_settings[tts_pitch]" 
+                            name="ai_chatbot_settings[audio_features][tts_pitch]" 
                             min="0.5" max="2" step="0.1" 
-                            value="<?php echo esc_attr($settings['tts_pitch'] ?? 1.0); ?>">
-                        <span class="range-value"><?php echo esc_html($settings['tts_pitch'] ?? 1.0); ?></span>
+                            value="<?php echo esc_attr($settings['audio_features']['tts_pitch'] ?? 1.0); ?>">
+                        <span class="range-value"><?php echo esc_html($settings['audio_features']['tts_pitch'] ?? 1.0); ?></span>
                         <script>
                             document.getElementById('tts_pitch').addEventListener('input', function(e) {
                                 e.target.nextElementSibling.textContent = e.target.value;
@@ -521,10 +542,10 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </th>
                     <td>
                         <input type="range" id="tts_volume" 
-                            name="ai_chatbot_settings[tts_volume]" 
+                            name="ai_chatbot_settings[audio_features][tts_volume]" 
                             min="0" max="1" step="0.1" 
-                            value="<?php echo esc_attr($settings['tts_volume'] ?? 0.8); ?>">
-                        <span class="range-value"><?php echo esc_html(round(($settings['tts_volume'] ?? 0.8) * 100)); ?>%</span>
+                            value="<?php echo esc_attr($settings['audio_features']['tts_volume'] ?? 0.8); ?>">
+                        <span class="range-value"><?php echo esc_html(round(($settings['audio_features']['tts_volume'] ?? 0.8) * 100)); ?>%</span>
                         <script>
                             document.getElementById('tts_volume').addEventListener('input', function(e) {
                                 e.target.nextElementSibling.textContent = Math.round(e.target.value * 100) + '%';
@@ -533,6 +554,56 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </td>
                 </tr>
 
+                <!-- Audio Mode Settings -->
+                <tr>
+                    <th colspan="2">
+                        <h3 style="margin-top: 30px;"><?php _e('Audio Conversation Mode', 'ai-website-chatbot'); ?></h3>
+                    </th>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="audio_mode_enabled"><?php _e('Enable Audio Mode', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" id="audio_mode_enabled" 
+                                name="ai_chatbot_settings[audio_features][audio_mode_enabled]" 
+                                value="1" 
+                                <?php checked($settings['audio_features']['audio_mode_enabled'] ?? false); ?>>
+                            <span class="slider"></span>
+                        </label>
+                        <p class="description">
+                            <?php _e('Enable modal-based audio conversation mode.', 'ai-website-chatbot'); ?>
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="audio_mode_silence_timeout"><?php _e('Silence Timeout (seconds)', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" id="audio_mode_silence_timeout" 
+                            name="ai_chatbot_settings[audio_features][audio_mode_silence_timeout]" 
+                            value="<?php echo esc_attr($settings['audio_features']['audio_mode_silence_timeout'] ?? 30); ?>" 
+                            min="10" max="120" class="small-text">
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="audio_mode_max_time"><?php _e('Max Conversation Time (seconds)', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" id="audio_mode_max_time" 
+                            name="ai_chatbot_settings[audio_features][audio_mode_max_time]" 
+                            value="<?php echo esc_attr($settings['audio_features']['audio_mode_max_time'] ?? 300); ?>" 
+                            min="60" max="1800" class="small-text">
+                    </td>
+                </tr>
+
+                <!-- Test Voice -->
                 <tr>
                     <th scope="row">
                         <label><?php _e('Test Voice Settings', 'ai-website-chatbot'); ?></label>

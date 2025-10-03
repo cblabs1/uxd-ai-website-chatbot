@@ -1,617 +1,509 @@
 /**
- * AI Chatbot Audio Mode JavaScript
- * Handles hands-free audio conversation mode
- * 
- * File: assets/js/public/pro/audio/audio-mode.js
+ * AI Chatbot Audio Mode - Voice Conversation Manager
+ * Handles continuous voice conversation in modal
  */
 
 (function($) {
     'use strict';
 
-    /**
-     * Audio Mode Class
-     */
     window.AIChatbotAudioMode = {
-        
-        // Configuration
-        config: {
-            autoListen: true,
-            silenceTimeout: 3000,
-            listeningTimeout: 30000,
-            autoPlay: false,
-            confirmationRequired: false
-        },
-        
-        // State
         isActive: false,
-        isListening: false,
-        isSpeaking: false,
-        silenceTimer: null,
-        listeningTimer: null,
+        isPaused: false,
         recognition: null,
         synthesis: null,
-        currentUtterance: null,
+        currentState: 'idle',
+        settings: null,
+        sessionId: null,
+        silenceTimer: null,
+        conversationTimer: null,
+        maxConversationTime: 300000, // 5 minutes
         
-        // UI Elements
-        $toggleBtn: null,
-        $indicator: null,
-        $statusText: null,
-        
-        /**
-         * Initialize audio mode
-         */
-        init: function(config) {
-            this.config = $.extend(this.config, config || {});
-            this.setupUI();
-            this.setupSpeechRecognition();
-            this.setupSpeechSynthesis();
-            this.bindEvents();
-        },
-        
-        /**
-         * Setup UI elements
-         */
-        setupUI: function() {
-            this.$toggleBtn = $('.ai-chatbot-audio-mode-toggle');
-            this.$indicator = $('.ai-chatbot-audio-indicator');
-            this.$statusText = $('.ai-chatbot-audio-status-text');
+        activate: function() {
+            console.log('Activating audio conversation mode...');
             
-            // Create indicator if it doesn't exist
-            if (this.$indicator.length === 0) {
-                this.$indicator = $('<div class="ai-chatbot-audio-indicator"></div>');
-                $('.ai-chatbot-widget').prepend(this.$indicator);
-            }
+            this.settings = window.aiChatbotAudio || {};
+            this.isActive = true;
+            this.isPaused = false;
+            this.sessionId = this.generateSessionId();
             
-            // Create status text if it doesn't exist
-            if (this.$statusText.length === 0) {
-                this.$statusText = $('<div class="ai-chatbot-audio-status-text"></div>');
-                this.$indicator.append(this.$statusText);
+            this.initializeSpeechRecognition();
+            this.initializeSpeechSynthesis();
+            this.startListening();
+            
+            // Set conversation timeout
+            this.conversationTimer = setTimeout(() => {
+                this.handleTimeout();
+            }, this.maxConversationTime);
+
+            // Update UI
+            if (window.AIChatbotAudio) {
+                window.AIChatbotAudio.updateAudioStatus('listening', 'Listening... Speak now');
             }
         },
-        
-        /**
-         * Setup speech recognition
-         */
-        setupSpeechRecognition: function() {
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                console.warn('Speech recognition not supported');
+
+        deactivate: function() {
+            console.log('Deactivating audio conversation mode...');
+            
+            this.stopListening();
+            this.stopSpeaking();
+            this.clearTimers();
+            
+            this.isActive = false;
+            this.isPaused = false;
+            this.currentState = 'idle';
+            
+            // Log session end
+            this.logAudioSession('end');
+        },
+
+        pause: function() {
+            if (!this.isActive) return;
+            
+            console.log('Pausing audio mode...');
+            this.isPaused = true;
+            this.stopListening();
+            
+            // Update button state
+            $('.pause-btn').html(`
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Resume</span>
+            `).data('action', 'resume');
+
+            if (window.AIChatbotAudio) {
+                window.AIChatbotAudio.updateAudioStatus('paused', 'Paused - Click Resume to continue');
+            }
+        },
+
+        resume: function() {
+            if (!this.isActive) return;
+            
+            console.log('Resuming audio mode...');
+            this.isPaused = false;
+            this.startListening();
+            
+            // Update button state
+            $('.pause-btn').html(`
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+                <span>Pause</span>
+            `).data('action', 'pause');
+
+            if (window.AIChatbotAudio) {
+                window.AIChatbotAudio.updateAudioStatus('listening', 'Listening... Speak now');
+            }
+        },
+
+        initializeSpeechRecognition: function() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                console.error('Speech recognition not supported');
                 return;
             }
-            
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
             this.recognition = new SpeechRecognition();
-            
             this.recognition.continuous = true;
             this.recognition.interimResults = true;
-            this.recognition.lang = this.config.language || 'en-US';
-            
+            this.recognition.lang = this.settings.voice_language || 'en-US';
+            this.recognition.maxAlternatives = 1;
+
+            this.bindRecognitionEvents();
+        },
+
+        bindRecognitionEvents: function() {
             const self = this;
-            
+
             this.recognition.onstart = function() {
-                self.isListening = true;
-                self.updateStatus('listening');
-                self.startListeningTimer();
+                console.log('Speech recognition started');
+                self.currentState = 'listening';
             };
-            
+
             this.recognition.onresult = function(event) {
-                let finalTranscript = '';
-                let interimTranscript = '';
-                
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
-                    } else {
-                        interimTranscript += transcript;
-                    }
-                }
-                
-                if (finalTranscript) {
-                    self.processFinalTranscript(finalTranscript);
-                } else if (interimTranscript) {
-                    self.updateStatus('processing', interimTranscript);
-                    self.resetSilenceTimer();
-                }
+                self.handleSpeechResult(event);
             };
-            
-            this.recognition.onend = function() {
-                self.isListening = false;
-                self.clearTimers();
-                
-                if (self.isActive && self.config.autoListen && !self.isSpeaking) {
-                    // Restart listening if audio mode is still active
-                    setTimeout(() => {
-                        if (self.isActive && !self.isSpeaking) {
-                            self.startListening();
-                        }
-                    }, 1000);
-                }
-            };
-            
+
             this.recognition.onerror = function(event) {
                 console.error('Speech recognition error:', event.error);
                 self.handleRecognitionError(event.error);
             };
-        },
-        
-        /**
-         * Setup speech synthesis
-         */
-        setupSpeechSynthesis: function() {
-            if (!('speechSynthesis' in window)) {
-                console.warn('Speech synthesis not supported');
-                return;
-            }
-            
-            this.synthesis = window.speechSynthesis;
-        },
-        
-        /**
-         * Bind events
-         */
-        bindEvents: function() {
-            const self = this;
-            
-            // Toggle button click
-            this.$toggleBtn.on('click', function(e) {
-                e.preventDefault();
-                self.toggle();
-            });
-            
-            // Listen for chat responses
-            $(document).on('ai_chatbot_message_received', function(e, data) {
-                if (self.isActive && data.response && self.config.autoPlay) {
-                    self.speakResponse(data.response);
+
+            this.recognition.onend = function() {
+                console.log('Speech recognition ended');
+                
+                // Auto-restart if still active and not paused
+                if (self.isActive && !self.isPaused) {
+                    setTimeout(function() {
+                        self.startListening();
+                    }, 500);
                 }
-            });
-            
-            // Listen for speech synthesis events
-            if (this.synthesis) {
-                $(document).on('ai_chatbot_speech_end', function() {
-                    if (self.isActive && self.config.autoListen) {
-                        setTimeout(() => {
-                            self.startListening();
-                        }, 500);
-                    }
-                });
-            }
-            
-            // Keyboard shortcuts
-            $(document).on('keydown', function(e) {
-                if (e.ctrlKey && e.shiftKey && e.key === 'A') {
-                    e.preventDefault();
-                    self.toggle();
+            };
+        },
+
+        handleSpeechResult: function(event) {
+            let interimTranscript = '';
+            let finalTranscript = '';
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                } else {
+                    interimTranscript += transcript;
                 }
-            });
-        },
-        
-        /**
-         * Toggle audio mode
-         */
-        toggle: function() {
-            if (this.isActive) {
-                this.stop();
-            } else {
-                this.start();
             }
-        },
-        
-        /**
-         * Start audio mode
-         */
-        start: function() {
-            if (!this.recognition || !this.synthesis) {
-                this.showError('Audio features not supported in this browser');
-                return;
+
+            // Update UI with interim results
+            if (interimTranscript && window.AIChatbotAudio) {
+                window.AIChatbotAudio.updateTranscript(interimTranscript, false);
             }
-            
-            this.isActive = true;
-            this.updateUI();
-            this.updateStatus('starting');
-            
-            // Show confirmation if required
-            if (this.config.confirmationRequired) {
-                this.speakText('Audio mode activated. Say something to start chatting.', () => {
-                    this.startListening();
-                });
-            } else {
-                this.startListening();
+
+            // Process final transcript
+            if (finalTranscript) {
+                this.processFinalTranscript(finalTranscript);
             }
-            
-            // Trigger event
-            $(document).trigger('ai_chatbot_audio_mode_started');
+
+            // Reset silence timer
+            this.resetSilenceTimer();
         },
-        
-        /**
-         * Stop audio mode
-         */
-        stop: function() {
-            this.isActive = false;
-            this.stopListening();
-            this.stopSpeaking();
-            this.clearTimers();
-            this.updateUI();
-            this.updateStatus('stopped');
-            
-            // Trigger event
-            $(document).trigger('ai_chatbot_audio_mode_stopped');
-        },
-        
-        /**
-         * Start listening
-         */
-        startListening: function() {
-            if (!this.recognition || this.isListening || this.isSpeaking) {
-                return;
-            }
-            
-            try {
-                this.recognition.start();
-                this.startSilenceTimer();
-            } catch (error) {
-                console.error('Error starting speech recognition:', error);
-                this.handleRecognitionError(error);
-            }
-        },
-        
-        /**
-         * Stop listening
-         */
-        stopListening: function() {
-            if (this.recognition && this.isListening) {
-                this.recognition.stop();
-            }
-            this.clearTimers();
-        },
-        
-        /**
-         * Speak response
-         */
-        speakResponse: function(text) {
-            if (!text || !this.synthesis) return;
-            
-            this.speakText(text, () => {
-                $(document).trigger('ai_chatbot_speech_end');
-            });
-        },
-        
-        /**
-         * Speak text
-         */
-        speakText: function(text, callback) {
-            if (!this.synthesis) return;
-            
-            // Stop any current speech
-            this.stopSpeaking();
-            
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = this.config.speechRate || 1.0;
-            utterance.pitch = this.config.speechPitch || 1.0;
-            utterance.volume = this.config.speechVolume || 0.8;
-            utterance.lang = this.config.language || 'en-US';
-            
-            const self = this;
-            
-            utterance.onstart = function() {
-                self.isSpeaking = true;
-                self.updateStatus('speaking');
-            };
-            
-            utterance.onend = function() {
-                self.isSpeaking = false;
-                self.currentUtterance = null;
-                if (callback) callback();
-            };
-            
-            utterance.onerror = function(event) {
-                console.error('Speech synthesis error:', event);
-                self.isSpeaking = false;
-                self.currentUtterance = null;
-            };
-            
-            this.currentUtterance = utterance;
-            this.synthesis.speak(utterance);
-        },
-        
-        /**
-         * Stop speaking
-         */
-        stopSpeaking: function() {
-            if (this.synthesis) {
-                this.synthesis.cancel();
-            }
-            this.isSpeaking = false;
-            this.currentUtterance = null;
-        },
-        
-        /**
-         * Process final transcript
-         */
+
         processFinalTranscript: function(transcript) {
-            this.clearTimers();
-            this.updateStatus('processing');
+            const cleanTranscript = transcript.trim();
             
-            // Check for voice commands first
-            const command = this.detectVoiceCommand(transcript);
+            if (!cleanTranscript) return;
+
+            console.log('Final transcript:', cleanTranscript);
+
+            // Update UI
+            if (window.AIChatbotAudio) {
+                window.AIChatbotAudio.updateTranscript(cleanTranscript, true);
+                window.AIChatbotAudio.addConversationMessage('user', cleanTranscript);
+                window.AIChatbotAudio.updateAudioStatus('processing', 'Processing your message...');
+            }
+
+            // Check for voice commands
+            const command = this.detectVoiceCommand(cleanTranscript);
             if (command) {
                 this.executeVoiceCommand(command);
                 return;
             }
-            
-            // Send message to chatbot
-            this.sendMessage(transcript);
+
+            // Send to chatbot
+            this.sendMessageToChatbot(cleanTranscript);
         },
-        
-        /**
-         * Detect voice commands
-         */
+
         detectVoiceCommand: function(text) {
             const lowerText = text.toLowerCase().trim();
-            const commands = {
-                stop: ['stop', 'exit', 'quit', 'end audio mode'],
-                pause: ['pause', 'wait', 'hold on'],
-                repeat: ['repeat', 'say that again'],
-                clear: ['clear', 'reset', 'start over'],
-                help: ['help', 'what can you do', 'commands']
-            };
             
+            const commands = {
+                exit: ['exit', 'stop', 'quit', 'close', 'end conversation', 'goodbye'],
+                pause: ['pause', 'wait', 'hold on', 'stop listening'],
+                resume: ['resume', 'continue', 'go on'],
+                repeat: ['repeat', 'say that again', 'what did you say'],
+                clear: ['clear', 'reset', 'start over', 'new conversation'],
+                help: ['help', 'what can you do', 'commands', 'instructions']
+            };
+
             for (const [command, phrases] of Object.entries(commands)) {
                 for (const phrase of phrases) {
-                    if (lowerText.includes(phrase)) {
+                    if (lowerText === phrase || lowerText.includes(phrase)) {
                         return command;
                     }
                 }
             }
-            
+
             return null;
         },
-        
-        /**
-         * Execute voice command
-         */
+
         executeVoiceCommand: function(command) {
-            switch (command) {
-                case 'stop':
-                    this.speakText('Audio mode stopped.', () => {
-                        this.stop();
+            console.log('Executing voice command:', command);
+
+            switch(command) {
+                case 'exit':
+                    this.speakResponse('Closing audio mode. Goodbye!', () => {
+                        if (window.AIChatbotAudio) {
+                            window.AIChatbotAudio.closeAudioMode();
+                        }
                     });
                     break;
-                    
+
                 case 'pause':
-                    this.speakText('Audio mode paused. Say something to continue.');
+                    this.pause();
+                    this.speakResponse('Audio mode paused. Say resume to continue.');
                     break;
-                    
+
+                case 'resume':
+                    this.resume();
+                    break;
+
                 case 'repeat':
-                    const lastResponse = this.getLastResponse();
-                    if (lastResponse) {
-                        this.speakText(lastResponse);
+                    const lastMessage = $('.conversation-messages .audio-message.bot').last().find('.message-text').text();
+                    if (lastMessage) {
+                        this.speakResponse(lastMessage);
                     } else {
-                        this.speakText('No previous response to repeat.');
+                        this.speakResponse('No previous message to repeat.');
                     }
                     break;
-                    
+
                 case 'clear':
-                    this.speakText('Clearing conversation.', () => {
+                    this.speakResponse('Clearing conversation history.', () => {
+                        $('.conversation-messages').empty();
                         $(document).trigger('ai_chatbot_clear_chat');
                     });
                     break;
-                    
+
                 case 'help':
-                    const helpText = 'Available commands: stop audio mode, pause, repeat last message, clear conversation, or just speak naturally to chat.';
-                    this.speakText(helpText);
+                    const helpText = 'Available commands: exit to close, pause to stop listening, repeat to hear the last message, clear to start over, or just speak naturally to chat.';
+                    this.speakResponse(helpText);
                     break;
             }
         },
-        
-        /**
-         * Send message to chatbot
-         */
-        sendMessage: function(message) {
-            // Use existing chatbot message sending functionality
-            if (typeof window.AIChatbotFrontend !== 'undefined') {
-                window.AIChatbotFrontend.sendMessage(message);
-            } else {
-                // Fallback: trigger message event
-                $(document).trigger('ai_chatbot_send_message', [message]);
+
+        sendMessageToChatbot: function(message) {
+            const self = this;
+
+            // Stop listening while processing
+            this.stopListening();
+
+            // Get AJAX URL and nonce
+            const ajaxUrl = window.aiChatbotPublic?.ajax_url || '/wp-admin/admin-ajax.php';
+            const nonce = window.aiChatbotPublic?.nonce || '';
+
+            $.ajax({
+                url: ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'ai_chatbot_send_message',
+                    message: message,
+                    session_id: this.sessionId,
+                    audio_mode: true,
+                    nonce: nonce
+                },
+                success: function(response) {
+                    if (response.success && response.data) {
+                        self.handleChatbotResponse(response.data);
+                    } else {
+                        self.handleError('Failed to get response from chatbot');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('AJAX error:', error);
+                    self.handleError('Network error occurred');
+                }
+            });
+        },
+
+        handleChatbotResponse: function(data) {
+            const responseText = data.response || data.message || 'I received your message.';
+            
+            console.log('Chatbot response:', responseText);
+
+            // Add to conversation display
+            if (window.AIChatbotAudio) {
+                window.AIChatbotAudio.addConversationMessage('bot', responseText);
+                window.AIChatbotAudio.updateAudioStatus('speaking', 'Speaking response...');
+            }
+
+            // Speak the response
+            this.speakResponse(responseText, () => {
+                // After speaking, resume listening
+                if (this.isActive && !this.isPaused) {
+                    setTimeout(() => {
+                        this.startListening();
+                    }, 500);
+                }
+            });
+        },
+
+        initializeSpeechSynthesis: function() {
+            if (!('speechSynthesis' in window)) {
+                console.error('Speech synthesis not supported');
+                return;
+            }
+
+            this.synthesis = window.speechSynthesis;
+        },
+
+        speakResponse: function(text, callback) {
+            if (!this.synthesis) {
+                console.error('Speech synthesis not initialized');
+                if (callback) callback();
+                return;
+            }
+
+            // Cancel any ongoing speech
+            this.synthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // Configure voice settings
+            const settings = this.settings.tts || {};
+            utterance.rate = parseFloat(settings.rate) || 1.0;
+            utterance.pitch = parseFloat(settings.pitch) || 1.0;
+            utterance.volume = parseFloat(settings.volume) || 0.8;
+            utterance.lang = settings.language || 'en-US';
+
+            // Select voice if specified
+            if (settings.voice) {
+                const voices = this.synthesis.getVoices();
+                const selectedVoice = voices.find(v => v.name === settings.voice);
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+            }
+
+            utterance.onstart = () => {
+                console.log('Started speaking');
+                this.currentState = 'speaking';
+            };
+
+            utterance.onend = () => {
+                console.log('Finished speaking');
+                this.currentState = 'idle';
+                if (callback) callback();
+            };
+
+            utterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+                if (callback) callback();
+            };
+
+            this.synthesis.speak(utterance);
+        },
+
+        startListening: function() {
+            if (!this.recognition || this.isPaused) return;
+
+            try {
+                this.recognition.start();
+                console.log('Started listening...');
+            } catch (error) {
+                console.error('Error starting recognition:', error);
             }
         },
-        
-        /**
-         * Get last response
-         */
-        getLastResponse: function() {
-            const $lastMessage = $('.ai-chatbot-message.bot').last();
-            return $lastMessage.find('.ai-chatbot-message-content').text();
+
+        stopListening: function() {
+            if (!this.recognition) return;
+
+            try {
+                this.recognition.stop();
+                console.log('Stopped listening');
+            } catch (error) {
+                console.error('Error stopping recognition:', error);
+            }
         },
-        
-        /**
-         * Timer management
-         */
-        startSilenceTimer: function() {
-            this.clearSilenceTimer();
-            const self = this;
-            this.silenceTimer = setTimeout(() => {
-                if (self.isListening && !self.isSpeaking) {
-                    self.stopListening();
-                    self.updateStatus('silence_timeout');
-                    setTimeout(() => {
-                        if (self.isActive) {
-                            self.startListening();
-                        }
-                    }, 1000);
-                }
-            }, this.config.silenceTimeout);
+
+        stopSpeaking: function() {
+            if (!this.synthesis) return;
+
+            this.synthesis.cancel();
+            console.log('Stopped speaking');
         },
-        
-        startListeningTimer: function() {
-            this.clearListeningTimer();
-            const self = this;
-            this.listeningTimer = setTimeout(() => {
-                if (self.isListening) {
-                    self.stopListening();
-                    self.updateStatus('listening_timeout');
-                }
-            }, this.config.listeningTimeout);
-        },
-        
+
         resetSilenceTimer: function() {
-            this.clearSilenceTimer();
-            this.startSilenceTimer();
+            if (this.silenceTimer) {
+                clearTimeout(this.silenceTimer);
+            }
+
+            const self = this;
+            const silenceTimeout = (this.settings.audio_mode?.silence_timeout || 30) * 1000;
+
+            this.silenceTimer = setTimeout(function() {
+                console.log('Silence detected - prompting user');
+                self.speakResponse('Are you still there? Say something to continue, or say exit to close.');
+            }, silenceTimeout);
         },
-        
-        clearSilenceTimer: function() {
+
+        clearTimers: function() {
             if (this.silenceTimer) {
                 clearTimeout(this.silenceTimer);
                 this.silenceTimer = null;
             }
-        },
-        
-        clearListeningTimer: function() {
-            if (this.listeningTimer) {
-                clearTimeout(this.listeningTimer);
-                this.listeningTimer = null;
+
+            if (this.conversationTimer) {
+                clearTimeout(this.conversationTimer);
+                this.conversationTimer = null;
             }
         },
-        
-        clearTimers: function() {
-            this.clearSilenceTimer();
-            this.clearListeningTimer();
+
+        handleTimeout: function() {
+            console.log('Conversation timeout reached');
+            this.speakResponse('Maximum conversation time reached. Closing audio mode.', () => {
+                if (window.AIChatbotAudio) {
+                    window.AIChatbotAudio.closeAudioMode();
+                }
+            });
         },
-        
-        /**
-         * Update UI
-         */
-        updateUI: function() {
-            if (this.isActive) {
-                this.$toggleBtn.addClass('active').find('.btn-text').text('Exit Audio Mode');
-                this.$indicator.addClass('active').show();
-            } else {
-                this.$toggleBtn.removeClass('active').find('.btn-text').text('Enter Audio Mode');
-                this.$indicator.removeClass('active').hide();
-            }
-        },
-        
-        /**
-         * Update status
-         */
-        updateStatus: function(status, text) {
-            let statusText = '';
-            let statusClass = '';
-            
-            switch (status) {
-                case 'starting':
-                    statusText = 'Starting audio mode...';
-                    statusClass = 'starting';
-                    break;
-                case 'listening':
-                    statusText = 'Listening...';
-                    statusClass = 'listening';
-                    break;
-                case 'processing':
-                    statusText = text || 'Processing...';
-                    statusClass = 'processing';
-                    break;
-                case 'speaking':
-                    statusText = 'Speaking...';
-                    statusClass = 'speaking';
-                    break;
-                case 'silence_timeout':
-                    statusText = 'Silence detected, restarting...';
-                    statusClass = 'timeout';
-                    break;
-                case 'listening_timeout':
-                    statusText = 'Listening timeout, please try again';
-                    statusClass = 'timeout';
-                    break;
-                case 'stopped':
-                    statusText = 'Audio mode stopped';
-                    statusClass = 'stopped';
-                    break;
-                default:
-                    statusText = text || 'Ready';
-                    statusClass = 'ready';
-            }
-            
-            this.$statusText.text(statusText);
-            this.$indicator.removeClass('starting listening processing speaking timeout stopped ready')
-                          .addClass(statusClass);
-        },
-        
-        /**
-         * Handle recognition errors
-         */
+
         handleRecognitionError: function(error) {
-            let errorMessage = 'Speech recognition error: ';
+            console.error('Recognition error:', error);
+
+            let message = 'An error occurred. ';
             
-            switch (error) {
-                case 'network':
-                    errorMessage += 'Network error';
-                    break;
-                case 'not-allowed':
-                    errorMessage += 'Microphone access denied';
-                    break;
+            switch(error) {
                 case 'no-speech':
-                    errorMessage += 'No speech detected';
+                    message = 'No speech detected. Please try again.';
                     break;
                 case 'audio-capture':
-                    errorMessage += 'Audio capture failed';
+                    message = 'Microphone not accessible. Please check permissions.';
+                    break;
+                case 'not-allowed':
+                    message = 'Microphone permission denied. Please enable it in your browser settings.';
+                    break;
+                case 'network':
+                    message = 'Network error. Please check your connection.';
                     break;
                 default:
-                    errorMessage += error;
+                    message += 'Please try again.';
             }
-            
-            this.showError(errorMessage);
-            
-            // Auto-restart on certain errors
-            if (['no-speech', 'audio-capture'].includes(error) && this.isActive) {
-                setTimeout(() => {
+
+            if (window.AIChatbotAudio) {
+                window.AIChatbotAudio.showNotification('error', message);
+            }
+        },
+
+        handleError: function(message) {
+            console.error('Audio mode error:', message);
+
+            if (window.AIChatbotAudio) {
+                window.AIChatbotAudio.showNotification('error', message);
+                window.AIChatbotAudio.updateAudioStatus('error', message);
+            }
+
+            // Resume listening after error
+            setTimeout(() => {
+                if (this.isActive && !this.isPaused) {
                     this.startListening();
-                }, 2000);
-            }
+                }
+            }, 2000);
         },
-        
-        /**
-         * Show error message
-         */
-        showError: function(message) {
-            this.updateStatus('error', message);
-            console.error('Audio Mode Error:', message);
+
+        generateSessionId: function() {
+            return 'audio_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        },
+
+        logAudioSession: function(event) {
+            // Log session events for analytics
+            console.log('Audio session event:', event, this.sessionId);
             
-            // Show user-friendly notification
-            if (typeof window.AIChatbotFrontend !== 'undefined') {
-                window.AIChatbotFrontend.showNotification(message, 'error');
-            }
-        },
-        
-        /**
-         * Get current state
-         */
-        getState: function() {
-            return {
-                isActive: this.isActive,
-                isListening: this.isListening,
-                isSpeaking: this.isSpeaking
-            };
-        },
-        
-        /**
-         * Update configuration
-         */
-        updateConfig: function(newConfig) {
-            this.config = $.extend(this.config, newConfig);
-            
-            if (this.recognition) {
-                this.recognition.lang = this.config.language || 'en-US';
+            // Send to backend if analytics enabled
+            if (this.settings.analytics_enabled) {
+                $.ajax({
+                    url: window.aiChatbotPublic?.ajax_url || '/wp-admin/admin-ajax.php',
+                    type: 'POST',
+                    data: {
+                        action: 'ai_chatbot_log_audio_session',
+                        event: event,
+                        session_id: this.sessionId,
+                        nonce: window.aiChatbotPublic?.nonce || ''
+                    }
+                });
             }
         }
     };
-
-    // Initialize when document is ready
-    $(document).ready(function() {
-        // Wait for audio config to be available
-        if (typeof window.aiChatbotAudioConfig !== 'undefined') {
-            window.AIChatbotAudioMode.init(window.aiChatbotAudioConfig.audio_mode || {});
-        }
-    });
 
 })(jQuery);

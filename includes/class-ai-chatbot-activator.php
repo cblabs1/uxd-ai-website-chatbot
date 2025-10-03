@@ -133,6 +133,7 @@ class AI_Chatbot_Activator {
             user_agent varchar(500) DEFAULT '',
             page_url varchar(255) DEFAULT '',
             source varchar(100) DEFAULT 'chatbot',
+			audio_mode tinyint(1) DEFAULT 0 AFTER status,
 			error_message varchar(100) DEFAULT NULL,
             status varchar(20) DEFAULT 'completed',
             intent varchar(255) DEFAULT NULL,
@@ -243,14 +244,28 @@ class AI_Chatbot_Activator {
 			KEY idx_total_messages (total_messages)
 		) $charset_collate;";
 
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		$audio_table = $wpdb->prefix . 'ai_chatbot_audio_sessions';
+		$sql_audio = "CREATE TABLE IF NOT EXISTS $audio_table (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			session_id varchar(100) NOT NULL,
+			event varchar(50) NOT NULL,
+			timestamp datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+			user_id bigint(20) DEFAULT 0,
+			user_ip varchar(100) DEFAULT '',
+			PRIMARY KEY (id),
+			KEY session_id (session_id),
+			KEY event (event),
+			KEY timestamp (timestamp)
+		) $charset_collate;";
+
+		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql_conversations);
 		dbDelta($sql_content);
 		dbDelta($sql_training);
 		dbDelta($sql_training_data);
 		dbDelta($sql_users);
+		dbDelta($sql_audio);
 
-		
 		// Store database version for future upgrades
 		update_option('ai_chatbot_db_version', '1.3.0');
 	}
@@ -398,6 +413,10 @@ class AI_Chatbot_Activator {
 					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN provider varchar(50) DEFAULT NULL',
 					'check' => 'provider'
 				),
+				'audio_mode' => array(
+					'sql' => 'ALTER TABLE ' . $table_name . ' ADD COLUMN audio_mode tinyint(1) DEFAULT 0',
+					'check' => 'audio_mode'
+				)
 			);
 
 			foreach ($columns_to_add as $column => $config) {

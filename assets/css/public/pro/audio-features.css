@@ -1,30 +1,466 @@
-/* Audio Features Styles */
+/**
+ * AI Chatbot Audio Mode Styles
+ * Modal-based voice conversation interface
+ */
+
+/* ===========================
+   Voice Button Styles
+   =========================== */
+
 .voice-btn {
-    background: #4CAF50;
+    position: relative;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
     border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    border-radius: 8px;
+    padding: 10px 16px;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-left: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
 }
 
 .voice-btn:hover {
-    background: #45a049;
-    transform: scale(1.05);
+    background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+    transform: translateY(-2px);
 }
 
-.voice-btn.listening {
-    background: #f44336;
-    animation: pulse 1.5s infinite;
+.voice-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
 }
 
 .voice-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.voice-btn-label {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .voice-btn-label {
+        display: inline;
+    }
+}
+
+/* ===========================
+   Audio Mode Modal
+   =========================== */
+
+.ai-audio-mode-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.audio-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease;
+}
+
+.audio-modal-container {
+    position: relative;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 24px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+/* ===========================
+   Modal Header
+   =========================== */
+
+.audio-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.audio-icon {
+    font-size: 28px;
+    animation: float 3s ease-in-out infinite;
+}
+
+.audio-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
     color: white;
+    letter-spacing: -0.02em;
+}
+
+.audio-modal-close {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.audio-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    transform: rotate(90deg);
+}
+
+/* ===========================
+   Modal Content
+   =========================== */
+
+.audio-modal-content {
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-height: 400px;
+}
+
+/* Status Display */
+.audio-status-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+}
+
+.audio-status-icon {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 3px solid rgba(76, 175, 80, 0.5);
+    border-radius: 50%;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.audio-status-icon.listening .pulse-ring {
+    border-color: rgba(244, 67, 54, 0.5);
+}
+
+.audio-status-icon.speaking .pulse-ring {
+    border-color: rgba(33, 150, 243, 0.5);
+}
+
+.microphone-icon {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.3);
+    transition: all 0.3s ease;
+}
+
+.audio-status-icon.listening .microphone-icon {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    animation: pulse-icon 1.5s ease-in-out infinite;
+}
+
+.audio-status-icon.speaking .microphone-icon {
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+}
+
+.audio-status-text {
+    font-size: 18px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    text-align: center;
+}
+
+/* Waveform Visualization */
+.audio-waveform {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 60px;
+    padding: 0 20px;
+}
+
+.wave-bar {
+    width: 6px;
+    height: 20px;
+    background: linear-gradient(180deg, #4CAF50 0%, #45a049 100%);
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.audio-waveform.active .wave-bar {
+    animation: wave 1.2s ease-in-out infinite;
+}
+
+.audio-waveform.active .wave-bar:nth-child(1) { animation-delay: 0s; }
+.audio-waveform.active .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.audio-waveform.active .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.audio-waveform.active .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+.audio-waveform.active .wave-bar:nth-child(5) { animation-delay: 0.2s; }
+.audio-waveform.active .wave-bar:nth-child(6) { animation-delay: 0.1s; }
+.audio-waveform.active .wave-bar:nth-child(7) { animation-delay: 0s; }
+
+/* Transcript Display */
+.audio-transcript-container {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 80px;
+}
+
+.transcript-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 8px;
+}
+
+.audio-transcript {
+    font-size: 16px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.9);
+    min-height: 40px;
+}
+
+.transcript-interim {
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+}
+
+.transcript-final {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 500;
+}
+
+/* Conversation Mini History */
+.audio-conversation-mini {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.conversation-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.audio-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.audio-message.user {
+    background: rgba(76, 175, 80, 0.15);
+}
+
+.audio-message.bot {
+    background: rgba(33, 150, 243, 0.15);
+}
+
+.message-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.message-text {
+    color: rgba(255, 255, 255, 0.9);
+    word-wrap: break-word;
+}
+
+/* ===========================
+   Modal Controls
+   =========================== */
+
+.audio-modal-controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    padding: 20px 24px;
+    background: rgba(0, 0, 0, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-control-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pause-btn {
+    background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+    color: white;
+}
+
+.pause-btn:hover {
+    background: linear-gradient(135deg, #F57C00 0%, #E65100 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.stop-btn {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+}
+
+.stop-btn:hover {
+    background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+/* ===========================
+   Tips Section
+   =========================== */
+
+.audio-tips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 24px;
+    background: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tip-item {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ===========================
+   Notifications
+   =========================== */
+
+.audio-notification {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    animation: slideDown 0.3s ease;
+}
+
+.audio-notification.info {
+    background: rgba(33, 150, 243, 0.1);
+    border-color: rgba(33, 150, 243, 0.3);
+}
+
+.notification-icon {
+    font-size: 20px;
+}
+
+.notification-message {
+    flex: 1;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===========================
+   Animations
+   =========================== */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes pulse {
@@ -34,53 +470,128 @@
     }
     50% {
         transform: scale(1.1);
-        opacity: 0.8;
+        opacity: 0.5;
     }
 }
 
-.voice-status {
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
-    white-space: nowrap;
-    margin-bottom: 8px;
+@keyframes pulse-icon {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
 }
 
-/* Position voice button in input area */
-.chatbot-input-wrapper,
-.chat-input-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
 }
 
-/* Speaker icon for TTS */
-.tts-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.3s;
-    padding: 4px;
+@keyframes wave {
+    0%, 100% {
+        height: 20px;
+    }
+    50% {
+        height: 50px;
+    }
 }
 
-.tts-btn:hover {
-    opacity: 1;
+/* ===========================
+   Responsive Design
+   =========================== */
+
+@media (max-width: 768px) {
+    .audio-modal-container {
+        width: 95%;
+        max-height: 90vh;
+        border-radius: 16px;
+    }
+
+    .audio-modal-header {
+        padding: 16px 20px;
+    }
+
+    .audio-title {
+        font-size: 18px;
+    }
+
+    .audio-modal-content {
+        padding: 24px 20px;
+        min-height: 350px;
+    }
+
+    .audio-status-icon {
+        width: 100px;
+        height: 100px;
+    }
+
+    .microphone-icon {
+        width: 70px;
+        height: 70px;
+    }
+
+    .audio-modal-controls {
+        padding: 16px 20px;
+    }
+
+    .audio-control-btn {
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+
+    .audio-tips {
+        padding: 12px 20px;
+    }
 }
 
-.tts-btn.speaking {
-    opacity: 1;
-    animation: speaking 0.8s infinite;
+@media (max-width: 480px) {
+    .audio-modal-container {
+        width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .audio-control-btn span {
+        display: none;
+    }
+
+    .audio-control-btn {
+        padding: 12px;
+        min-width: 44px;
+    }
 }
 
-@keyframes speaking {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.2); }
+/* ===========================
+   Dark Mode Body Class
+   =========================== */
+
+body.audio-mode-active {
+    overflow: hidden;
+}
+
+/* ===========================
+   Scrollbar Styling
+   =========================== */
+
+.audio-conversation-mini::-webkit-scrollbar {
+    width: 6px;
+}
+
+.audio-conversation-mini::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.audio-conversation-mini::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.audio-conversation-mini::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }

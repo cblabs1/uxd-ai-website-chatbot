@@ -78,10 +78,6 @@ class AI_Chatbot_Pro {
      */
     public function handle_pro_chat_message() {
 
-       error_log('=== NONCE DEBUG ===');
-        error_log('Received nonce: ' . ($_POST['nonce'] ?? 'NOT SET'));
-        error_log('Expected nonce check for: ai_chatbot_nonce');
-        
         // Test what nonce should be
         $correct_nonce = wp_create_nonce('ai_chatbot_nonce');
         error_log('Correct nonce should be: ' . $correct_nonce);
@@ -99,6 +95,8 @@ class AI_Chatbot_Pro {
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
         $conversation_id = sanitize_text_field($_POST['conversation_id'] ?? '');
         $context_data = $_POST['context'] ?? array();
+        $audio_mode = isset($_POST['audio_mode']) && $_POST['audio_mode'] === 'true' ? 1 : 0;
+
         
         if (empty($message)) {
             wp_send_json_error(array(
@@ -135,7 +133,8 @@ class AI_Chatbot_Pro {
                 $conversation_id,
                 $message,
                 $response,
-                $context_data
+                $context_data,
+                $audio_mode
             );
             
             // Build enhanced response
@@ -150,6 +149,27 @@ class AI_Chatbot_Pro {
                 'code' => 'PROCESSING_ERROR'
             ));
         }
+    }
+
+    /**
+     * Optimize response for audio output
+     */
+    private function optimize_response_for_audio($text) {
+        $text = preg_replace('/\*\*(.*?)\*\*/', '$1', $text);
+        $text = preg_replace('/\*(.*?)\*/', '$1', $text);
+        $text = preg_replace('/`(.*?)`/', '$1', $text);
+        $text = preg_replace('/#+ /', '', $text);
+        $text = preg_replace('/^\s*[-*•]\s+/m', '', $text);
+        $text = preg_replace('/^\s*\d+\.\s+/m', '', $text);
+        
+        $replacements = array(
+            'e.g.' => 'for example',
+            'i.e.' => 'that is',
+            'etc.' => 'and so on',
+        );
+        $text = str_replace(array_keys($replacements), array_values($replacements), $text);
+        $text = preg_replace('/\s+/', ' ', $text);
+        return trim($text);
     }
     
     /**
@@ -263,7 +283,7 @@ class AI_Chatbot_Pro {
     /**
      * Store conversation with Pro analytics
      */
-    private function store_conversation_with_analytics($session_id, $conversation_id, $message, $response, $context_data) {
+    private function store_conversation_with_analytics($session_id, $conversation_id, $message, $response, $context_data, $audio_mode = 0) {
         global $wpdb;
         
         // Generate conversation ID if not provided
@@ -286,6 +306,7 @@ class AI_Chatbot_Pro {
             'user_id' => get_current_user_id() ?: null,
             'user_ip' => $_SERVER['REMOTE_ADDR'] ?? null,
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'audio_mode' => $audio_mode,
             'created_at' => current_time('mysql')
         );
         
@@ -364,6 +385,7 @@ class AI_Chatbot_Pro {
             'timestamp' => current_time('mysql'),
             'session_id' => $conversation_data['session_id'],
             'source' => $response_data['source'],
+            'audio_mode' => $conversation_data['audio_mode'] ?? 0,
             'response_time' => $this->get_response_time()
         );
         

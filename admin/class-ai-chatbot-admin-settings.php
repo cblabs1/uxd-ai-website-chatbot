@@ -155,31 +155,22 @@ class AI_Chatbot_Admin_Settings {
                 'anonymize_data' => true
             ),
 
-            // Audio Features Settings
-            'audio_features_enabled' => false,
-            
-            // Voice Input
-            'voice_input_enabled' => false,
-            'voice_language' => 'en-US',
-            'voice_continuous' => false,
-            'voice_interim_results' => true,
-            'voice_auto_send' => false,
-            'voice_confidence_threshold' => 0.7,
-            
-            // Text-to-Speech
-            'tts_enabled' => false,
-            'tts_auto_play' => false,
-            'tts_rate' => 1.0,
-            'tts_pitch' => 1.0,
-            'tts_volume' => 0.8,
-            'tts_voice' => '',
-            
-            // Audio Mode (for future)
-            'audio_mode_enabled' => false,
-            'audio_mode_auto_start' => false,
-            
-            // Voice Commands (for future)
-            'voice_commands_enabled' => false,
+            'audio_features' => array(
+                'enabled' => false,
+                'voice_input_enabled' => false,
+                'voice_language' => 'en-US',
+                'voice_continuous' => false,
+                'voice_interim_results' => true,
+                'voice_auto_send' => false,
+                'tts_enabled' => false,
+                'tts_auto_play' => false,
+                'tts_rate' => 1.0,
+                'tts_pitch' => 1.0,
+                'tts_volume' => 0.8,
+                'audio_mode_enabled' => false,
+                'audio_mode_silence_timeout' => 30,
+                'audio_mode_max_time' => 300,
+            ),
             
             // Advanced Settings
             'debug_mode' => false,

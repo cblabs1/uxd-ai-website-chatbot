@@ -1,192 +1,52 @@
 /**
- * AI Chatbot Audio Features
- * Handles voice input and text-to-speech
+ * AI Chatbot Audio Features - Main Controller
+ * Handles voice input and audio mode activation
  */
+
 (function($) {
     'use strict';
 
     window.AIChatbotAudio = {
+        initialized: false,
+        config: null,
+        isAudioModeActive: false,
+        audioModeModal: null,
         recognition: null,
         synthesis: null,
-        isListening: false,
-        isSpeaking: false,
-        config: {},
 
         init: function() {
-            if (typeof ai_chatbot_audio === 'undefined') {
+            if (this.initialized) return;
+
+            this.config = window.aiChatbotAudio || {};
+            
+            // Check if audio features are enabled
+            if (!this.config.audio_enabled) {
+                console.log('AI Chatbot Audio: Features disabled');
                 return;
             }
 
-            this.config = ai_chatbot_audio;
+            this.checkBrowserSupport();
+            this.addVoiceButton();
+            this.bindEvents();
             
-            // Initialize features
-            if (this.config.voice_input && this.config.voice_input.enabled) {
-                this.initVoiceInput();
-            }
-
-            if (this.config.text_to_speech && this.config.text_to_speech.enabled) {
-                this.initTextToSpeech();
-            }
-
-            // Integrate with main chatbot
-            this.integrateWithChatbot();
+            this.initialized = true;
+            console.log('AI Chatbot Audio: Initialized successfully');
         },
 
-        initVoiceInput: function() {
-            // Check browser support
+        checkBrowserSupport: function() {
+            // Check Web Speech API support
             if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                console.warn('Speech recognition not supported');
-                return;
+                console.warn('Speech recognition not supported in this browser');
+                $('.voice-btn').prop('disabled', true).attr('title', 'Voice not supported in your browser');
+                return false;
             }
 
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            this.recognition = new SpeechRecognition();
-            
-            this.recognition.continuous = this.config.voice_input.continuous;
-            this.recognition.interimResults = this.config.voice_input.interim_results;
-            this.recognition.lang = this.config.voice_input.language;
-
-            this.bindRecognitionEvents();
-        },
-
-        bindRecognitionEvents: function() {
-            const self = this;
-
-            this.recognition.onstart = function() {
-                self.isListening = true;
-                self.onVoiceStart();
-            };
-
-            this.recognition.onresult = function(event) {
-                let transcript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    if (event.results[i].isFinal) {
-                        transcript += event.results[i][0].transcript;
-                    }
-                }
-                if (transcript) {
-                    self.onVoiceResult(transcript);
-                }
-            };
-
-            this.recognition.onerror = function(event) {
-                self.onVoiceError(event.error);
-            };
-
-            this.recognition.onend = function() {
-                self.isListening = false;
-                self.onVoiceEnd();
-            };
-        },
-
-        initTextToSpeech: function() {
-            if ('speechSynthesis' in window) {
-                this.synthesis = window.speechSynthesis;
-            } else {
-                console.warn('Text-to-speech not supported');
-            }
-        },
-
-        startListening: function() {
-            if (!this.recognition) {
-                alert(this.config.strings.not_supported);
-                return;
+            // Check Speech Synthesis
+            if (!('speechSynthesis' in window)) {
+                console.warn('Speech synthesis not supported in this browser');
             }
 
-            try {
-                this.recognition.start();
-            } catch (e) {
-                console.error('Failed to start recognition:', e);
-            }
-        },
-
-        stopListening: function() {
-            if (this.recognition && this.isListening) {
-                this.recognition.stop();
-            }
-        },
-
-        speak: function(text) {
-            if (!this.synthesis) return;
-
-            // Stop any ongoing speech
-            this.synthesis.cancel();
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = this.config.text_to_speech.rate;
-            utterance.pitch = this.config.text_to_speech.pitch;
-            utterance.volume = this.config.text_to_speech.volume;
-            utterance.lang = this.config.voice_input.language;
-
-            const self = this;
-            utterance.onstart = function() {
-                self.isSpeaking = true;
-            };
-            utterance.onend = function() {
-                self.isSpeaking = false;
-            };
-
-            this.synthesis.speak(utterance);
-        },
-
-        stopSpeaking: function() {
-            if (this.synthesis) {
-                this.synthesis.cancel();
-                this.isSpeaking = false;
-            }
-        },
-
-        onVoiceStart: function() {
-            $('.voice-btn').addClass('listening');
-            $('.voice-status').text(this.config.strings.listening).show();
-        },
-
-        onVoiceResult: function(transcript) {
-            // Send transcript to chat input
-            const $input = $('#chatbot-message-input, .chatbot-input');
-            if ($input.length) {
-                $input.val(transcript).trigger('input');
-                
-                // Auto-send if configured
-                if (this.config.voice_input.auto_send) {
-                    $('.chatbot-send-btn, .send-btn').trigger('click');
-                }
-            }
-        },
-
-        onVoiceError: function(error) {
-            console.error('Voice recognition error:', error);
-            let message = this.config.strings.error;
-            
-            if (error === 'not-allowed') {
-                message = this.config.strings.permission_denied;
-            }
-            
-            alert(message);
-            this.stopListening();
-        },
-
-        onVoiceEnd: function() {
-            $('.voice-btn').removeClass('listening');
-            $('.voice-status').hide();
-        },
-
-        integrateWithChatbot: function() {
-            const self = this;
-
-            // Add voice button to chatbot
-            $(document).on('aichatbot:ready', function() {
-                self.addVoiceButton();
-            });
-
-            // Auto-speak bot responses if enabled
-            if (this.config.text_to_speech && this.config.text_to_speech.auto_play) {
-                $(document).on('aichatbot:message:received', function(e, data) {
-                    if (data && data.response) {
-                        self.speak(data.response);
-                    }
-                });
-            }
+            return true;
         },
 
         addVoiceButton: function() {
@@ -195,36 +55,299 @@
             }
 
             const voiceButtonHtml = `
-                <button type="button" class="voice-btn" title="Voice input">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <button type="button" class="voice-btn" 
+                        title="Start Audio Conversation Mode" 
+                        aria-label="Open audio conversation mode">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                         <line x1="12" y1="19" x2="12" y2="23"></line>
                         <line x1="8" y1="23" x2="16" y2="23"></line>
                     </svg>
+                    <span class="voice-btn-label">Audio Mode</span>
                 </button>
-                <span class="voice-status" style="display:none;"></span>
             `;
 
             // Add to chat input area
-            const $inputContainer = $('.chatbot-input-wrapper, .chat-input-wrapper');
+            const $inputContainer = $('.chatbot-input-wrapper, .chat-input-wrapper, .ai-chatbot-input-container');
             if ($inputContainer.length && !$('.voice-btn').length) {
-                $inputContainer.append(voiceButtonHtml);
-                this.bindVoiceButtonEvents();
+                // Try to find button container, otherwise append to input container
+                const $buttonContainer = $inputContainer.find('.input-actions, .chat-actions');
+                if ($buttonContainer.length) {
+                    $buttonContainer.append(voiceButtonHtml);
+                } else {
+                    $inputContainer.append(voiceButtonHtml);
+                }
             }
         },
 
-        bindVoiceButtonEvents: function() {
+        bindEvents: function() {
             const self = this;
 
+            // Voice button click - opens audio mode modal
             $(document).on('click', '.voice-btn', function(e) {
                 e.preventDefault();
-                if (self.isListening) {
-                    self.stopListening();
-                } else {
-                    self.startListening();
+                e.stopPropagation();
+                self.openAudioMode();
+            });
+
+            // Listen for audio mode close events
+            $(document).on('audio_mode_closed', function() {
+                self.isAudioModeActive = false;
+            });
+
+            // Intercept TTS - only play in audio mode
+            $(document).on('ai_chatbot_before_tts', function(e, data) {
+                if (!self.isAudioModeActive) {
+                    // Cancel TTS if not in audio mode
+                    e.preventDefault();
+                    return false;
                 }
             });
+        },
+
+        openAudioMode: function() {
+            console.log('Opening Audio Conversation Mode...');
+            
+            // Check browser support before opening
+            if (!this.checkBrowserSupport()) {
+                this.showNotification('error', 'Your browser does not support voice features.');
+                return;
+            }
+
+            this.isAudioModeActive = true;
+
+            // Create modal if it doesn't exist
+            if (!$('.ai-audio-mode-modal').length) {
+                this.createAudioModeModal();
+            }
+
+            // Show modal with animation
+            $('.ai-audio-mode-modal').fadeIn(300);
+            $('body').addClass('audio-mode-active');
+
+            // Initialize audio mode features
+            if (window.AIChatbotAudioMode) {
+                window.AIChatbotAudioMode.activate();
+            }
+
+            // Trigger event for other components
+            $(document).trigger('audio_mode_opened');
+        },
+
+        createAudioModeModal: function() {
+            const modalHtml = `
+                <div class="ai-audio-mode-modal" style="display: none;">
+                    <div class="audio-modal-overlay"></div>
+                    <div class="audio-modal-container">
+                        <!-- Header -->
+                        <div class="audio-modal-header">
+                            <div class="audio-header-left">
+                                <span class="audio-icon">🎙️</span>
+                                <h2 class="audio-title">Audio Conversation Mode</h2>
+                            </div>
+                            <div class="audio-header-right">
+                                <button class="audio-modal-close" aria-label="Close audio mode">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="audio-modal-content">
+                            <!-- Status Display -->
+                            <div class="audio-status-display">
+                                <div class="audio-status-icon">
+                                    <div class="pulse-ring"></div>
+                                    <div class="microphone-icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <p class="audio-status-text">Initializing...</p>
+                            </div>
+
+                            <!-- Waveform Visualization -->
+                            <div class="audio-waveform">
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                            </div>
+
+                            <!-- Transcript Display -->
+                            <div class="audio-transcript-container">
+                                <div class="transcript-label">Live Transcript:</div>
+                                <div class="audio-transcript"></div>
+                            </div>
+
+                            <!-- Conversation History (Mini) -->
+                            <div class="audio-conversation-mini">
+                                <div class="conversation-messages"></div>
+                            </div>
+                        </div>
+
+                        <!-- Controls -->
+                        <div class="audio-modal-controls">
+                            <button class="audio-control-btn pause-btn" data-action="pause">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="6" y="4" width="4" height="16"></rect>
+                                    <rect x="14" y="4" width="4" height="16"></rect>
+                                </svg>
+                                <span>Pause</span>
+                            </button>
+                            <button class="audio-control-btn stop-btn" data-action="stop">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="6" y="6" width="12" height="12"></rect>
+                                </svg>
+                                <span>Stop</span>
+                            </button>
+                        </div>
+
+                        <!-- Tips -->
+                        <div class="audio-tips">
+                            <div class="tip-item">💡 Speak naturally and clearly</div>
+                            <div class="tip-item">🎤 Say "pause" to pause listening</div>
+                            <div class="tip-item">🚪 Say "exit" or click Stop to leave</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            $('body').append(modalHtml);
+            this.bindModalEvents();
+        },
+
+        bindModalEvents: function() {
+            const self = this;
+
+            // Close modal
+            $(document).on('click', '.audio-modal-close, .audio-modal-overlay', function() {
+                self.closeAudioMode();
+            });
+
+            // Control buttons
+            $(document).on('click', '.audio-control-btn', function() {
+                const action = $(this).data('action');
+                self.handleAudioControl(action);
+            });
+
+            // Escape key to close
+            $(document).on('keydown', function(e) {
+                if (e.key === 'Escape' && self.isAudioModeActive) {
+                    self.closeAudioMode();
+                }
+            });
+        },
+
+        handleAudioControl: function(action) {
+            console.log('Audio control action:', action);
+
+            switch(action) {
+                case 'pause':
+                    if (window.AIChatbotAudioMode) {
+                        window.AIChatbotAudioMode.pause();
+                    }
+                    break;
+                case 'stop':
+                    this.closeAudioMode();
+                    break;
+            }
+        },
+
+        closeAudioMode: function() {
+            console.log('Closing Audio Conversation Mode...');
+
+            // Stop audio mode
+            if (window.AIChatbotAudioMode) {
+                window.AIChatbotAudioMode.deactivate();
+            }
+
+            // Hide modal
+            $('.ai-audio-mode-modal').fadeOut(300, function() {
+                // Clean up
+                $('.audio-transcript').empty();
+                $('.conversation-messages').empty();
+            });
+
+            $('body').removeClass('audio-mode-active');
+            this.isAudioModeActive = false;
+
+            // Trigger event
+            $(document).trigger('audio_mode_closed');
+        },
+
+        updateAudioStatus: function(status, text) {
+            $('.audio-status-text').text(text || status);
+            
+            // Update icon state
+            const $icon = $('.audio-status-icon');
+            $icon.removeClass('listening speaking processing idle');
+            $icon.addClass(status);
+
+            // Update waveform animation
+            if (status === 'listening' || status === 'speaking') {
+                $('.audio-waveform').addClass('active');
+            } else {
+                $('.audio-waveform').removeClass('active');
+            }
+        },
+
+        updateTranscript: function(text, isFinal) {
+            const $transcript = $('.audio-transcript');
+            
+            if (isFinal) {
+                $transcript.html(`<div class="transcript-final">${text}</div>`);
+            } else {
+                $transcript.html(`<div class="transcript-interim">${text}</div>`);
+            }
+        },
+
+        addConversationMessage: function(type, text) {
+            const $messages = $('.conversation-messages');
+            const messageHtml = `
+                <div class="audio-message ${type}">
+                    <span class="message-icon">${type === 'user' ? '👤' : '🤖'}</span>
+                    <span class="message-text">${text}</span>
+                </div>
+            `;
+            
+            $messages.append(messageHtml);
+            
+            // Auto-scroll to bottom
+            $messages.scrollTop($messages[0].scrollHeight);
+            
+            // Limit to last 5 messages
+            if ($messages.children().length > 5) {
+                $messages.children().first().remove();
+            }
+        },
+
+        showNotification: function(type, message) {
+            const notificationHtml = `
+                <div class="audio-notification ${type}">
+                    <span class="notification-icon">${type === 'error' ? '⚠️' : 'ℹ️'}</span>
+                    <span class="notification-message">${message}</span>
+                </div>
+            `;
+
+            $('.audio-modal-content').prepend(notificationHtml);
+
+            setTimeout(function() {
+                $('.audio-notification').fadeOut(300, function() {
+                    $(this).remove();
+                });
+            }, 3000);
         }
     };
 
