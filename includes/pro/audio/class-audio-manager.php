@@ -46,11 +46,9 @@ class AI_Chatbot_Pro_Audio_Manager {
 
         // Check if audio is enabled
         if (!$this->is_audio_enabled()) {
-            error_log('AI Chatbot Audio: Features not enabled in settings');
             return;
         }
 
-        error_log('AI Chatbot Audio: Enqueuing assets');
         // Enqueue audio CSS
         wp_enqueue_style(
             'ai-chatbot-audio-css',
@@ -69,7 +67,6 @@ class AI_Chatbot_Pro_Audio_Manager {
         );
 
         $audio_config = $this->get_audio_configuration();
-        error_log('AI Chatbot Audio Config: ' . print_r($audio_config, true));
 
         // Localize audio configuration
         wp_localize_script('ai-chatbot-audio-js', 'ai_chatbot_audio', $this->get_audio_configuration());

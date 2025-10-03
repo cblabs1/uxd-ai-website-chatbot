@@ -1145,7 +1145,7 @@
         if (typeof ai_chatbot_ajax !== 'undefined') {
             console.log('AIChatbot Core: Config found, initializing...');
             window.AIChatbot.init({
-                ajaxUrl: ai_chatbot_ajax.ajax_url,
+                ajaxUrl: ai_chatbot_ajax.ajaxUrl,
                 nonce: ai_chatbot_ajax.nonce,
                 sessionId: ai_chatbot_ajax.session_id || '',
                 settings: ai_chatbot_ajax.settings || {},

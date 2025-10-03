@@ -61,6 +61,8 @@ class AI_Chatbot_Ajax {
      * Handle chat message AJAX request
      */
     public function handle_send_message() {
+
+        error_log('AI Chatbot: handle_send_message called');
         $start_time = microtime(true);
 
         $settings = get_option('ai_chatbot_settings', array());

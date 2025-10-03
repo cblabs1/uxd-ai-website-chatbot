@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
  * Manages all Pro-specific AJAX functionality including enhanced message processing,
  * semantic search, embedding generation, and analytics
  */
-class AI_Chatbot_Pro_Ajax {
+class AI_Chatbot_Pro {
     
     /**
      * Response start time for performance tracking
@@ -38,6 +38,9 @@ class AI_Chatbot_Pro_Ajax {
      */
     private function init_hooks() {
         // Enhanced message processing (replaces basic handler when Pro is active)
+        add_action('wp_ajax_ai_chatbot_message_pro', array($this, 'handle_pro_chat_message'));
+        add_action('wp_ajax_nopriv_ai_chatbot_message_pro', array($this, 'handle_pro_chat_message'));
+
         add_action('wp_ajax_ai_chatbot_message_pro', array($this, 'handle_pro_chat_message'));
         add_action('wp_ajax_nopriv_ai_chatbot_message_pro', array($this, 'handle_pro_chat_message'));
         
@@ -62,9 +65,11 @@ class AI_Chatbot_Pro_Ajax {
      * Replace basic message handler with Pro version
      */
     public function replace_basic_handler($action, $request_data) {
-        if ($action === 'ai_chatbot_message' && ai_chatbot_has_feature('intelligence_engine')) {
+        if ($action === 'ai_chatbot_send_message' && ai_chatbot_has_feature('intelligence_engine')) {
             return 'ai_chatbot_message_pro';
+            error_log('AI Chatbot Pro: Replacing basic message handler with Pro version');
         }
+        error_log('AI Chatbot Pro: Using basic message handler');
         return $action;
     }
     
@@ -72,6 +77,14 @@ class AI_Chatbot_Pro_Ajax {
      * Enhanced Pro message handler
      */
     public function handle_pro_chat_message() {
+
+       error_log('=== NONCE DEBUG ===');
+        error_log('Received nonce: ' . ($_POST['nonce'] ?? 'NOT SET'));
+        error_log('Expected nonce check for: ai_chatbot_nonce');
+        
+        // Test what nonce should be
+        $correct_nonce = wp_create_nonce('ai_chatbot_nonce');
+        error_log('Correct nonce should be: ' . $correct_nonce);
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'], 'ai_chatbot_nonce')) {
             wp_send_json_error(array(

@@ -103,7 +103,7 @@ class AI_Chatbot_Frontend {
         
         // If Pro features are enabled, also localize the Pro script
         if ($pro_enabled) {
-            wp_localize_script('ai-chatbot-pro-features-js', 'ai_chatbot_pro_ajax', $this->build_pro_config());
+            wp_localize_script('ai-chatbot-pro-features-js', 'ai_chatbot_pro', $this->build_pro_config());
         }
     }
 

@@ -61,6 +61,8 @@ function ai_chatbot_load_plugin() {
         AI_Chatbot::get_instance();
     }, 5);
 
+    
+
 	add_action('plugins_loaded', function() {
 		$current_version = get_option('ai_chatbot_db_version', '1.0.0');
 		$plugin_version = AI_CHATBOT_VERSION;
@@ -72,6 +74,8 @@ function ai_chatbot_load_plugin() {
 		}
 		
 	});
+
+    
 }
 
 /**

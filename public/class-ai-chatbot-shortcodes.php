@@ -50,7 +50,6 @@ class AI_Chatbot_Shortcodes {
      * @since 1.0.0
      */
     public function register_shortcodes() {
-        error_log('register_shortcodes called');
         add_shortcode('ai_chatbot', array($this, 'chatbot_shortcode'));
         add_shortcode('ai_chatbot_inline', array($this, 'inline_chatbot_shortcode'));
         add_shortcode('ai_chatbot_button', array($this, 'chatbot_button_shortcode'));

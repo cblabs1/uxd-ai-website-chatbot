@@ -228,14 +228,9 @@ class AI_Chatbot {
      * Initialize Pro modules - CRITICAL FIX HERE
      */
     private function init_pro_modules() {
-        // CRITICAL: Instantiate the Pro AJAX handler - THIS WAS MISSING!
-        if (class_exists('AI_Chatbot_Pro_Ajax')) {
-            new AI_Chatbot_Pro_Ajax(); // This registers the ai_chatbot_message_pro action!
-        }
-        
-        // Initialize the main Pro class if it exists
+        // Instantiate the Pro AJAX handler
         if (class_exists('AI_Chatbot_Pro')) {
-            AI_Chatbot_Pro::get_instance();
+            new AI_Chatbot_Pro(); // This registers the ai_chatbot_message_pro action!
         }
 
         // NEW: Initialize Audio Manager if available
@@ -249,12 +244,7 @@ class AI_Chatbot {
                             !empty($settings['audio_mode_enabled']) ||
                             !empty($settings['voice_commands_enabled']);
             
-            error_log('AI Chatbot: Audio enabled check: ' . ($audio_enabled ? 'YES' : 'NO'));
-            error_log('AI Chatbot: Voice input: ' . (!empty($settings['voice_input_enabled']) ? 'YES' : 'NO'));
-            error_log('AI Chatbot: TTS: ' . (!empty($settings['tts_enabled']) ? 'YES' : 'NO'));
-            
             if ($audio_enabled && function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('audio_features')) {
-                error_log('AI Chatbot: Initializing Audio Manager');
                 AI_Chatbot_Pro_Audio_Manager::get_instance();
             } else {
                 error_log('AI Chatbot: Audio Manager NOT initialized - requirements not met');
