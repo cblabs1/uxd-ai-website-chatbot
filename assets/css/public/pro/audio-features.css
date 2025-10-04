@@ -128,6 +128,7 @@
     border-radius: 50%;
     width: 36px;
     height: 36px;
+    padding: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -594,4 +595,185 @@ body.audio-mode-active {
 
 .audio-conversation-mini::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
+}
+
+/**
+ * Audio Mode Transcript Styles
+ * Add this to: assets/css/public/pro/audio-mode.css
+ */
+
+/* Transcript Container */
+.audio-transcript {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    margin: 20px 0;
+    max-height: 300px;
+    min-height: 200px;
+}
+
+.transcript-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Transcript Items */
+.transcript-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Transcript Header */
+.transcript-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.transcript-speaker {
+    font-weight: 600;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+/* Different colors for different speakers */
+.transcript-you .transcript-speaker {
+    color: #3498db;
+}
+
+.transcript-ai .transcript-speaker {
+    color: #9b59b6;
+}
+
+.transcript-system .transcript-speaker {
+    color: #e74c3c;
+}
+
+.transcript-time {
+    font-size: 12px;
+    color: #95a5a6;
+}
+
+/* Transcript Message */
+.transcript-message {
+    margin: 0;
+    color: #34495e;
+    font-size: 14px;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+/* Different background colors for speakers */
+.transcript-you {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-left: 3px solid #3498db;
+}
+
+.transcript-ai {
+    background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+    border-left: 3px solid #9b59b6;
+}
+
+.transcript-system {
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+    border-left: 3px solid #e74c3c;
+}
+
+/* Empty Transcript State */
+.transcript-content:empty::before {
+    content: "Conversation transcript will appear here...";
+    display: block;
+    text-align: center;
+    color: #95a5a6;
+    padding: 40px 20px;
+    font-style: italic;
+}
+
+/* Scrollbar Styling */
+.audio-transcript::-webkit-scrollbar {
+    width: 8px;
+}
+
+.audio-transcript::-webkit-scrollbar-track {
+    background: #ecf0f1;
+    border-radius: 4px;
+}
+
+.audio-transcript::-webkit-scrollbar-thumb {
+    background: #bdc3c7;
+    border-radius: 4px;
+}
+
+.audio-transcript::-webkit-scrollbar-thumb:hover {
+    background: #95a5a6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .audio-transcript {
+        max-height: 200px;
+        min-height: 150px;
+        padding: 15px;
+    }
+
+    .transcript-item {
+        padding: 10px 12px;
+    }
+
+    .transcript-speaker {
+        font-size: 13px;
+    }
+
+    .transcript-message {
+        font-size: 13px;
+    }
+}
+
+/* Dark Mode Support (Optional) */
+@media (prefers-color-scheme: dark) {
+    .audio-transcript {
+        background: #2c3e50;
+    }
+
+    .transcript-item {
+        background: #34495e;
+    }
+
+    .transcript-speaker {
+        color: #ecf0f1;
+    }
+
+    .transcript-message {
+        color: #bdc3c7;
+    }
+
+    .transcript-you {
+        background: linear-gradient(135deg, #1a4d7a 0%, #2980b9 100%);
+    }
+
+    .transcript-ai {
+        background: linear-gradient(135deg, #6c3483 0%, #8e44ad 100%);
+    }
+
+    .transcript-system {
+        background: linear-gradient(135deg, #922b21 0%, #c0392b 100%);
+    }
 }

@@ -32,8 +32,8 @@ class AI_Chatbot_Ajax {
         add_action('wp_ajax_ai_chatbot_send_message', array($this, 'handle_send_message'));
         add_action('wp_ajax_nopriv_ai_chatbot_send_message', array($this, 'handle_send_message'));
 
-        add_action('wp_ajax_ai_chatbot_audio_session_log', array($this, 'handle_audio_session_log'));
-        add_action('wp_ajax_nopriv_ai_chatbot_audio_session_log', array($this, 'handle_audio_session_log'));
+        add_action('wp_ajax_ai_chatbot_log_audio_session', array($this, 'handle_audio_session_log'));
+        add_action('wp_ajax_nopriv_ai_chatbot_log_audio_session', array($this, 'handle_audio_session_log'));
 
         add_action('wp_ajax_ai_chatbot_save_user_data', array($this, 'ajax_save_user_data'));
         add_action('wp_ajax_nopriv_ai_chatbot_save_user_data', array($this, 'ajax_save_user_data'));
