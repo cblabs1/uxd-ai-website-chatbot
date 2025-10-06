@@ -256,7 +256,7 @@
             switch(action) {
                 case 'pause':
                     if (window.AIChatbotAudioMode) {
-                        window.AIChatbotAudioMode.pause();
+                        window.AIChatbotAudioMode.togglePause();
                     }
                     break;
                 case 'stop':

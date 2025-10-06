@@ -828,19 +828,86 @@
          * Add to transcript
          */
         addToTranscript: function(speaker, message) {
+            console.log('📝 Adding to transcript:', speaker, message);
+            
             const timestamp = new Date().toLocaleTimeString();
+            const speakerClass = speaker.toLowerCase() === 'you' ? 'transcript-you' : 
+                                speaker.toLowerCase() === 'ai' || speaker.toLowerCase() === 'assistant' ? 'transcript-ai' : 
+                                'transcript-system';
+            
             const transcriptHTML = `
-                <div class="transcript-item">
-                    <span class="transcript-speaker">${speaker}</span>
-                    <span class="transcript-time">${timestamp}</span>
-                    <p class="transcript-message">${message}</p>
+                <div class="transcript-item ${speakerClass}">
+                    <div class="transcript-header">
+                        <span class="transcript-speaker">${speaker}</span>
+                        <span class="transcript-time">${timestamp}</span>
+                    </div>
+                    <p class="transcript-message">${this.escapeHtml(message)}</p>
                 </div>
             `;
 
-            $('.transcript-content').append(transcriptHTML);
+            // Append to transcript
+            const $transcriptContent = $('.transcript-content');
+            if ($transcriptContent.length) {
+                $transcriptContent.append(transcriptHTML);
+                
+                // Auto-scroll to bottom
+                const transcriptContainer = $transcriptContent.parent('.audio-transcript');
+                if (transcriptContainer.length) {
+                    transcriptContainer.scrollTop(transcriptContainer[0].scrollHeight);
+                }
+                
+                console.log('✅ Transcript updated, items:', $transcriptContent.find('.transcript-item').length);
+            } else {
+                console.error('❌ .transcript-content not found!');
+            }
             
-            const $container = $('.transcript-content');
-            $container.scrollTop($container[0].scrollHeight);
+            // Also add to conversation history mini view
+            this.addToConversationMini(speaker, message);
+        },
+
+        /**
+         * Add message to the mini conversation view
+         */
+        addToConversationMini: function(speaker, message) {
+            const $conversationMessages = $('.conversation-messages');
+            
+            if (!$conversationMessages.length) {
+                console.warn('⚠️ .conversation-messages not found');
+                return;
+            }
+            
+            const isUser = speaker.toLowerCase() === 'you';
+            const type = isUser ? 'user' : 'bot';
+            const icon = isUser ? '👤' : '🤖';
+            
+            const messageHTML = `
+                <div class="audio-message ${type}">
+                    <span class="message-icon">${icon}</span>
+                    <span class="message-text">${this.escapeHtml(message)}</span>
+                </div>
+            `;
+            
+            $conversationMessages.append(messageHTML);
+            
+            // Auto-scroll to bottom
+            $conversationMessages.scrollTop($conversationMessages[0].scrollHeight);
+            
+            // Limit to last 5 messages
+            const messages = $conversationMessages.find('.audio-message');
+            if (messages.length > 5) {
+                messages.first().remove();
+            }
+            
+            console.log('✅ Conversation mini updated, messages:', messages.length);
+        },
+
+        /**
+         * Escape HTML to prevent XSS
+         */
+        escapeHtml: function(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         },
 
         /**
