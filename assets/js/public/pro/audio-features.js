@@ -251,20 +251,77 @@
             }
         },
 
+        addTranscriptToChatboxIndividual: function() {
+            console.log('📋 Adding audio transcript messages individually to chatbox...');
+            
+            // Get all transcript items
+            const transcriptItems = $('.transcript-content .transcript-item');
+            
+            if (transcriptItems.length === 0) {
+                console.log('⚠️ No transcript items to add');
+                return;
+            }
+            
+            // Add a separator message first
+            if (window.AIChatbot && typeof window.AIChatbot.addBotMessage === 'function') {
+                window.AIChatbot.addBotMessage('🎙️ --- Audio Conversation Log ---');
+            }
+            
+            // Add each message individually
+            const self = this;
+            transcriptItems.each(function(index) {
+                const speaker = $(this).find('.transcript-speaker').text().trim();
+                const message = $(this).find('.transcript-message').text().trim();
+                const time = $(this).find('.transcript-time').text().trim();
+                
+                if (message) {
+                    // Determine if it's a user or bot message
+                    const isUser = speaker.toLowerCase() === 'you';
+                    
+                    // Format the message with timestamp
+                    const formattedMessage = `[${time}] ${message}`;
+                    
+                    // Add to chatbox with delay for better UX
+                    setTimeout(function() {
+                        if (window.AIChatbot) {
+                            if (isUser && typeof window.AIChatbot.addUserMessage === 'function') {
+                                window.AIChatbot.addUserMessage(formattedMessage);
+                            } else if (!isUser && typeof window.AIChatbot.addBotMessage === 'function') {
+                                window.AIChatbot.addBotMessage(formattedMessage);
+                            }
+                        }
+                    }, index * 100); // 100ms delay between messages
+                }
+            });
+            
+            // Add closing message
+            setTimeout(function() {
+                if (window.AIChatbot && typeof window.AIChatbot.addBotMessage === 'function') {
+                    window.AIChatbot.addBotMessage('--- End of Audio Conversation ---');
+                }
+                console.log('✅ All transcript messages added to chatbox');
+            }, transcriptItems.length * 100 + 100);
+        },
+
         closeAudioMode: function() {
             console.log('Closing Audio Conversation Mode...');
+
+            // ADD TRANSCRIPT TO CHATBOX (INDIVIDUAL MESSAGES)
+            this.addTranscriptToChatboxIndividual();
 
             // Stop audio mode
             if (window.AIChatbotAudioMode) {
                 window.AIChatbotAudioMode.deactivate();
             }
 
-            // Hide modal
-            $('.ai-audio-mode-modal').fadeOut(300, function() {
-                // Clean up
-                $('.audio-transcript').empty();
-                $('.conversation-messages').empty();
-            });
+            // Hide modal AFTER a delay to allow messages to be added
+            setTimeout(function() {
+                $('.ai-audio-mode-modal').fadeOut(300, function() {
+                    // Clean up
+                    $('.audio-transcript').empty();
+                    $('.conversation-messages').empty();
+                });
+            }, $('.transcript-content .transcript-item').length * 100 + 500);
 
             $('body').removeClass('audio-mode-active');
             this.isAudioModeActive = false;

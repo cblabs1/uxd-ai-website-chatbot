@@ -436,6 +436,7 @@
             if (window.AIChatbotFrontend) {
                 this.sessionId = window.AIChatbotFrontend.currentSessionId;
                 this.conversationId = window.AIChatbotFrontend.currentConversationId;
+                this.currentUserData = window.AIChatbotFrontend.currentUserData;
             } else {
                 this.sessionId = 'audio_' + Date.now();
                 this.conversationId = 'conv_' + Date.now();
@@ -450,11 +451,34 @@
             // Log session start
             this.logAudioSession('start');
 
+            this.loadExistingMessages();
+            this.updateUI();
             // Welcome message
             const welcomeMessage = `Hello ${this.currentUserData.name}! I'm ready to help. What would you like to talk about?`;
             this.speak(welcomeMessage, () => {
                 this.startListening();
             });
+        },
+
+        loadExistingMessages: function() {
+            const self = this;
+            
+            // Get messages from main chatbot
+            const $mainMessages = $('.ai-chatbot-messages .message');
+            
+            $mainMessages.each(function() {
+                const $msg = $(this);
+                const isUser = $msg.hasClass('user-message');
+                const text = $msg.find('.message-text').text();
+                
+                // Add to audio conversation history
+                self.conversationHistory.push({
+                    role: isUser ? 'user' : 'assistant',
+                    content: text
+                });
+            });
+            
+            console.log('✅ Loaded', this.conversationHistory.length, 'existing messages into audio mode');
         },
 
         /**
@@ -765,6 +789,17 @@
 
             // Log session end
             this.logAudioSession('end');
+
+            if (window.AIChatbotFrontend && this.conversationHistory.length > 0) {
+                console.log('🔄 Reloading conversation history into main chatbox...');
+                
+                // Small delay to ensure DB save completes
+                setTimeout(function() {
+                    // Force reload conversation history from database
+                    window.AIChatbotFrontend.loadConversationHistory();
+                }, 500);
+            }
+
 
             // Remove modal with animation
             const $modal = $('.audio-mode-modal');
