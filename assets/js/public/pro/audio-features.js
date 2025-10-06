@@ -143,8 +143,28 @@
                         <!-- Header -->
                         <div class="audio-modal-header">
                             <div class="audio-header-left">
-                                <span class="audio-icon">🎙️</span>
-                                <h2 class="audio-title">Audio Conversation Mode</h2>
+                                <div class="audio-status-icon">
+                                    <div class="pulse-ring"></div>
+                                    <div class="microphone-icon">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <h2 class="audio-status-text">Initializing...</h2>
+                                <!-- Waveform Visualization -->
+                                <div class="audio-waveform">
+                                    <div class="wave-bar"></div>
+                                    <div class="wave-bar"></div>
+                                    <div class="wave-bar"></div>
+                                    <div class="wave-bar"></div>
+                                    <div class="wave-bar"></div>
+                                    <div class="wave-bar"></div>
+                                    <div class="wave-bar"></div>
+                                </div>
                             </div>
                             <div class="audio-header-right">
                                 <button class="audio-modal-close" aria-label="Close audio mode">
@@ -158,43 +178,16 @@
 
                         <!-- Content -->
                         <div class="audio-modal-content">
-                            <!-- Status Display -->
-                            <div class="audio-status-display">
-                                <div class="audio-status-icon">
-                                    <div class="pulse-ring"></div>
-                                    <div class="microphone-icon">
-                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                                            <line x1="12" y1="19" x2="12" y2="23"></line>
-                                            <line x1="8" y1="23" x2="16" y2="23"></line>
-                                        </svg>
-                                    </div>
-                                </div>
-                                <p class="audio-status-text">Initializing...</p>
-                            </div>
-
-                            <!-- Waveform Visualization -->
-                            <div class="audio-waveform">
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                            </div>
+                            
 
                             <!-- Transcript Display -->
                             <div class="audio-transcript-container">
                                 <div class="transcript-label">Live Transcript:</div>
-                                <div class="audio-transcript"></div>
+                                <div class="transcript-content">
+                                    <!-- Items added here -->
+                                </div>
                             </div>
 
-                            <!-- Conversation History (Mini) -->
-                            <div class="audio-conversation-mini">
-                                <div class="conversation-messages"></div>
-                            </div>
                         </div>
 
                         <!-- Controls -->
@@ -212,13 +205,6 @@
                                 </svg>
                                 <span>Stop</span>
                             </button>
-                        </div>
-
-                        <!-- Tips -->
-                        <div class="audio-tips">
-                            <div class="tip-item">💡 Speak naturally and clearly</div>
-                            <div class="tip-item">🎤 Say "pause" to pause listening</div>
-                            <div class="tip-item">🚪 Say "exit" or click Stop to leave</div>
                         </div>
                     </div>
                 </div>
