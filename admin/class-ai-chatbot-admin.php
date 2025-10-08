@@ -186,16 +186,6 @@ class AI_Chatbot_Admin {
                 array($this->embeddings, 'render_embedding_page')
             );
             
-            // Advanced Analytics (Pro)
-            add_submenu_page(
-                'ai-chatbot',
-                __('Advanced Analytics', 'ai-website-chatbot'),
-                __('Advanced Analytics', 'ai-website-chatbot'),
-                'manage_options',
-                'ai-chatbot-pro-analytics',
-                array($this, 'render_analytics_page')
-            );
-            
         } else {
             // Pro Features (Upgrade notice)
             add_submenu_page(
@@ -320,7 +310,7 @@ class AI_Chatbot_Admin {
         $this->add_settings_sections();
         
         // Handle bulk actions
-        $this->handle_bulk_actions();
+        //$this->handle_bulk_actions();
         
         // Check for plugin updates or first-time setup
         $this->maybe_show_setup_notice();
@@ -361,6 +351,20 @@ class AI_Chatbot_Admin {
             array($this, 'render_advanced_section_description'),
             'ai-chatbot-settings'
         );
+    }
+
+    /**
+     * Display Pro features page
+     */
+    public function display_pro_features_page() {
+        require_once AI_CHATBOT_PLUGIN_DIR . 'admin/partials/admin-pro-features-display.php';
+    }
+
+    /**
+     * Display help and support page
+     */
+    public function display_help_page() {
+        require_once AI_CHATBOT_PLUGIN_DIR . 'admin/partials/admin-help-display.php';
     }
     
     /**
@@ -425,32 +429,6 @@ class AI_Chatbot_Admin {
         echo '<p>' . __('Advanced configuration options for power users.', 'ai-website-chatbot') . '</p>';
     }
     
-    /**
-     * Handle bulk actions
-     */
-    private function handle_bulk_actions() {
-        if (!isset($_POST['action']) || !isset($_POST['_wpnonce'])) {
-            return;
-        }
-        
-        if (!wp_verify_nonce($_POST['_wpnonce'], 'ai_chatbot_bulk_action')) {
-            wp_die(__('Security check failed', 'ai-website-chatbot'));
-        }
-        
-        $action = sanitize_text_field($_POST['action']);
-        
-        switch ($action) {
-            case 'delete_conversations':
-                $this->bulk_delete_conversations();
-                break;
-            case 'export_conversations':
-                $this->bulk_export_conversations();
-                break;
-            case 'clear_training_data':
-                $this->clear_training_data();
-                break;
-        }
-    }
     
     /**
      * Add plugin action links
@@ -573,59 +551,6 @@ class AI_Chatbot_Admin {
         delete_transient('ai_chatbot_system_status');
         
         wp_send_json_success(__('System status refreshed', 'ai-website-chatbot'));
-    }
-    
-    /**
-     * Bulk delete conversations
-     */
-    private function bulk_delete_conversations() {
-        if (!isset($_POST['conversations']) || !is_array($_POST['conversations'])) {
-            return;
-        }
-        
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
-        $conversation_ids = array_map('absint', $_POST['conversations']);
-        
-        if (!empty($conversation_ids)) {
-            $ids_placeholder = implode(',', array_fill(0, count($conversation_ids), '%d'));
-            $wpdb->query($wpdb->prepare(
-                "DELETE FROM $table_name WHERE id IN ($ids_placeholder)",
-                $conversation_ids
-            ));
-            
-            add_action('admin_notices', function() {
-                echo '<div class="notice notice-success"><p>' . __('Conversations deleted successfully.', 'ai-website-chatbot') . '</p></div>';
-            });
-        }
-    }
-    
-    /**
-     * Bulk export conversations
-     */
-    private function bulk_export_conversations() {
-        if (!isset($_POST['conversations']) || !is_array($_POST['conversations'])) {
-            return;
-        }
-        
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'ai_chatbot_conversations';
-        $conversation_ids = array_map('absint', $_POST['conversations']);
-        
-        if (!empty($conversation_ids)) {
-            $ids_placeholder = implode(',', array_fill(0, count($conversation_ids), '%d'));
-            $conversations = $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM $table_name WHERE id IN ($ids_placeholder)",
-                $conversation_ids
-            ), ARRAY_A);
-            
-            // Set headers for download
-            header('Content-Type: application/json');
-            header('Content-Disposition: attachment; filename="chatbot-conversations-' . date('Y-m-d-H-i-s') . '.json"');
-            
-            echo json_encode($conversations, JSON_PRETTY_PRINT);
-            exit;
-        }
     }
     
     /**

@@ -1,14 +1,14 @@
 <?php
 /**
- * Plugin Name: AI Website Chatbot
+ * Plugin Name: UXD AI Website Chatbot
  * Plugin URI: https://wordpress.org/plugins/ai-website-chatbot
  * GitHub Plugin URI: https://github.com/cblabs1/uxd-ai-website-chatbot.git
  * Description: An intelligent chatbot that learns from your website content and integrates with multiple AI platforms. GDPR compliant with privacy controls.
- * Version: 10.4.6
+ * Version: 11.5.7
  * Requires at least: 5.0
  * Requires PHP: 7.4
- * Author: Your Name
- * Author URI: https://yourwebsite.com
+ * Author: UX Desgin Experts
+ * Author URI: https://uxdesignexperts.com
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: ai-website-chatbot
@@ -24,8 +24,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// Define plugin constants
-define( 'AI_CHATBOT_VERSION', '10.4.6' );
+// Define plugin constant
+define( 'AI_CHATBOT_VERSION', '11.5.7' );
 define( 'AI_CHATBOT_PLUGIN_FILE', __FILE__ );
 define( 'AI_CHATBOT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AI_CHATBOT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

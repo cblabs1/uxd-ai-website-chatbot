@@ -82,6 +82,8 @@ class AI_Chatbot_Shortcodes {
             'enable_file_upload' => get_option('ai_chatbot_enable_file_upload', 'false'),
             'enable_voice_input' => get_option('ai_chatbot_enable_voice_input', 'false'),
             'enable_conversation_save' => get_option('ai_chatbot_enable_conversation_save', 'false'),
+            'enable_audio_mode' => get_option('ai_chatbot_audio_mode_enabled', 'true'),
+            'enable_tts' => get_option('ai_chatbot_tts_enabled', 'false'),
             'class' => '',
             'id' => '',
             'force_enabled' => 'true',
@@ -188,6 +190,7 @@ class AI_Chatbot_Shortcodes {
             
             <?php if (filter_var($atts['show_header'], FILTER_VALIDATE_BOOLEAN)): ?>
             <div class="ai-chatbot-header">
+                
                 <div class="ai-chatbot-header-content">
                     <div class="ai-chatbot-avatar">
                         <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -235,6 +238,14 @@ class AI_Chatbot_Shortcodes {
                 <div class="ai-chatbot-input-area">
                     <form class="ai-chatbot-input-form" id="ai-chatbot-input-form">
                         <div class="ai-chatbot-input-container">
+                            <button type="button" class="ai-chatbot-voice-btn inline-widget voice-btn" title="<?php _e('Start Audio Conversation', 'ai-website-chatbot'); ?>">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                                </svg>
+                            </button>
                             <textarea class="ai-chatbot-input ai-chatbot-input-empty" id="ai-chatbot-input" placeholder="Type your message..." rows="1" maxlength="1000" ></textarea>
                             <button type="submit" class="ai-chatbot-send-button" id="ai-chatbot-send-button" disabled="">
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -393,6 +404,8 @@ class AI_Chatbot_Shortcodes {
             'enableVoiceInput' => filter_var($atts['enable_voice_input'], FILTER_VALIDATE_BOOLEAN),
             'enableConversationSave' => filter_var($atts['enable_conversation_save'], FILTER_VALIDATE_BOOLEAN),
             'showStarterButtons' => filter_var($atts['show_starter_buttons'], FILTER_VALIDATE_BOOLEAN),
+            'enableAudioMode' => filter_var($atts['enable_audio_mode'], FILTER_VALIDATE_BOOLEAN),
+            'enableTTS' => filter_var($atts['enable_tts'], FILTER_VALIDATE_BOOLEAN),
             'settings' => array(
                 'maxMessageLength' => get_option('ai_chatbot_max_message_length', 1000),
                 'enableRating' => get_option('ai_chatbot_enable_rating', true),
@@ -476,34 +489,96 @@ class AI_Chatbot_Shortcodes {
             );
         }
 
-        // Enqueue main CSS
-        if (!wp_style_is($this->plugin_name . '-frontend', 'enqueued')) {
-            wp_enqueue_style(
-                $this->plugin_name . '-frontend',
-                AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-frontend.css',
-                array(),
-                $this->version
-            );
-        }
+        
 
-        // Enqueue shortcode-specific CSS
-        // if (!wp_style_is($this->plugin_name . '-shortcodes', 'enqueued')) {
-        //     wp_enqueue_style(
-        //         $this->plugin_name . '-shortcodes',
-        //         AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-shortcodes.css',
-        //         array($this->plugin_name . '-frontend'),
-        //         $this->version
-        //     );
-        // }
-
-        // Enqueue theme CSS
-        if (!wp_style_is($this->plugin_name . '-themes', 'enqueued')) {
+        // ✅ NEW: Check if audio features are enabled
+        $audio_enabled = get_option('ai_chatbot_audio_features_enabled', false);
+        $audio_mode_enabled = get_option('ai_chatbot_audio_mode_enabled', false);
+        
+        if ($audio_enabled || $audio_mode_enabled) {
+            // Enqueue audio features CSS
             wp_enqueue_style(
-                $this->plugin_name . '-themes',
-                AI_CHATBOT_PLUGIN_URL . 'assets/css/public/chatbot-themes.css',
+                $this->plugin_name . '-audio-css',
+                AI_CHATBOT_PLUGIN_URL . 'assets/css/public/pro/audio-features.css',
                 array($this->plugin_name . '-frontend'),
                 $this->version
             );
+            
+            // Enqueue audio features JS
+            wp_enqueue_script(
+                $this->plugin_name . '-audio-features',
+                AI_CHATBOT_PLUGIN_URL . 'assets/js/public/pro/audio-features.js',
+                array('jquery', $this->plugin_name . '-audio-core'),
+                $this->version,
+                true
+            );
+            
+            // Enqueue audio mode JS if enabled
+            if ($audio_mode_enabled) {
+                wp_enqueue_script(
+                    $this->plugin_name . '-audio-mode',
+                    AI_CHATBOT_PLUGIN_URL . 'assets/js/public/pro/audio-mode.js',
+                    array('jquery', $this->plugin_name . '-audio-core'),
+                    $this->version,
+                    true
+                );
+            }
+
+            
         }
+
+         wp_localize_script('ai-chatbot-audio-features', 'aiChatbotAudio', $this->get_audio_configuration());
+           
+
+    }
+
+    /**
+     * Get audio configuration
+     */
+    private function get_audio_configuration() {
+        $settings = get_option('ai_chatbot_settings', array());
+        $audio_settings = $settings['audio_features'] ?? array(); // ← ADD THIS LINE
+        
+        return array(
+            'nonce' => wp_create_nonce('ai_chatbot_nonce'),
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'audio_enabled' => !empty($audio_settings['enabled']),
+            'voice_input' => array(
+                'enabled' => !empty($audio_settings['voice_input_enabled']),
+                'language' => $audio_settings['voice_language'] ?? 'en-US',
+                'continuous' => !empty($audio_settings['voice_continuous']),
+                'interim_results' => isset($audio_settings['voice_interim_results']) ? !empty($audio_settings['voice_interim_results']) : true,
+                'auto_send' => !empty($audio_settings['voice_auto_send']),
+            ),
+            'tts' => array(
+                'enabled' => !empty($audio_settings['tts_enabled']),
+                'auto_play' => !empty($audio_settings['tts_auto_play']),
+                'rate' => floatval($audio_settings['tts_rate'] ?? 1.0),
+                'pitch' => floatval($audio_settings['tts_pitch'] ?? 1.0),
+                'volume' => floatval($audio_settings['tts_volume'] ?? 0.8),
+                'language' => $audio_settings['voice_language'] ?? 'en-US',
+            ),
+            'audio_mode' => array(
+                'enabled' => !empty($audio_settings['audio_mode_enabled']),
+                'auto_listen' => true,
+                'silence_timeout' => intval($audio_settings['audio_mode_silence_timeout'] ?? 30),
+                'max_time' => intval($audio_settings['audio_mode_max_time'] ?? 300),
+            ),
+            'strings' => array(
+                'listening' => __('Listening...', 'ai-website-chatbot'),
+                'speaking' => __('Speaking...', 'ai-website-chatbot'),
+                'processing' => __('Processing...', 'ai-website-chatbot'),
+                'paused' => __('Paused', 'ai-website-chatbot'),
+                'error' => __('Error occurred', 'ai-website-chatbot'),
+            )
+        );
+    }
+    
+    public function add_audio_config($config) {
+        if (!is_array($config)) {
+            $config = array();
+        }
+        $config['audio'] = $this->get_audio_configuration();
+        return $config;
     }
 }

@@ -8,25 +8,11 @@
 class AI_Chatbot_Embedding_Admin {
     
     public function __construct() {
-        add_action( 'admin_menu', array( $this, 'add_embedding_menu' ) );
         add_action( 'wp_ajax_ai_chatbot_generate_embeddings', array( $this, 'ajax_generate_embeddings' ) );
         add_action( 'wp_ajax_ai_chatbot_embedding_status', array( $this, 'ajax_embedding_status' ) );
         add_action( 'wp_ajax_ai_chatbot_test_semantic_search', array( $this, 'ajax_test_semantic_search' ) );
     }
     
-    /**
-     * Add embedding management menu
-     */
-    public function add_embedding_menu() {
-        add_submenu_page(
-            'ai-chatbot',
-            __( 'Semantic Intelligence', 'ai-website-chatbot' ),
-            __( 'Semantic Intelligence', 'ai-website-chatbot' ),
-            'manage_options',
-            'ai-chatbot-embeddings',
-            array( $this, 'render_embedding_page' )
-        );
-    }
     
     /**
      * Render embedding management page

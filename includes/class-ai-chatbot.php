@@ -239,10 +239,10 @@ class AI_Chatbot {
             $settings = get_option('ai_chatbot_settings', array());
             
             // Check if any audio feature is enabled
-            $audio_enabled = !empty($settings['voice_input_enabled']) || 
-                            !empty($settings['tts_enabled']) ||
-                            !empty($settings['audio_mode_enabled']) ||
-                            !empty($settings['voice_commands_enabled']);
+            $audio_enabled = !empty($settings['audio_features']['voice_input_enabled']) || 
+                            !empty($settings['audio_features']['tts_enabled']) ||
+                            !empty($settings['audio_features']['audio_mode_enabled']) ||
+                            !empty($settings['audio_features']['voice_commands_enabled']);
             
             if ($audio_enabled && function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('audio_features')) {
                 AI_Chatbot_Pro_Audio_Manager::get_instance();

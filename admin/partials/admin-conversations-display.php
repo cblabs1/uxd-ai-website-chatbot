@@ -31,25 +31,7 @@ $conversation_stats = $this->get_conversation_statistics();
                 </div>
             </div>
             
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <span class="dashicons dashicons-clock"></span>
-                </div>
-                <div class="stat-content">
-                    <div class="stat-number"><?php echo esc_html($conversation_stats['active_conversations']); ?></div>
-                    <div class="stat-label"><?php _e('Active Conversations', 'ai-website-chatbot'); ?></div>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <span class="dashicons dashicons-yes"></span>
-                </div>
-                <div class="stat-content">
-                    <div class="stat-number"><?php echo esc_html($conversation_stats['resolved_conversations']); ?></div>
-                    <div class="stat-label"><?php _e('Resolved Conversations', 'ai-website-chatbot'); ?></div>
-                </div>
-            </div>
+           
             
             <div class="stat-card">
                 <div class="stat-icon">
@@ -76,15 +58,7 @@ $conversation_stats = $this->get_conversation_statistics();
     <!-- Conversation Filters and Actions -->
     <div class="conversations-controls">
         <div class="controls-left">
-            <label for="status-filter"><?php _e('Filter by Status:', 'ai-website-chatbot'); ?></label>
-            <select id="status-filter" name="status">
-                <option value=""><?php _e('All Statuses', 'ai-website-chatbot'); ?></option>
-                <option value="active" <?php selected($status_filter, 'active'); ?>><?php _e('Active', 'ai-website-chatbot'); ?></option>
-                <option value="pending" <?php selected($status_filter, 'pending'); ?>><?php _e('Pending', 'ai-website-chatbot'); ?></option>
-                <option value="resolved" <?php selected($status_filter, 'resolved'); ?>><?php _e('Resolved', 'ai-website-chatbot'); ?></option>
-                <option value="closed" <?php selected($status_filter, 'closed'); ?>><?php _e('Closed', 'ai-website-chatbot'); ?></option>
-            </select>
-            
+           
             <label for="date-filter"><?php _e('Date Range:', 'ai-website-chatbot'); ?></label>
             <select id="date-filter" name="date_range">
                 <option value=""><?php _e('All Time', 'ai-website-chatbot'); ?></option>
@@ -146,7 +120,6 @@ $conversation_stats = $this->get_conversation_statistics();
                         <th scope="col" class="manage-column column-user"><?php _e('User', 'ai-website-chatbot'); ?></th>
                         <th scope="col" class="manage-column column-message"><?php _e('Message', 'ai-website-chatbot'); ?></th>
                         <th scope="col" class="manage-column column-response"><?php _e('AI Response', 'ai-website-chatbot'); ?></th>
-                        <th scope="col" class="manage-column column-status"><?php _e('Status', 'ai-website-chatbot'); ?></th>
                         <th scope="col" class="manage-column column-rating"><?php _e('Rating', 'ai-website-chatbot'); ?></th>
                         <th scope="col" class="manage-column column-date"><?php _e('Date', 'ai-website-chatbot'); ?></th>
                         <th scope="col" class="manage-column column-actions"><?php _e('Actions', 'ai-website-chatbot'); ?></th>
@@ -210,14 +183,7 @@ $conversation_stats = $this->get_conversation_statistics();
                                         </div>
                                     <?php endif; ?>
                                 </td>
-                                <td class="status-cell">
-                                    <select id="conversation-status-select" class="conversation-status-select" data-conversation-id="<?php echo esc_attr($conversation['id']); ?>">
-                                        <option value="active" <?php selected($conversation['status'], 'active'); ?>><?php _e('Active', 'ai-website-chatbot'); ?></option>
-                                        <option value="pending" <?php selected($conversation['status'], 'pending'); ?>><?php _e('Pending', 'ai-website-chatbot'); ?></option>
-                                        <option value="resolved" <?php selected($conversation['status'], 'resolved'); ?>><?php _e('Resolved', 'ai-website-chatbot'); ?></option>
-                                        <option value="closed" <?php selected($conversation['status'], 'completed'); ?>><?php _e('Closed', 'ai-website-chatbot'); ?></option>
-                                    </select>
-                                </td>
+                                
                                 <td class="rating-cell">
                                     <?php if (!empty($conversation['rating'])): ?>
                                         <div class="rating-display">
@@ -239,14 +205,14 @@ $conversation_stats = $this->get_conversation_statistics();
                                     </div>
                                 </td>
                                 <td class="actions-cell">
-                                    <button type="button" class="button button-small view-conversation" data-conversation-id="<?php echo esc_attr($conversation['id']); ?>">
+                                    <!-- <button type="button" class="button button-small view-conversation" data-conversation-id="<?php echo esc_attr($conversation['id']); ?>">
                                         <span class="dashicons dashicons-visibility"></span>
                                         <?php _e('View', 'ai-website-chatbot'); ?>
-                                    </button>
-                                    <button type="button" class="button button-small add-note" data-conversation-id="<?php echo esc_attr($conversation['id']); ?>">
+                                    </button> -->
+                                    <!-- <button type="button" class="button button-small add-note" data-conversation-id="<?php echo esc_attr($conversation['id']); ?>">
                                         <span class="dashicons dashicons-edit"></span>
                                         <?php _e('Note', 'ai-website-chatbot'); ?>
-                                    </button>
+                                    </button> -->
                                     <button type="button" class="button button-small button-link-delete delete-conversation" data-conversation-id="<?php echo esc_attr($conversation['id']); ?>">
                                         <span class="dashicons dashicons-trash"></span>
                                         <?php _e('Delete', 'ai-website-chatbot'); ?>
@@ -873,12 +839,16 @@ jQuery(document).ready(function($) {
     
     // Delete conversation
     $(document).on('click', '.delete-conversation', function() {
-        if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+        if (!confirm('<?php _e('Are you sure you want to delete this conversation? This action cannot be undone.', 'ai-website-chatbot'); ?>')) {
             return;
         }
         
         var conversationId = $(this).data('conversation-id');
         var $row = $(this).closest('tr');
+        
+        // Disable button and show loading state
+        var $button = $(this);
+        $button.prop('disabled', true).text('<?php _e('Deleting...', 'ai-website-chatbot'); ?>');
         
         $.ajax({
             url: aiChatbotAdmin.ajaxUrl,
@@ -890,13 +860,47 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
-                    $row.fadeOut(function() {
+                    // Remove row with animation
+                    $row.fadeOut(400, function() {
                         $(this).remove();
+                        
+                        // Check if table is now empty
+                        if ($('.conversations-table tbody tr').length === 0) {
+                            location.reload(); // Reload to show "no conversations" message
+                        }
                     });
-                    AIChatbotAdmin.showNotification(response.data, 'success');
+                    
+                    // Show success notification
+                    if (typeof AIChatbotAdmin !== 'undefined' && typeof AIChatbotAdmin.showNotification === 'function') {
+                        AIChatbotAdmin.showNotification(response.data, 'success');
+                    } else {
+                        // Fallback notification
+                        alert(response.data);
+                    }
                 } else {
-                    AIChatbotAdmin.showNotification(response.data, 'error');
+                    // Show error notification
+                    if (typeof AIChatbotAdmin !== 'undefined' && typeof AIChatbotAdmin.showNotification === 'function') {
+                        AIChatbotAdmin.showNotification(response.data, 'error');
+                    } else {
+                        alert(response.data || '<?php _e('Failed to delete conversation', 'ai-website-chatbot'); ?>');
+                    }
+                    
+                    // Re-enable button
+                    $button.prop('disabled', false).text('<?php _e('Delete', 'ai-website-chatbot'); ?>');
                 }
+            },
+            error: function(xhr, status, error) {
+                console.error('Delete conversation error:', error);
+                
+                // Show error notification
+                if (typeof AIChatbotAdmin !== 'undefined' && typeof AIChatbotAdmin.showNotification === 'function') {
+                    AIChatbotAdmin.showNotification('<?php _e('Failed to delete conversation. Please try again.', 'ai-website-chatbot'); ?>', 'error');
+                } else {
+                    alert('<?php _e('Failed to delete conversation. Please try again.', 'ai-website-chatbot'); ?>');
+                }
+                
+                // Re-enable button
+                $button.prop('disabled', false).text('<?php _e('Delete', 'ai-website-chatbot'); ?>');
             }
         });
     });

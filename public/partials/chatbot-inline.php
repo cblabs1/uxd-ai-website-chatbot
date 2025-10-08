@@ -33,6 +33,31 @@ $enable_conversation_save = isset($config['enable_conversation_save']) ? $config
 
     <?php if ($show_header): ?>
     <!-- Header -->
+    <div class="ai-chatbot-header-actions">
+        <?php if (filter_var($config['enableAudioMode'] ?? false, FILTER_VALIDATE_BOOLEAN)): ?>
+        <button type="button" class="ai-chatbot-audio-mode-btn" title="<?php _e('Start Audio Conversation', 'ai-website-chatbot'); ?>">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+        </button>
+        <?php endif; ?>
+        
+        <button type="button" class="ai-chatbot-minimize-btn" title="<?php _e('Minimize', 'ai-website-chatbot'); ?>">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+        
+        <button type="button" class="ai-chatbot-close-btn" title="<?php _e('Close', 'ai-website-chatbot'); ?>">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
     <div class="inline-chatbot-header">
         <div class="header-info">
             <div class="bot-avatar">🤖</div>

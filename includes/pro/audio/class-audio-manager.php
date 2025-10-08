@@ -32,8 +32,8 @@ class AI_Chatbot_Pro_Audio_Manager {
         $settings = get_option('ai_chatbot_settings', array());
         
         // Check if any audio feature is enabled
-        return !empty($settings['voice_input_enabled']) || 
-               !empty($settings['tts_enabled']);
+        return !empty($settings['audio_features']['voice_input_enabled']) || 
+               !empty($settings['audio_features']['tts_enabled']);
                
     }
 

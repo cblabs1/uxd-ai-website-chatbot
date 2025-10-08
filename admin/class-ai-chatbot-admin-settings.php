@@ -192,7 +192,7 @@ class AI_Chatbot_Admin_Settings {
         
         // Verify nonce - FIXED: Use correct nonce name from form
         if (!check_admin_referer('ai_chatbot_admin_nonce', 'nonce')) {
-            wp_die(__('Security check failed', 'ai-website-chatbot'));
+            wp_die(__('Security check failed...', 'ai-website-chatbot'));
         }
         
         // Get submitted settings from the ai_chatbot_settings array

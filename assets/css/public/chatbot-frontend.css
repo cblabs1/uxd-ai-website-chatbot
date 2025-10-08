@@ -1287,11 +1287,12 @@
     text-align: center;
     animation: slideInUp 0.4s ease;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    width: 85%;
+    width: 93%;
     top: 74px;
     left: 5px;
     position: absolute;
     z-index: 99999;
+    border: 1px solid #636363;
 }
 
 .prechat-header {
@@ -1910,9 +1911,21 @@
     justify-content: center;
 }
 
+.ai-chatbot-voice-btn.inline-widget{
+    padding: 12px;
+    background: var(--ai-chatbot-primary);
+    color: white;
+    border-radius: 12px;
+    border: 1px solid var(--ai-chatbot-primary);;
+}
+
 .ai-chatbot-voice-btn:hover {
     background: rgba(99, 102, 241, 0.1);
     transform: scale(1.05);
+}
+
+.ai-chatbot-voice-btn.inline-widget:hover {
+    border: 1px solid #fff;
 }
 
 .ai-chatbot-voice-btn.listening {

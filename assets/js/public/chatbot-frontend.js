@@ -93,6 +93,9 @@
             this.bindInactivityEvents();
             this.initializeAuth();
             this.initialized = true;
+
+            this.conversationRated = false; 
+            this.ratingMessageIndex = null;
             
             this.loadConversationHistory();
             
@@ -266,6 +269,23 @@
                 e.preventDefault();
                 var rating = $(this).data('rating');
                 self.submitRating(rating);
+            });
+
+            $(document).on('click', '.submit-conversation-rating', function() {
+                var $ratingForm = $('.end-conversation-rating');
+                var selectedRating = $ratingForm.find('.smiley-btn.selected').data('rating');
+                var feedback = $ratingForm.find('.feedback-text').val().trim();
+                
+                if (!selectedRating) {
+                    alert('Please select a rating before submitting');
+                    return;
+                }
+                
+                self.submitConversationRating(selectedRating, feedback);
+                $ratingForm.fadeOut(300);
+                self.conversationRated = true;
+                self.ratingMessageIndex = self.messageCount;
+                self.insertRatingAtPosition(selectedRating, feedback, self.messageCount);
             });
 
             // Conversation rating
@@ -699,24 +719,71 @@
             }
         },
 
-        submitConversationRating: function(rating) {
+        submitConversationRating: function(selectedRating, feedback) {
             var self = this;
             
-            $.ajax({
-                url: this.config.ajaxUrl,
-                type: 'POST',
-                data: {
-                    action: 'ai_chatbot_conversation_rating',
-                    rating: rating,
-                    conversation_id: this.currentConversationId,
-                    session_id: this.currentSessionId,
-                    nonce: this.config.nonce
-                },
-                success: function() {
-                    $('.end-conversation-rating').fadeOut(300);
-                }
-            });
+             $.ajax({
+                    url: self.config.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'ai_chatbot_conversation_rating',
+                        conversation_id: self.currentConversationId,
+                        rating: selectedRating,
+                        feedback: feedback,
+                        session_id: self.currentSessionId,
+                        nonce: self.config.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // ✅ Mark conversation as rated
+                            self.conversationRated = true;
+                            self.ratingMessageIndex = self.messageCount;
+                            
+                            // Transform rating form to "submitted" state
+                            self.showRatingSubmitted(selectedRating, feedback);
+                            
+                            // ✅ Show "New Conversation" message
+                            setTimeout(function() {
+                                self.addSystemMessage('new-conversation', '🎉 Ready for a new conversation!', 'Feel free to ask me anything.');
+                                
+                                // Reset for next conversation
+                                self.conversationRated = false;
+                                self.messageCount = 0;
+                                
+                                // Update session/conversation IDs if provided
+                                if (response.data.new_session_id) {
+                                    self.currentSessionId = response.data.new_session_id;
+                                }
+                                self.currentConversationId = self.generateConversationId();
+                            }, 1000);
+                        }
+                    }
+                });
         },
+
+        addSystemMessage: function(type, title, message) {
+            var icon = type === 'new-conversation' ? '🎉' : '👋';
+            var systemHtml = `
+                <div class="ai-chatbot-message bot-message ${type}">
+                    <div class="message-content">
+                        <div class="message-bubble system-bubble">
+                            <div class="${type}-notice">
+                                <span class="${type === 'new-conversation' ? 'start-icon' : 'end-icon'}">${icon}</span>
+                                <div class="${type === 'new-conversation' ? 'start-text' : 'end-text'}">
+                                    <strong>${title}</strong>
+                                    <p>${message}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.$messages.append(systemHtml);
+            this.scrollToBottom();
+        },
+
+        
 
         // =======================
         // CONVERSATION MANAGEMENT
@@ -778,6 +845,8 @@
 
         displayConversationHistory: function(messages) {
             var messageIndex = 0;
+            var ratingData = null;
+            var ratingPosition = null;
             
             for (var i = 0; i < messages.length; i++) {
                 var msg = messages[i];
@@ -791,14 +860,89 @@
                     
                     // Check if there's a rating for this message
                     if (msg.message_rating && msg.message_rated_at) {
-                        // Add rating separator after this bot message
                         this.addRatingSeparator(msg.id, msg.message_rating, messageIndex);
+                    }
+                    
+                    // Check for conversation-level rating
+                    if (msg.conversation_rating && msg.conversation_rated_at && !ratingData) {
+                        ratingData = {
+                            rating: msg.conversation_rating,
+                            feedback: msg.conversation_feedback,
+                            rated_at: msg.conversation_rated_at
+                        };
+                        ratingPosition = messageIndex; // Mark where to insert rating
                     }
                 }
             }
             
-            // Check for overall conversation rating
-            this.checkAndRestoreConversationRating();
+            // Insert conversation rating at the correct position
+            if (ratingData) {
+                this.conversationRated = true;
+                this.ratingMessageIndex = ratingPosition;
+                this.insertRatingAtPosition(ratingData.rating, ratingData.feedback, ratingPosition);
+            }
+            
+            // Check for overall conversation rating (fallback to old method)
+            if (!ratingData) {
+                this.checkAndRestoreConversationRating();
+            }
+        },
+
+        insertRatingAtPosition: function(rating, feedback, position) {
+            var self = this;
+            
+            // Don't show if rating already exists
+            if ($('.end-conversation-rating').length > 0) {
+                return;
+            }
+
+            $('.ai-chatbot-container').addClass('has-feedback-form');
+            
+            var ratingDetails = this.getRatingDetails(rating);
+            
+            var restoredRatingHtml = `
+                <div class="ai-chatbot-message bot-message end-conversation-rating rating-completed restored" data-position="${position}">
+                    <div class="message-content">
+                        <div class="message-bubble rating-bubble">
+                            <div class="rating-submitted">
+                                <div class="submitted-header">
+                                    <span class="check-icon">✅</span>
+                                    <span class="submitted-text">Previous Rating</span>
+                                </div>
+                                <div class="submitted-rating">
+                                    <div class="rating-display" data-rating="${rating}">
+                                        <span class="submitted-emoji">${ratingDetails.emoji}</span>
+                                        <div class="rating-info">
+                                            <div class="rating-label">${ratingDetails.label}</div>
+                                            <div class="rating-stars">${self.generateStars(rating)}</div>
+                                        </div>
+                                    </div>
+                                    ${feedback ? `
+                                        <div class="submitted-feedback">
+                                            <div class="feedback-label">Your previous feedback:</div>
+                                            <div class="feedback-text-display">"${feedback}"</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="restored-note">
+                                    <span class="history-icon">📋</span>
+                                    <span>Rating from this conversation</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // ✅ Insert at the correct position instead of appending
+            var $allMessages = this.$messages.find('.ai-chatbot-message');
+            if (position > 0 && position <= $allMessages.length) {
+                $allMessages.eq(position - 1).after(restoredRatingHtml);
+            } else {
+                this.$messages.append(restoredRatingHtml);
+            }
+            
+            console.log('Inserted conversation rating at position:', position);
         },
 
         addRatingSeparator: function(messageId, rating, position) {
@@ -947,7 +1091,6 @@
         },
 
         clearConversation: function() {
-
             if (this.inactivityTimer) {
                 clearTimeout(this.inactivityTimer);
             }
@@ -965,13 +1108,28 @@
                         user_email: this.currentUserData ? this.currentUserData.email : '',
                         nonce: this.config.nonce
                     },
-                    success: function() {
-                        if (self.$messages) {
+                    success: function(response) {
+                        if (response.success) {
+                            // Clear UI
                             self.$messages.empty();
+                            self.$input.val('');
+                            
+                            // ✅ RESET rating state
+                            self.conversationRated = false;
+                            self.ratingMessageIndex = null;
+                            self.messageCount = 0;
+                            
+                            // Update session if new one provided
+                            if (response.data.new_session_id) {
+                                self.currentSessionId = response.data.new_session_id;
+                                self.currentConversationId = self.generateConversationId();
+                            }
+                            
+                            // Show welcome message
+                            setTimeout(function() {
+                                self.addBotMessage(self.config.welcomeMessage);
+                            }, 300);
                         }
-                        self.messageCount = 0;
-                        self.messageHistory = [];
-                        self.currentConversationId = self.generateConversationId();
                     }
                 });
             }
@@ -1115,6 +1273,29 @@
             } catch (e) {
                 return '00:00';
             }
+        },
+
+        getFirstName: function(fullName) {
+            if (!fullName || typeof fullName !== 'string') {
+                return '';
+            }
+            var nameParts = fullName.trim().split(' ');
+            return nameParts[0]; // Return only first name
+        },
+
+        personalizeWelcomeMessage: function(welcomeMessage, userData) {
+            if (!welcomeMessage || !userData || !userData.name) {
+                return welcomeMessage;
+            }
+            
+            var firstName = this.getFirstName(userData.name);
+            
+            // Replace all placeholder variations
+            welcomeMessage = welcomeMessage.replace(/\{\{user_name\}\}/g, firstName);
+            welcomeMessage = welcomeMessage.replace(/\{\{userName\}\}/g, firstName);
+            welcomeMessage = welcomeMessage.replace(/\{\{name\}\}/g, firstName);
+            
+            return welcomeMessage;
         },
 
         // Safe escape HTML

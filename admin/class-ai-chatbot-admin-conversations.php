@@ -337,8 +337,15 @@ class AI_Chatbot_Admin_Conversations {
             return;
         }
         
-        if (!wp_verify_nonce($_POST['_wpnonce'], 'ai_chatbot_conversations_bulk_action')) {
-            wp_die(__('Security check failed', 'ai-website-chatbot'));
+        if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'ai_chatbot_conversations_bulk_action')) {
+            wp_die(__('Security check failed....', 'ai-website-chatbot'));
+            return;
+        }
+
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Insufficient permissions', 'ai-website-chatbot'));
+            return;
         }
         
         $action = sanitize_text_field($_POST['action']);
