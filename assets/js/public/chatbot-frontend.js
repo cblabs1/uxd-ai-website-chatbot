@@ -740,7 +740,7 @@
                             self.ratingMessageIndex = self.messageCount;
                             
                             // Transform rating form to "submitted" state
-                            self.showRatingSubmitted(selectedRating, feedback);
+                            //self.showRatingSubmitted(selectedRating, feedback);
                             
                             // ✅ Show "New Conversation" message
                             setTimeout(function() {

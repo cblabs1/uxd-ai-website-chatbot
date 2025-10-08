@@ -222,6 +222,22 @@
 
             // Get existing user data
             this.currentUserData = this.getUserData();
+
+            if (!this.currentUserData) {
+                const hasPreChat = $('.ai-chatbot-prechat-form').is(':visible');
+                
+                if (hasPreChat) {
+                    alert('Please complete the chat form first.');
+                    return;
+                }
+                
+                // Wait and retry (timing fix)
+                setTimeout(() => {
+                    this.currentUserData = this.getUserData();
+                    this.continueShowModal();
+                }, 200);
+                return;
+            }
             
             if (this.currentUserData && this.currentUserData.email && this.currentUserData.name) {
                 // User already authenticated - skip form
@@ -454,7 +470,9 @@
             this.loadExistingMessages();
             this.updateUI();
             // Welcome message
-            const welcomeMessage = `Hello ${this.currentUserData.name}! I'm ready to help. What would you like to talk about?`;
+            const firstName = this.getFirstName(this.currentUserData.name);
+
+            const welcomeMessage = `Hello ${firstName}! I'm ready to help. What would you like to talk about?`;
             this.speak(welcomeMessage, () => {
                 this.startListening();
             });
@@ -479,6 +497,16 @@
             });
             
             console.log('✅ Loaded', this.conversationHistory.length, 'existing messages into audio mode');
+        },
+
+        getFirstName: function(fullName) {
+            if (!fullName || typeof fullName !== 'string') {
+                return 'there';  // Fallback
+            }
+            
+            // Split by space and get first part
+            const nameParts = fullName.trim().split(' ');
+            return nameParts[0];
         },
 
         /**
@@ -686,8 +714,15 @@
 
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.rate = 1.0;
-            utterance.pitch = 1.0;
+            utterance.pitch = 1.2;
             utterance.volume = 1.0;
+
+            const voices = this.synthesis.getVoices();
+            const femaleVoice = this.getFemaleVoice(voices);
+            if (femaleVoice) {
+                utterance.voice = femaleVoice;
+                console.log('🎤 Using female voice:', femaleVoice.name);
+            }
 
             utterance.onend = () => {
                 console.log('🔊 Speech ended');
@@ -707,22 +742,100 @@
         },
 
         /**
+         * Get best female voice available
+         */
+        getFemaleVoice: function(voices) {
+            if (!voices || voices.length === 0) {
+                return null;
+            }
+            
+            // Priority 1: Female voices with explicit "female" in name
+            let femaleVoice = voices.find(voice => 
+                voice.name.toLowerCase().includes('female')
+            );
+            
+            // Priority 2: Known female voice names
+            if (!femaleVoice) {
+                const femaleNames = [
+                    'Google US English Female',
+                    'Microsoft Zira',
+                    'Samantha',
+                    'Victoria',
+                    'Kate',
+                    'Google UK English Female',
+                    'Helena',
+                    'Hortense',
+                    'Hedda',
+                    'Elsa',
+                    'Haruka'
+                ];
+                
+                femaleVoice = voices.find(voice => 
+                    femaleNames.some(name => voice.name.includes(name))
+                );
+            }
+            
+            // Priority 3: Exclude explicit male voices, take first remaining
+            if (!femaleVoice) {
+                femaleVoice = voices.find(voice => 
+                    !voice.name.toLowerCase().includes('male') &&
+                    !voice.name.includes('David') &&
+                    !voice.name.includes('Mark')
+                );
+            }
+            
+            return femaleVoice || voices[0];
+        },
+
+        /**
          * Toggle pause
          */
         togglePause: function() {
             this.isPaused = !this.isPaused;
             
+            const $pauseBtn = $('.audio-control-btn.pause-btn');
+            
             if (this.isPaused) {
+                // PAUSED STATE - Show Play/Resume icon
                 this.showStatus('Paused - Click resume to continue');
-                $('.audio-control-pause i').removeClass('fa-pause').addClass('fa-play');
+                
+                // ⭐ Replace SVG with Play icon
+                $pauseBtn.html(`
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <span>Resume</span>
+                `);
+                
+                // ⭐ Update button classes and attributes
+                $pauseBtn
+                    .attr('title', 'Resume')
+                    .attr('aria-label', 'Resume conversation');
+                
                 this.synthesis.cancel();
+                console.log('⏸️ Paused');
+                
             } else {
+                // PLAYING STATE - Show Pause icon
                 this.showStatus('Resumed');
-                $('.audio-control-pause i').removeClass('fa-play').addClass('fa-pause');
+                
+                // ⭐ Replace SVG with Pause icon (two rectangles)
+                $pauseBtn.html(`
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="4" width="4" height="16"></rect>
+                        <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                    <span>Pause</span>
+                `);
+                
+                // ⭐ Update button classes and attributes
+                $pauseBtn
+                    .attr('title', 'Pause')
+                    .attr('aria-label', 'Pause conversation');
+                
                 this.startListening();
+                console.log('▶️ Resumed');
             }
-
-            console.log(this.isPaused ? '⏸️ Paused' : '▶️ Resumed');
         },
 
         /**
