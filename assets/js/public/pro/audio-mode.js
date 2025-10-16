@@ -713,16 +713,56 @@
             this.showStatus('Speaking...');
 
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.2;
-            utterance.volume = 1.0;
+            
+            // ===== INTEGRATION WITH VOICE SELECTION =====
+            
+            // Priority 1: Use simple voice selection if available and configured
+            if (window.simpleVoiceSelection && typeof window.simpleVoiceSelection.applyUserPreferences === 'function') {
+                console.log('🎤 Audio Mode: Applying voice selection preferences');
+                window.simpleVoiceSelection.applyUserPreferences(utterance);
+            } 
+            // Priority 2: Use voice selection admin defaults
+            else if (window.aiChatbotVoiceSelection && window.aiChatbotVoiceSelection.enabled) {
+                console.log('🎤 Audio Mode: Applying admin voice defaults');
+                const adminDefaults = window.aiChatbotVoiceSelection.adminDefaults || {};
+                
+                // Apply admin settings
+                if (adminDefaults.rate) utterance.rate = adminDefaults.rate;
+                if (adminDefaults.volume) utterance.volume = adminDefaults.volume;
+                // pitch is always 1.0 for neutral sound
+                utterance.pitch = 1.0;
+                
+                // Find best voice based on admin settings
+                const voices = this.synthesis.getVoices();
+                if (voices.length > 0) {
+                    const bestVoice = this.findBestVoice(voices, {
+                        gender: adminDefaults.gender || 'female',
+                        language: adminDefaults.language || 'en-US',
+                        specificVoice: adminDefaults.specificVoice || ''
+                    });
+                    
+                    if (bestVoice) {
+                        utterance.voice = bestVoice;
+                        console.log('🎤 Audio Mode: Selected voice:', bestVoice.name);
+                    }
+                }
+            } 
+            // Priority 3: Fallback to audio mode defaults
+            else {
+                console.log('🎤 Audio Mode: Using audio mode defaults');
+                utterance.rate = 1.0;
+                utterance.pitch = 1.2;
+                utterance.volume = 1.0;
 
-            const voices = this.synthesis.getVoices();
-            const femaleVoice = this.getFemaleVoice(voices);
-            if (femaleVoice) {
-                utterance.voice = femaleVoice;
-                console.log('🎤 Using female voice:', femaleVoice.name);
+                const voices = this.synthesis.getVoices();
+                const femaleVoice = this.getFemaleVoice(voices);
+                if (femaleVoice) {
+                    utterance.voice = femaleVoice;
+                    console.log('🎤 Audio Mode: Using female voice:', femaleVoice.name);
+                }
             }
+            
+            // ===== END VOICE SELECTION INTEGRATION =====
 
             utterance.onend = () => {
                 console.log('🔊 Speech ended');
@@ -738,7 +778,88 @@
             };
 
             this.currentUtterance = utterance;
+            
+            console.log('🔊 Audio Mode speaking with:', {
+                voice: utterance.voice?.name,
+                rate: utterance.rate,
+                pitch: utterance.pitch,
+                volume: utterance.volume
+            });
+            
             this.synthesis.speak(utterance);
+        },
+
+        /**
+         * Find best voice based on criteria - NEW METHOD
+         * Add this method to audio-mode.js after the speak() method
+         */
+        findBestVoice: function(voices, criteria) {
+            // If specific voice is requested, find it
+            if (criteria.specificVoice) {
+                const specificVoice = voices.find(voice => voice.name === criteria.specificVoice);
+                if (specificVoice) {
+                    console.log('🎯 Found specific voice:', specificVoice.name);
+                    return specificVoice;
+                }
+            }
+            
+            // Filter by language and gender
+            const language = criteria.language || 'en-US';
+            const gender = criteria.gender || 'female';
+            const langPrefix = language.split('-')[0];
+            
+            const filteredVoices = voices.filter(voice => {
+                // Check language match
+                const matchesLanguage = voice.lang.toLowerCase().startsWith(langPrefix.toLowerCase()) ||
+                                        voice.lang.toLowerCase().includes(langPrefix.toLowerCase());
+                
+                const voiceName = voice.name.toLowerCase();
+                
+                // Check gender match
+                let matchesGender = true;
+                if (gender === 'male') {
+                    matchesGender = voiceName.includes('male') || 
+                                    voiceName.includes('david') || 
+                                    voiceName.includes('mark') ||
+                                    voiceName.includes('daniel') || 
+                                    voiceName.includes('george') ||
+                                    voiceName.includes('james') ||
+                                    (!voiceName.includes('female') && 
+                                    !voiceName.includes('zira') && 
+                                    !voiceName.includes('susan'));
+                } else if (gender === 'female') {
+                    matchesGender = voiceName.includes('female') || 
+                                    voiceName.includes('zira') || 
+                                    voiceName.includes('susan') || 
+                                    voiceName.includes('helen') ||
+                                    voiceName.includes('samantha') || 
+                                    voiceName.includes('karen') ||
+                                    voiceName.includes('moira') ||
+                                    voiceName.includes('victoria') ||
+                                    voiceName.includes('kate');
+                }
+                
+                return matchesLanguage && matchesGender;
+            });
+            
+            if (filteredVoices.length > 0) {
+                console.log('🎯 Found', filteredVoices.length, 'matching voices, using:', filteredVoices[0].name);
+                return filteredVoices[0];
+            }
+            
+            // Fallback to first voice matching language only
+            const langMatches = voices.filter(voice => 
+                voice.lang.toLowerCase().startsWith(langPrefix.toLowerCase())
+            );
+            
+            if (langMatches.length > 0) {
+                console.log('🎯 Using language-only match:', langMatches[0].name);
+                return langMatches[0];
+            }
+            
+            // Ultimate fallback
+            console.log('🎯 Using fallback voice:', voices[0]?.name);
+            return voices[0];
         },
 
         /**

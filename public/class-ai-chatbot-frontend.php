@@ -81,7 +81,6 @@ class AI_Chatbot_Frontend {
             true
         );
 
-        $settings = get_option('ai_chatbot_settings', array());
         $audio_settings = $settings['audio_features'] ?? array();
         $voice_selection_enabled = !empty($audio_settings['voice_selection_enabled']);
         
@@ -94,6 +93,27 @@ class AI_Chatbot_Frontend {
                 AI_CHATBOT_VERSION,
                 true
             );
+
+            wp_localize_script('ai-chatbot-simple-voice', 'aiChatbotVoiceSelection', array(
+                'enabled' => true,
+                'adminDefaults' => array(
+                    'gender' => $audio_settings['voice_gender'] ?? 'female',
+                    'language' => $audio_settings['voice_language'] ?? 'en-US',
+                    'specificVoice' => $audio_settings['specific_voice'] ?? '',
+                    'personality' => $audio_settings['voice_personality'] ?? 'friendly',
+                    'rate' => floatval($audio_settings['tts_rate'] ?? 1.0),
+                    'pitch' => floatval($audio_settings['tts_pitch'] ?? 1.0),
+                    'volume' => floatval($audio_settings['tts_volume'] ?? 0.8),
+                ),
+                'strings' => array(
+                    'voiceSettings' => __('Voice Settings', 'ai-website-chatbot'),
+                    'selectVoice' => __('Select Voice', 'ai-website-chatbot'),
+                    'testVoice' => __('Test Voice', 'ai-website-chatbot'),
+                    'saveSettings' => __('Save Settings', 'ai-website-chatbot'),
+                    'settingsSaved' => __('Voice settings saved!', 'ai-website-chatbot'),
+                    'close' => __('Close', 'ai-website-chatbot'),
+                )
+            ));
         }
 
         // Check if Pro features should be loaded

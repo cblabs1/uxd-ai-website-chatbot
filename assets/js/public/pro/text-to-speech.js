@@ -417,71 +417,127 @@
                 return false;
             }
 
-            // Check if voice selection is available and should override settings
-            let voiceSettings = settings;
-            if (window.simpleVoiceSelection && window.simpleVoiceSelection.getSelectedVoice) {
-                const userVoice = window.simpleVoiceSelection.getSelectedVoice();
-                const userPrefs = window.simpleVoiceSelection.loadUserPreferences();
-                
-                if (userVoice || Object.keys(userPrefs).length > 0) {
-                    // User has voice preferences - use them instead of admin settings
-                    voiceSettings = this.mergeVoiceSettings(settings, userPrefs);
-                }
-            }
-
-            // Merge settings with defaults
-            const speechSettings = Object.assign({
-                rate: this.userPreferences.rate || this.config.rate || 1.0,
-                pitch: this.userPreferences.pitch || this.config.pitch || 1.0,
-                volume: this.userPreferences.volume || this.config.volume || 0.8,
-                voice: this.userPreferences.voice || this.config.voice_name || null
-            }, voiceSettings);
-
             // Stop any current speech
             this.stopSpeaking();
 
             // Create utterance
             const utterance = new SpeechSynthesisUtterance(text);
 
-            // Apply voice selection if available
-            if (window.simpleVoiceSelection) {
-                utterance = window.simpleVoiceSelection.applyUserPreferences(utterance);
-            } else {
-                // Fallback to admin settings
-                this.applyAdminVoiceSettings(utterance, speechSettings);
+            // PRIORITY 1: Check if user has voice selection preferences (highest priority)
+            let voiceApplied = false;
+            if (window.simpleVoiceSelection && typeof window.simpleVoiceSelection.applyUserPreferences === 'function') {
+                console.log('Applying voice selection preferences...');
+                window.simpleVoiceSelection.applyUserPreferences(utterance);
+                voiceApplied = true;
+            } 
+            // PRIORITY 2: Fall back to admin voice selection settings
+            else if (this.config.voice_selection && this.config.voice_selection.enabled) {
+                console.log('Applying admin voice selection defaults...');
+                this.applyVoiceSelectionSettings(utterance, settings);
+                voiceApplied = true;
             }
 
-            // Set other speech parameters
-            utterance.rate = speechSettings.rate;
-            utterance.pitch = speechSettings.pitch;
-            utterance.volume = speechSettings.volume;
+            // PRIORITY 3: Use legacy TTS settings if no voice selection
+            if (!voiceApplied) {
+                console.log('Using legacy TTS settings...');
+                // Apply rate, pitch, volume from config or settings
+                utterance.rate = settings.rate || this.userPreferences.rate || this.config.rate || 1.0;
+                utterance.pitch = settings.pitch || this.userPreferences.pitch || this.config.pitch || 1.0;
+                utterance.volume = settings.volume || this.userPreferences.volume || this.config.volume || 0.8;
 
-            // Event handlers
+                // Try to set voice from config
+                if (this.config.voice_name && this.voices.length > 0) {
+                    const voice = this.voices.find(v => v.name === this.config.voice_name);
+                    if (voice) utterance.voice = voice;
+                }
+            }
+
+            // Store current utterance
+            this.currentUtterance = utterance;
+            this.lastSpeechText = text;
+
+            // Set up event handlers
             utterance.onstart = () => {
-                this.isActive = true;
                 this.isSpeaking = true;
-                this.currentUtterance = utterance;
-                this.updateUI();
-                this.showSpeechIndicator();
-                this.audioCore.trigger('tts:speechStarted', { text, settings: speechSettings });
+                this.isPaused = false;
+                this.updateSpeechIndicator('speaking');
+                console.log('Speech started');
             };
 
             utterance.onend = () => {
-                this.handleSpeechEnd();
+                this.isSpeaking = false;
+                this.isPaused = false;
+                this.currentUtterance = null;
+                this.updateSpeechIndicator('idle');
+                console.log('Speech ended');
             };
 
             utterance.onerror = (event) => {
-                this.handleSpeechError(event);
+                console.error('Speech error:', event.error);
+                this.isSpeaking = false;
+                this.isPaused = false;
+                this.currentUtterance = null;
+                this.updateSpeechIndicator('error');
             };
 
-            // Speak
-            if (this.synthesis) {
-                this.synthesis.speak(utterance);
-                this.lastSpokenText = text;
-                return true;
-            }
+            utterance.onpause = () => {
+                this.isPaused = true;
+                this.updateSpeechIndicator('paused');
+            };
 
-            return false;
+            utterance.onresume = () => {
+                this.isPaused = false;
+                this.updateSpeechIndicator('speaking');
+            };
+
+            // Speak the utterance
+            console.log('Speaking text with settings:', {
+                voice: utterance.voice?.name,
+                rate: utterance.rate,
+                pitch: utterance.pitch,
+                volume: utterance.volume
+            });
+            
+            this.synthesis.speak(utterance);
+            
+            return true;
+        },
+
+        /**
+         * Apply voice selection settings from admin configuration - UPDATED METHOD
+         */
+        applyVoiceSelectionSettings: function(utterance, settings) {
+            const adminVoiceSettings = this.config.voice_selection || {};
+            
+            if (!adminVoiceSettings.enabled || !adminVoiceSettings.admin_defaults) {
+                return utterance;
+            }
+            
+            const defaults = adminVoiceSettings.admin_defaults;
+            
+            // Apply rate, pitch, volume from admin defaults
+            if (defaults.rate) utterance.rate = defaults.rate;
+            if (defaults.pitch) utterance.pitch = defaults.pitch;
+            if (defaults.volume) utterance.volume = defaults.volume;
+            
+            // Find and apply best voice based on admin settings
+            const voices = this.synthesis.getVoices();
+            if (voices.length === 0) {
+                return utterance;
+            }
+            
+            const bestVoice = this.findBestVoice(voices, {
+                gender: defaults.gender,
+                language: defaults.language,
+                specificVoice: defaults.specific_voice
+            });
+            
+            if (bestVoice) {
+                utterance.voice = bestVoice;
+                console.log('Applied admin default voice:', bestVoice.name);
+            }
+            
+            return utterance;
         },
 
         /**
@@ -528,34 +584,70 @@
             // If specific voice is requested, find it
             if (criteria.specificVoice) {
                 const specificVoice = voices.find(voice => voice.name === criteria.specificVoice);
-                if (specificVoice) return specificVoice;
+                if (specificVoice) {
+                    console.log('Found specific voice:', specificVoice.name);
+                    return specificVoice;
+                }
             }
             
             // Filter by language and gender
+            const language = criteria.language || 'en-US';
+            const gender = criteria.gender || 'female';
+            const langPrefix = language.split('-')[0];
+            
             const filteredVoices = voices.filter(voice => {
-                const matchesLanguage = voice.lang.toLowerCase().includes(criteria.language.toLowerCase()) || 
-                                    voice.lang.toLowerCase().startsWith(criteria.language.split('-')[0]);
+                // Check language match
+                const matchesLanguage = voice.lang.toLowerCase().startsWith(langPrefix.toLowerCase()) ||
+                                        voice.lang.toLowerCase().includes(langPrefix.toLowerCase());
+                
                 const voiceName = voice.name.toLowerCase();
                 
+                // Check gender match
                 let matchesGender = true;
-                if (criteria.gender === 'male') {
+                if (gender === 'male') {
                     matchesGender = voiceName.includes('male') || 
-                                voiceName.includes('david') || voiceName.includes('mark') ||
-                                voiceName.includes('daniel') || voiceName.includes('george') ||
-                                (!voiceName.includes('female') && !voiceName.includes('zira') && 
-                                !voiceName.includes('susan') && !voiceName.includes('helen'));
-                } else if (criteria.gender === 'female') {
+                                    voiceName.includes('david') || 
+                                    voiceName.includes('mark') ||
+                                    voiceName.includes('daniel') || 
+                                    voiceName.includes('george') ||
+                                    voiceName.includes('james') ||
+                                    (!voiceName.includes('female') && 
+                                    !voiceName.includes('zira') && 
+                                    !voiceName.includes('susan'));
+                } else if (gender === 'female') {
                     matchesGender = voiceName.includes('female') || 
-                                voiceName.includes('zira') || voiceName.includes('susan') ||
-                                voiceName.includes('helen') || voiceName.includes('hazel') ||
-                                (!voiceName.includes('male') && !voiceName.includes('david') && 
-                                !voiceName.includes('mark') && !voiceName.includes('george'));
+                                    voiceName.includes('zira') || 
+                                    voiceName.includes('susan') || 
+                                    voiceName.includes('helen') ||
+                                    voiceName.includes('samantha') || 
+                                    voiceName.includes('karen') ||
+                                    voiceName.includes('moira') ||
+                                    voiceName.includes('tessa') ||
+                                    voiceName.includes('fiona');
                 }
                 
                 return matchesLanguage && matchesGender;
             });
             
-            return filteredVoices[0] || voices[0] || null;
+            // Return first filtered voice or first available voice
+            if (filteredVoices.length > 0) {
+                console.log('Found matching voice:', filteredVoices[0].name, 'from', filteredVoices.length, 'options');
+                return filteredVoices[0];
+            }
+            
+            // Fallback to first voice matching language only
+            const langMatches = voices.filter(voice => 
+                voice.lang.toLowerCase().startsWith(langPrefix.toLowerCase())
+            );
+            
+            if (langMatches.length > 0) {
+                console.log('Using language-only match:', langMatches[0].name);
+                return langMatches[0];
+            }
+            
+            // Ultimate fallback
+            console.log('Using fallback voice:', voices[0]?.name);
+            return voices[0];
         },
         /**
          * Speak single utterance
@@ -827,19 +919,16 @@
         stopSpeaking: function() {
             if (this.synthesis) {
                 this.synthesis.cancel();
+                this.isSpeaking = false;
+                this.isPaused = false;
+                this.currentUtterance = null;
+                this.updateUI();
+                this.updateSpeechIndicator('idle');
             }
             
             // Clear queue
             this.speechQueue = [];
             this.isProcessingQueue = false;
-            
-            // Reset state
-            this.isSpeaking = false;
-            this.isPaused = false;
-            this.currentUtterance = null;
-            
-            this.updateUI();
-            this.hideSpeechIndicator();
             
             this.audioCore.trigger('tts:speechStopped');
         },
@@ -945,6 +1034,24 @@
         hideSpeechIndicator: function() {
             if (this.$speechIndicator) {
                 this.$speechIndicator.fadeOut(200);
+            }
+        },
+
+        updateSpeechIndicator: function(state) {
+            const indicator = document.querySelector('.ai-chatbot-speech-indicator');
+            if (!indicator) return;
+            
+            indicator.className = 'ai-chatbot-speech-indicator ai-chatbot-speech-' + state;
+            
+            const statusText = indicator.querySelector('.speech-status-text');
+            if (statusText) {
+                const statusTexts = {
+                    'idle': '',
+                    'speaking': this.config.strings?.speaking || 'Speaking...',
+                    'paused': this.config.strings?.paused || 'Paused',
+                    'error': this.config.strings?.error || 'Error'
+                };
+                statusText.textContent = statusTexts[state] || '';
             }
         },
 
