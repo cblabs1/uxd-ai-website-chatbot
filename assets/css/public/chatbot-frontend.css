@@ -485,6 +485,7 @@
 
 @media (max-width: 480px) {
     .ai-chatbot-container {
+        display: none;
         position: fixed;
         bottom: 60px;
         left: 0;
@@ -495,8 +496,6 @@
         height: auto;
         border-radius: 12px 12px 0 0;
         max-height: calc(100vh - 80px);
-        display: flex;
-        flex-direction: column;
     }
     
     .ai-chatbot-header {

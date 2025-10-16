@@ -57,28 +57,43 @@ class AI_Chatbot_Pro_Text_To_Speech {
      * Get TTS configuration
      */
     private function get_tts_configuration() {
+
+        $settings = get_option('ai_chatbot_settings', array());
+        $audio_settings = $settings['audio_features'] ?? array();
+
         return array(
-            'enabled' => get_option('ai_chatbot_tts_enabled', false),
-            'auto_play' => get_option('ai_chatbot_tts_auto_play', false),
-            'voice_name' => get_option('ai_chatbot_tts_voice_name', ''),
-            'rate' => get_option('ai_chatbot_tts_rate', 1.0),
-            'pitch' => get_option('ai_chatbot_tts_pitch', 1.0),
-            'volume' => get_option('ai_chatbot_tts_volume', 0.8),
-            'language' => get_option('ai_chatbot_tts_language', 'en-US'),
+            'enabled' => !empty($audio_settings['tts_enabled']),
+            'auto_play' => !empty($audio_settings['tts_auto_play']),
+            'voice_name' => $audio_settings['tts_voice_name'] ?? '',
+            'rate' => $audio_settings['tts_rate'] ?? 1.0,
+            'pitch' => $audio_settings['tts_pitch'] ?? 1.0,
+            'volume' => $audio_settings['tts_volume'] ?? 0.8,
+            'language' => $audio_settings['tts_language'] ?? 'en-US',
             
             // Pro features
-            'emotional_tone' => get_option('ai_chatbot_tts_emotional_tone', false),
-            'speaking_style' => get_option('ai_chatbot_tts_speaking_style', 'neutral'),
-            'pause_detection' => get_option('ai_chatbot_tts_pause_detection', true),
-            'pronunciation_hints' => get_option('ai_chatbot_tts_pronunciation_hints', true),
-            'ssml_enabled' => get_option('ai_chatbot_tts_ssml_enabled', false),
-            'background_music' => get_option('ai_chatbot_tts_background_music', false),
+            'emotional_tone' => $audio_settings['tts_emotional_tone'] ?? false,
+            'speaking_style' => $audio_settings['tts_speaking_style'] ?? 'neutral',        
+            'pause_detection' => $audio_settings['tts_pause_detection'] ?? true,
+            'pronunciation_hints' => $audio_settings['tts_pronunciation_hints'] ?? true,
+            'ssml_enabled' => $audio_settings['tts_ssml_enabled'] ?? false,
+            'background_music' => $audio_settings['tts_background_music'] ?? false,
+
+            'voice_selection' => array(
+                'enabled' => !empty($audio_settings['voice_selection_enabled']),
+                'admin_defaults' => array(
+                    'gender' => $audio_settings['voice_gender'] ?? 'female',
+                    'language' => $audio_settings['voice_language'] ?? 'en-US',
+                    'specific_voice' => $audio_settings['specific_voice'] ?? '',
+                    'personality' => $audio_settings['voice_personality'] ?? 'friendly',
+                ),
+            ),
             
             // Advanced settings
-            'chunk_size' => get_option('ai_chatbot_tts_chunk_size', 200),
-            'pause_between_chunks' => get_option('ai_chatbot_tts_chunk_pause', 0.5),
-            'emphasis_words' => get_option('ai_chatbot_tts_emphasis_words', array()),
-            'custom_pronunciations' => get_option('ai_chatbot_tts_custom_pronunciations', array())
+            'chunk_size' => $audio_settings['tts_chunk_size'] ?? 200,
+            'chunk_pause' => $audio_settings['tts_chunk_pause'] ?? 0.5,
+            'pause_between_chunks' => $audio_settings['tts_chunk_pause'] ?? 0.5,
+            'emphasis_words' => $audio_settings['tts_emphasis_words'] ?? array(),
+            'custom_pronunciations' => $audio_settings['tts_custom_pronunciations'] ?? array()
         );
     }
 
@@ -139,6 +154,7 @@ class AI_Chatbot_Pro_Text_To_Speech {
             'should_speak' => $this->should_speak_response($response_data, $message),
             'speech_text' => $this->prepare_text_for_speech($response_text),
             'voice_settings' => $this->get_optimized_voice_settings($response_text, $message),
+            'voice_selection' => $this->get_voice_selection_settings(),
             'chunks' => $this->split_into_speech_chunks($response_text),
             'timing' => $this->calculate_speech_timing($response_text),
             'emotional_cues' => $this->detect_emotional_cues($response_text),
@@ -316,6 +332,40 @@ class AI_Chatbot_Pro_Text_To_Speech {
     }
 
     /**
+     * Get voice selection settings
+     */
+    private function get_voice_selection_settings() {
+        $settings = get_option('ai_chatbot_settings', array());
+        $audio_settings = $settings['audio_features'] ?? array();
+        
+        return array(
+            'enabled' => !empty($audio_settings['voice_selection_enabled']),
+            'admin_defaults' => array(
+                'gender' => $audio_settings['voice_gender'] ?? 'female',
+                'language' => $audio_settings['voice_language'] ?? 'en-US',
+                'specific_voice' => $audio_settings['specific_voice'] ?? '',
+                'personality' => $audio_settings['voice_personality'] ?? 'friendly',
+            ),
+            'user_preferences' => $this->get_user_voice_preferences(),
+        );
+    }
+
+    /**
+     * Get user voice preferences
+     */
+    private function get_user_voice_preferences() {
+        if (is_user_logged_in()) {
+            $user_id = get_current_user_id();
+            return get_user_meta($user_id, 'ai_chatbot_voice_preferences', true) ?: array();
+        } else {
+            if (!session_id()) {
+                session_start();
+            }
+            return $_SESSION['ai_chatbot_voice_preferences'] ?? array();
+        }
+    }
+
+    /**
      * Handle special formatting
      */
     private function handle_special_formatting($text) {
@@ -398,12 +448,16 @@ class AI_Chatbot_Pro_Text_To_Speech {
      * Get optimized voice settings
      */
     private function get_optimized_voice_settings($text, $message) {
+        
+        $settings = get_option('ai_chatbot_settings', array());
+        $audio_settings = $settings['audio_features'] ?? array();
+
         $base_settings = array(
-            'rate' => get_option('ai_chatbot_tts_rate', 1.0),
-            'pitch' => get_option('ai_chatbot_tts_pitch', 1.0),
-            'volume' => get_option('ai_chatbot_tts_volume', 0.8),
-            'voice' => get_option('ai_chatbot_tts_voice_name', ''),
-            'language' => get_option('ai_chatbot_tts_language', 'en-US')
+            'rate' => $audio_settings['tts_rate'] ?? 1.0,
+            'pitch' => $audio_settings['tts_pitch'] ?? 1.0,
+            'volume' => $audio_settings['tts_volume'] ?? 0.8,
+            'voice' => $audio_settings['tts_voice_name'] ?? '',
+            'language' => $audio_settings['tts_language'] ?? 'en-US',
         );
 
         // Optimize based on content type
@@ -467,7 +521,11 @@ class AI_Chatbot_Pro_Text_To_Speech {
      * Split into speech chunks
      */
     private function split_into_speech_chunks($text) {
-        $chunk_size = get_option('ai_chatbot_tts_chunk_size', 200);
+
+        $settings = get_option('ai_chatbot_settings', array());
+        $audio_settings = $settings['audio_features'] ?? array();
+
+        $chunk_size = $audio_settings['tts_chunk_size'] ?? 200;
         
         // Split by sentences first
         $sentences = preg_split('/(?<=[.!?])\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
@@ -498,6 +556,7 @@ class AI_Chatbot_Pro_Text_To_Speech {
     private function calculate_speech_timing($text) {
         $word_count = str_word_count($text);
         $rate = get_option('ai_chatbot_tts_rate', 1.0);
+        
         
         // Average speaking rate: 150-200 words per minute
         $base_wpm = 175;
@@ -622,7 +681,9 @@ class AI_Chatbot_Pro_Text_To_Speech {
         $ssml = '<speak>';
 
         // Add voice selection if specified
+        
         $voice_name = get_option('ai_chatbot_tts_voice_name', '');
+
         if ($voice_name) {
             $ssml .= '<voice name="' . esc_attr($voice_name) . '">';
         }

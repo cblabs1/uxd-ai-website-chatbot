@@ -537,7 +537,7 @@ class AI_Chatbot_Shortcodes {
      */
     private function get_audio_configuration() {
         $settings = get_option('ai_chatbot_settings', array());
-        $audio_settings = $settings['audio_features'] ?? array(); // ← ADD THIS LINE
+        $audio_settings = $settings['audio_features'] ?? array(); 
         
         return array(
             'nonce' => wp_create_nonce('ai_chatbot_nonce'),
@@ -557,6 +557,13 @@ class AI_Chatbot_Shortcodes {
                 'pitch' => floatval($audio_settings['tts_pitch'] ?? 1.0),
                 'volume' => floatval($audio_settings['tts_volume'] ?? 0.8),
                 'language' => $audio_settings['voice_language'] ?? 'en-US',
+            ),
+            'voice_selection' => array(
+                'enabled' => !empty($audio_settings['voice_selection_enabled']),
+                'gender' => $audio_settings['voice_gender'] ?? 'female',
+                'language' => $audio_settings['voice_language'] ?? 'en-US',
+                'specific_voice' => $audio_settings['specific_voice'] ?? '',
+                'personality' => $audio_settings['voice_personality'] ?? 'friendly',
             ),
             'audio_mode' => array(
                 'enabled' => !empty($audio_settings['audio_mode_enabled']),

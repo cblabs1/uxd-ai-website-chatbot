@@ -304,6 +304,12 @@ class AI_Chatbot_Activator {
 			'ai_chatbot_claude_model'          => 'claude-3-haiku-20240307',
 			'ai_chatbot_gemini_api_key'        => '',
 			'ai_chatbot_gemini_model'          => 'gemini-pro',
+			'ai_chatbot_voice_selection_enabled' => '1',
+			'ai_chatbot_voice_gender' => 'female',
+			'ai_chatbot_voice_language' => 'en-US',
+			'ai_chatbot_specific_voice' => '',
+			'ai_chatbot_voice_personality' => 'friendly',
+			'ai_chatbot_tts_voice_name' => '',
 		);
 
 		foreach ( $default_options as $option_name => $default_value ) {

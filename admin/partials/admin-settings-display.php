@@ -554,6 +554,125 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </td>
                 </tr>
 
+                <!-- ADD VOICE SELECTION SETTINGS HERE -->
+                <tr>
+                    <th scope="row">
+                        <label for="voice_selection_enabled"><?php _e('Enable Voice Selection', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" id="voice_selection_enabled" 
+                                name="ai_chatbot_settings[audio_features][voice_selection_enabled]" 
+                                value="1" 
+                                <?php checked($settings['audio_features']['voice_selection_enabled'] ?? false); ?>>
+                            <span class="slider"></span>
+                        </label>
+                        <p class="description"><?php _e('Allow users to choose voice options.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="voice_gender"><?php _e('Default Voice Gender', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <select id="voice_gender" name="ai_chatbot_settings[audio_features][voice_gender]">
+                            <option value="female" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'female'); ?>><?php _e('Female Voice', 'ai-website-chatbot'); ?></option>
+                            <option value="male" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'male'); ?>><?php _e('Male Voice', 'ai-website-chatbot'); ?></option>
+                            <option value="neutral" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'neutral'); ?>><?php _e('Neutral Voice', 'ai-website-chatbot'); ?></option>
+                        </select>
+                        <p class="description"><?php _e('Choose the default voice gender for text-to-speech.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="voice_language"><?php _e('Voice Language', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <select id="voice_language" name="ai_chatbot_settings[audio_features][voice_language]">
+                            <option value="en-US" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-US'); ?>><?php _e('English (US)', 'ai-website-chatbot'); ?></option>
+                            <option value="en-GB" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-GB'); ?>><?php _e('English (UK)', 'ai-website-chatbot'); ?></option>
+                            <option value="en-IN" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-IN'); ?>><?php _e('English (India)', 'ai-website-chatbot'); ?></option>
+                        </select>
+                        <p class="description"><?php _e('Select the language for voice synthesis.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="specific_voice"><?php _e('Specific Voice', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <select id="specific_voice" name="ai_chatbot_settings[audio_features][specific_voice]">
+                            <option value=""><?php _e('Auto-select best voice', 'ai-website-chatbot'); ?></option>
+                        </select>
+                        <button type="button" id="test-voice-btn" class="button" style="margin-left: 10px;">
+                            <?php _e('Test Voice', 'ai-website-chatbot'); ?>
+                        </button>
+                        <p class="description"><?php _e('Choose a specific voice or let the system auto-select.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="voice_personality"><?php _e('Voice Personality', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <select id="voice_personality" name="ai_chatbot_settings[audio_features][voice_personality]">
+                            <option value="friendly" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'friendly'); ?>><?php _e('Friendly', 'ai-website-chatbot'); ?></option>
+                            <option value="professional" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'professional'); ?>><?php _e('Professional', 'ai-website-chatbot'); ?></option>
+                            <option value="warm" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'warm'); ?>><?php _e('Warm', 'ai-website-chatbot'); ?></option>
+                            <option value="authoritative" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'authoritative'); ?>><?php _e('Authoritative', 'ai-website-chatbot'); ?></option>
+                            <option value="cheerful" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'cheerful'); ?>><?php _e('Cheerful', 'ai-website-chatbot'); ?></option>
+                        </select>
+                        <p class="description"><?php _e('Choose the voice personality style.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row"><label for="tts_voice_name"><?php _e('Voice Selection', 'ai-website-chatbot'); ?></label></th>
+                    <td>
+                        <select id="tts_voice_name" name="ai_chatbot_settings[audio_features][tts_voice_name]">
+                            <option value=""><?php _e('Auto-select voice', 'ai-website-chatbot'); ?></option>
+                        </select>
+                        <button type="button" onclick="loadVoicesAndTest()" class="button"><?php _e('Load Voices & Test', 'ai-website-chatbot'); ?></button>
+                        <script>
+                        function loadVoicesAndTest() {
+                            const select = document.getElementById('tts_voice_name');
+                            const voices = speechSynthesis.getVoices();
+                            
+                            // Clear and populate
+                            select.innerHTML = '<option value="">Auto-select voice</option>';
+                            voices.forEach(voice => {
+                                if (voice.lang.startsWith('en')) {
+                                    const option = document.createElement('option');
+                                    option.value = voice.name;
+                                    option.textContent = `${voice.name} (${voice.lang})`;
+                                    select.appendChild(option);
+                                }
+                            });
+                            
+                            // Test selected voice
+                            const testText = 'Hello! This is a test of the selected voice.';
+                            const utterance = new SpeechSynthesisUtterance(testText);
+                            if (select.value) {
+                                const voice = voices.find(v => v.name === select.value);
+                                if (voice) utterance.voice = voice;
+                            }
+                            speechSynthesis.speak(utterance);
+                        }
+                        
+                        // Auto-load voices
+                        if (speechSynthesis.getVoices().length === 0) {
+                            speechSynthesis.onvoiceschanged = loadVoicesAndTest;
+                        } else {
+                            loadVoicesAndTest();
+                        }
+                        </script>
+                    </td>
+                </tr>
+
                 <!-- Audio Mode Settings -->
                 <tr>
                     <th colspan="2">
@@ -863,6 +982,114 @@ $settings = wp_parse_args($all_settings, $default_settings);
         </div>
     </form>
 </div>
+
+<script type="text/javascript">
+jQuery(document).ready(function($) {
+    // Voice selection functionality
+    function loadAvailableVoices() {
+        if ('speechSynthesis' in window) {
+            function updateVoices() {
+                const voices = speechSynthesis.getVoices();
+                const $voiceSelect = $('#specific_voice');
+                const currentVoice = $voiceSelect.val();
+                const selectedGender = $('#voice_gender').val();
+                const selectedLanguage = $('#voice_language').val();
+                
+                // Clear existing options except first
+                $voiceSelect.find('option:not(:first)').remove();
+                
+                // Filter voices by gender and language
+                const filteredVoices = voices.filter(voice => {
+                    const matchesLanguage = voice.lang.startsWith(selectedLanguage.split('-')[0]) || voice.lang.includes(selectedLanguage);
+                    const voiceName = voice.name.toLowerCase();
+                    
+                    let matchesGender = true;
+                    if (selectedGender === 'male') {
+                        matchesGender = voiceName.includes('male') || 
+                                      voiceName.includes('david') || voiceName.includes('mark') || 
+                                      voiceName.includes('zeke') || voiceName.includes('guy') ||
+                                      voiceName.includes('daniel') || voiceName.includes('george') ||
+                                      voiceName.includes('oliver') || voiceName.includes('thomas') ||
+                                      voiceName.includes('arun') || voiceName.includes('amit') ||
+                                      (!voiceName.includes('female') && !voiceName.includes('zira') && 
+                                       !voiceName.includes('susan') && !voiceName.includes('helen'));
+                    } else if (selectedGender === 'female') {
+                        matchesGender = voiceName.includes('female') || 
+                                      voiceName.includes('zira') || voiceName.includes('susan') ||
+                                      voiceName.includes('helen') || voiceName.includes('hazel') ||
+                                      voiceName.includes('samantha') || voiceName.includes('aria') ||
+                                      voiceName.includes('priya') || voiceName.includes('swara') ||
+                                      (!voiceName.includes('male') && !voiceName.includes('david') && 
+                                       !voiceName.includes('mark') && !voiceName.includes('george'));
+                    }
+                    
+                    return matchesLanguage && matchesGender;
+                });
+                
+                // Add filtered voices to select
+                filteredVoices.forEach(voice => {
+                    const option = $('<option></option>')
+                        .attr('value', voice.name)
+                        .text(voice.name + ' (' + voice.lang + ')');
+                    
+                    if (voice.name === currentVoice) {
+                        option.attr('selected', 'selected');
+                    }
+                    
+                    $voiceSelect.append(option);
+                });
+            }
+            
+            updateVoices();
+            speechSynthesis.onvoiceschanged = updateVoices;
+        }
+    }
+    
+    // Load voices on page load
+    loadAvailableVoices();
+    
+    // Reload voices when gender or language changes
+    $('#voice_gender, #voice_language').on('change', function() {
+        loadAvailableVoices();
+    });
+    
+    // Test voice functionality
+    $('#test-voice-btn').on('click', function() {
+        const selectedVoice = $('#specific_voice').val();
+        const testText = 'Hello! This is a test of the selected voice. How do I sound?';
+        
+        if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(testText);
+            
+            if (selectedVoice) {
+                const voices = speechSynthesis.getVoices();
+                const voice = voices.find(v => v.name === selectedVoice);
+                if (voice) {
+                    utterance.voice = voice;
+                }
+            }
+            
+            utterance.rate = parseFloat($('#tts_rate').val() || 1.0);
+            utterance.pitch = parseFloat($('#tts_pitch').val() || 1.0);
+            utterance.volume = parseFloat($('#tts_volume').val() || 0.8);
+            
+            speechSynthesis.speak(utterance);
+            
+            const $btn = $(this);
+            const originalText = $btn.text();
+            $btn.text('Speaking...').prop('disabled', true);
+            
+            utterance.onend = function() {
+                $btn.text(originalText).prop('disabled', false);
+            };
+        } else {
+            alert('Speech synthesis is not supported in this browser.');
+        }
+    });
+});
+</script>
 
 <style>
 .ai-chatbot-settings-wrap {

@@ -81,6 +81,21 @@ class AI_Chatbot_Frontend {
             true
         );
 
+        $settings = get_option('ai_chatbot_settings', array());
+        $audio_settings = $settings['audio_features'] ?? array();
+        $voice_selection_enabled = !empty($audio_settings['voice_selection_enabled']);
+        
+        // Enqueue voice selection if enabled
+        if ($voice_selection_enabled) {
+            wp_enqueue_script(
+                'ai-chatbot-simple-voice',
+                AI_CHATBOT_PLUGIN_URL . 'assets/js/public/simple-voice-selection.js',
+                array('jquery'), // Add your existing chatbot script as dependency if needed
+                AI_CHATBOT_VERSION,
+                true
+            );
+        }
+
         // Check if Pro features should be loaded
         $pro_enabled = $this->should_load_pro_features();
         

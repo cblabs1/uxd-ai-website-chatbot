@@ -58,6 +58,9 @@ class AI_Chatbot_Ajax {
         add_action('wp_ajax_ai_chatbot_get_conversation_rating_status', array($this, 'handle_get_conversation_rating_status'));
         add_action('wp_ajax_nopriv_ai_chatbot_get_conversation_rating_status', array($this, 'handle_get_conversation_rating_status'));
 
+        add_action('wp_ajax_ai_chatbot_save_user_voice_preferences', array($this, 'save_user_voice_preferences'));
+        add_action('wp_ajax_nopriv_ai_chatbot_save_user_voice_preferences', array($this, 'save_user_voice_preferences'));
+
     }
 
     /**
@@ -553,6 +556,57 @@ class AI_Chatbot_Ajax {
 
         set_transient($cache_key, $requests + 1, HOUR_IN_SECONDS);
         return true;
+    }
+
+    /**
+     * Save user voice preferences
+     */
+    public function save_user_voice_preferences() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'ai_chatbot_nonce')) {
+            wp_send_json_error('Security check failed');
+            return;
+        }
+        
+        $preferences = $_POST['preferences'] ?? '';
+        if (empty($preferences)) {
+            wp_send_json_error('No preferences provided');
+            return;
+        }
+        
+        $preferences_data = json_decode(stripslashes($preferences), true);
+        if (!$preferences_data) {
+            wp_send_json_error('Invalid preferences data');
+            return;
+        }
+        
+        // Sanitize preferences
+        $clean_preferences = array(
+            'gender' => sanitize_text_field($preferences_data['gender'] ?? 'female'),
+            'language' => sanitize_text_field($preferences_data['language'] ?? 'en-US'),
+            'specificVoice' => sanitize_text_field($preferences_data['specificVoice'] ?? ''),
+            'speed' => floatval($preferences_data['speed'] ?? 1.0),
+            'volume' => floatval($preferences_data['volume'] ?? 0.8),
+            'saved_at' => current_time('mysql')
+        );
+        
+        if (is_user_logged_in()) {
+            // Save to user meta for logged-in users
+            $user_id = get_current_user_id();
+            update_user_meta($user_id, 'ai_chatbot_voice_preferences', $clean_preferences);
+        } else {
+            // For non-logged users, we'll rely on localStorage (handled by frontend)
+            // You could optionally save to session here if needed
+            if (!session_id()) {
+                session_start();
+            }
+            $_SESSION['ai_chatbot_voice_preferences'] = $clean_preferences;
+        }
+        
+        wp_send_json_success(array(
+            'message' => 'Voice preferences saved successfully',
+            'preferences' => $clean_preferences
+        ));
     }
 
 
