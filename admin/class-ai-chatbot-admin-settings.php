@@ -170,6 +170,11 @@ class AI_Chatbot_Admin_Settings {
                 'audio_mode_enabled' => false,
                 'audio_mode_silence_timeout' => 30,
                 'audio_mode_max_time' => 300,
+                'voice_selection_enabled' => true,
+                'voice_gender' => 'female',
+                'voice_language' => 'en-US',
+                'specific_voice' => '',
+                'voice_personality' => 'friendly',   
             ),
             
             // Advanced Settings
@@ -435,6 +440,9 @@ class AI_Chatbot_Admin_Settings {
             case 'widget_size':
             case 'animation_style':
             case 'content_sync_frequency':
+            case 'voice_gender':
+            case 'voice_personality':
+            case 'specific_voice':
                 return sanitize_text_field($value);
 
             // Audio boolean fields
@@ -448,6 +456,7 @@ class AI_Chatbot_Admin_Settings {
             case 'audio_mode_enabled':
             case 'audio_mode_auto_start':
             case 'voice_commands_enabled':
+            case 'voice_selection_enabled':
                 return !empty($value) ? 1 : 0;
             
             // Audio language
@@ -459,19 +468,19 @@ class AI_Chatbot_Admin_Settings {
             );
             return in_array($value, $allowed_languages) ? $value : 'en-US';
         
-        // Audio numeric settings
-        case 'tts_rate':
-        case 'tts_pitch':
-            return max(0.5, min(2.0, floatval($value)));
-        
-        case 'tts_volume':
-            return max(0, min(1.0, floatval($value)));
-        
-        case 'voice_confidence_threshold':
-            return max(0, min(1.0, floatval($value)));
-        
-        case 'tts_voice':
-            return sanitize_text_field($value);
+            // Audio numeric settings
+            case 'tts_rate':
+            case 'tts_pitch':
+                return max(0.5, min(2.0, floatval($value)));
+            
+            case 'tts_volume':
+                return max(0, min(1.0, floatval($value)));
+            
+            case 'voice_confidence_threshold':
+                return max(0, min(1.0, floatval($value)));
+            
+            case 'tts_voice':
+                return sanitize_text_field($value);
 
             // Decimals
             case 'temperature':
@@ -487,9 +496,9 @@ class AI_Chatbot_Admin_Settings {
             case 'show_on_pages':
             case 'hide_on_pages':
                 return is_array($value) ? array_map('sanitize_text_field', $value) : array();
-             
-            default:
-                return sanitize_text_field($value);
+                
+                default:
+                    return sanitize_text_field($value);
         }
     }
     

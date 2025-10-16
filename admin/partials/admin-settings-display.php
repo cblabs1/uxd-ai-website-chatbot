@@ -630,49 +630,6 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </td>
                 </tr>
 
-                <tr>
-                    <th scope="row"><label for="tts_voice_name"><?php _e('Voice Selection', 'ai-website-chatbot'); ?></label></th>
-                    <td>
-                        <select id="tts_voice_name" name="ai_chatbot_settings[audio_features][tts_voice_name]">
-                            <option value=""><?php _e('Auto-select voice', 'ai-website-chatbot'); ?></option>
-                        </select>
-                        <button type="button" onclick="loadVoicesAndTest()" class="button"><?php _e('Load Voices & Test', 'ai-website-chatbot'); ?></button>
-                        <script>
-                        function loadVoicesAndTest() {
-                            const select = document.getElementById('tts_voice_name');
-                            const voices = speechSynthesis.getVoices();
-                            
-                            // Clear and populate
-                            select.innerHTML = '<option value="">Auto-select voice</option>';
-                            voices.forEach(voice => {
-                                if (voice.lang.startsWith('en')) {
-                                    const option = document.createElement('option');
-                                    option.value = voice.name;
-                                    option.textContent = `${voice.name} (${voice.lang})`;
-                                    select.appendChild(option);
-                                }
-                            });
-                            
-                            // Test selected voice
-                            const testText = 'Hello! This is a test of the selected voice.';
-                            const utterance = new SpeechSynthesisUtterance(testText);
-                            if (select.value) {
-                                const voice = voices.find(v => v.name === select.value);
-                                if (voice) utterance.voice = voice;
-                            }
-                            speechSynthesis.speak(utterance);
-                        }
-                        
-                        // Auto-load voices
-                        if (speechSynthesis.getVoices().length === 0) {
-                            speechSynthesis.onvoiceschanged = loadVoicesAndTest;
-                        } else {
-                            loadVoicesAndTest();
-                        }
-                        </script>
-                    </td>
-                </tr>
-
                 <!-- Audio Mode Settings -->
                 <tr>
                     <th colspan="2">
