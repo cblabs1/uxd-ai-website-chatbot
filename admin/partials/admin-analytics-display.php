@@ -44,11 +44,6 @@ $analytics_data = isset($analytics_data) ? $analytics_data : $this->get_analytic
                 <span class="dashicons dashicons-download"></span>
                 <?php _e('Export CSV', 'ai-website-chatbot'); ?>
             </button>
-            
-            <button type="button" class="button export-analytics" data-format="json">
-                <span class="dashicons dashicons-download"></span>
-                <?php _e('Export JSON', 'ai-website-chatbot'); ?>
-            </button>
         </div>
     </div>
     

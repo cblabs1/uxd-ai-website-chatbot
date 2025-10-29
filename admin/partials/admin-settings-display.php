@@ -931,9 +931,9 @@ $settings = wp_parse_args($all_settings, $default_settings);
         <div class="submit-section">
             <?php submit_button(__('Save Settings', 'ai-website-chatbot'), 'primary', 'submit', false); ?>
             <button type="button" class="button reset-settings"><?php _e('Reset to Defaults', 'ai-website-chatbot'); ?></button>
-            <button type="button" class="button export-settings"><?php _e('Export Settings', 'ai-website-chatbot'); ?></button>
+            <!-- <button type="button" class="button export-settings"><?php _e('Export Settings', 'ai-website-chatbot'); ?></button>
             <input type="file" class="import-settings-file" accept=".json" style="display: none;">
-            <button type="button" class="button" onclick="$('.import-settings-file').click();"><?php _e('Import Settings', 'ai-website-chatbot'); ?></button>
+            <button type="button" class="button" onclick="$('.import-settings-file').click();"><?php _e('Import Settings', 'ai-website-chatbot'); ?></button> -->
             <span class="save-indicator"></span>
         </div>
     </form>

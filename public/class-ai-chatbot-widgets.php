@@ -126,7 +126,7 @@ class AI_Chatbot_Widget extends WP_Widget {
 
             <?php if ($show_powered_by): ?>
             <div class="ai-chatbot-powered-by">
-                <small><?php esc_html_e('Powered by AI Website Chatbot', 'ai-website-chatbot'); ?></small>
+                <small><?php esc_html_e('Powered by UXD AI Website Chatbot', 'ai-website-chatbot'); ?></small>
             </div>
             <?php endif; ?>
         </div>

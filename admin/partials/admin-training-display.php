@@ -97,11 +97,6 @@ $available_tags = $this->get_available_tags();
                 <span class="dashicons dashicons-download"></span>
                 <?php _e('Export CSV', 'ai-website-chatbot'); ?>
             </button>
-            
-            <button type="button" class="button export-training-data" data-format="json">
-                <span class="dashicons dashicons-download"></span>
-                <?php _e('Export JSON', 'ai-website-chatbot'); ?>
-            </button>
         </div>
     </div>
     
@@ -551,6 +546,7 @@ $available_tags = $this->get_available_tags();
     border: 1px solid #ccd0d4;
     border-radius: 8px;
     overflow: hidden;
+    padding:10px 15px;
 }
 
 .question-preview, .answer-preview {

@@ -78,11 +78,6 @@ $conversation_stats = $this->get_conversation_statistics();
                 <span class="dashicons dashicons-download"></span>
                 <?php _e('Export CSV', 'ai-website-chatbot'); ?>
             </button>
-            
-            <button type="button" class="button export-conversations" data-format="json">
-                <span class="dashicons dashicons-download"></span>
-                <?php _e('Export JSON', 'ai-website-chatbot'); ?>
-            </button>
         </div>
     </div>
     
@@ -233,7 +228,7 @@ $conversation_stats = $this->get_conversation_statistics();
                     <?php endif; ?>
                 </tbody>
             </table>
-            
+
             <?php if (!empty($conversations) && $total_pages > 1): ?>
                 <div class="tablenav bottom">
                     <div class="tablenav-pages">
@@ -383,6 +378,7 @@ $conversation_stats = $this->get_conversation_statistics();
     border: 1px solid #ccd0d4;
     border-radius: 8px;
     overflow: hidden;
+    padding: 10px 15px;
 }
 
 .user-info {

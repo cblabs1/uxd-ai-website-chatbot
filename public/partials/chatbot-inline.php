@@ -254,7 +254,7 @@ $enable_conversation_save = isset($config['enable_conversation_save']) ? $config
     <div class="inline-chatbot-footer">
         <div class="footer-content">
             <div class="powered-by">
-                <small><?php esc_html_e('Powered by AI Website Chatbot', 'ai-website-chatbot'); ?></small>
+                <small><?php esc_html_e('Powered by UXD AI Website Chatbot', 'ai-website-chatbot'); ?></small>
             </div>
             <div class="footer-stats">
                 <span class="message-count" id="inline-message-count">0 <?php esc_html_e('messages', 'ai-website-chatbot'); ?></span>

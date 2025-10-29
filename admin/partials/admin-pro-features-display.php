@@ -42,21 +42,6 @@ if (!defined('ABSPATH')) {
             </ul>
         </div>
         
-        <!-- Advanced Analytics -->
-        <div class="pro-feature-card">
-            <div class="feature-icon">
-                <span class="dashicons dashicons-chart-area"></span>
-            </div>
-            <h3><?php _e('Advanced Analytics', 'ai-website-chatbot'); ?></h3>
-            <p><?php _e('Comprehensive insights into user behavior, conversation patterns, and chatbot performance.', 'ai-website-chatbot'); ?></p>
-            <ul class="feature-benefits">
-                <li><?php _e('Conversation funnel analysis', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('User journey tracking', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Intent classification', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Custom reports & exports', 'ai-website-chatbot'); ?></li>
-            </ul>
-        </div>
-        
         <!-- Voice Features -->
         <div class="pro-feature-card">
             <div class="feature-icon">
@@ -69,36 +54,6 @@ if (!defined('ABSPATH')) {
                 <li><?php _e('Text-to-speech responses', 'ai-website-chatbot'); ?></li>
                 <li><?php _e('Full audio conversation mode', 'ai-website-chatbot'); ?></li>
                 <li><?php _e('Voice commands support', 'ai-website-chatbot'); ?></li>
-            </ul>
-        </div>
-        
-        <!-- Lead Generation -->
-        <div class="pro-feature-card">
-            <div class="feature-icon">
-                <span class="dashicons dashicons-groups"></span>
-            </div>
-            <h3><?php _e('Lead Generation & CRM', 'ai-website-chatbot'); ?></h3>
-            <p><?php _e('Capture leads automatically and integrate with popular CRM systems.', 'ai-website-chatbot'); ?></p>
-            <ul class="feature-benefits">
-                <li><?php _e('Automatic lead capture', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Lead scoring system', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('CRM integrations', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Email notifications', 'ai-website-chatbot'); ?></li>
-            </ul>
-        </div>
-        
-        <!-- Conversation Memory -->
-        <div class="pro-feature-card">
-            <div class="feature-icon">
-                <span class="dashicons dashicons-admin-page"></span>
-            </div>
-            <h3><?php _e('Conversation Memory', 'ai-website-chatbot'); ?></h3>
-            <p><?php _e('Persistent memory across sessions for personalized user experiences.', 'ai-website-chatbot'); ?></p>
-            <ul class="feature-benefits">
-                <li><?php _e('Cross-session memory', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('User preference storage', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Conversation context retention', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Personalized interactions', 'ai-website-chatbot'); ?></li>
             </ul>
         </div>
         
@@ -116,6 +71,21 @@ if (!defined('ABSPATH')) {
                 <li><?php _e('Training data analytics', 'ai-website-chatbot'); ?></li>
             </ul>
         </div>
+
+        <!-- White Label -->
+        <div class="pro-feature-card">
+            <div class="feature-icon">
+                <span class="dashicons dashicons-admin-appearance"></span>
+            </div>
+            <h3><?php _e('White Label Options', 'ai-website-chatbot'); ?></h3>
+            <p><?php _e('Remove branding and customize the chatbot completely for your agency or brand.', 'ai-website-chatbot'); ?></p>
+            <ul class="feature-benefits">
+                <li><?php _e('Remove "Powered by" branding', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('Custom logo & branding', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('Agency/reseller licenses', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('Full customization freedom', 'ai-website-chatbot'); ?></li>
+            </ul>
+        </div>
         
         <!-- Priority Support -->
         <div class="pro-feature-card">
@@ -129,21 +99,6 @@ if (!defined('ABSPATH')) {
                 <li><?php _e('Email & live chat support', 'ai-website-chatbot'); ?></li>
                 <li><?php _e('Custom feature requests', 'ai-website-chatbot'); ?></li>
                 <li><?php _e('Setup assistance', 'ai-website-chatbot'); ?></li>
-            </ul>
-        </div>
-        
-        <!-- White Label -->
-        <div class="pro-feature-card">
-            <div class="feature-icon">
-                <span class="dashicons dashicons-admin-appearance"></span>
-            </div>
-            <h3><?php _e('White Label Options', 'ai-website-chatbot'); ?></h3>
-            <p><?php _e('Remove branding and customize the chatbot completely for your agency or brand.', 'ai-website-chatbot'); ?></p>
-            <ul class="feature-benefits">
-                <li><?php _e('Remove "Powered by" branding', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Custom logo & branding', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Agency/reseller licenses', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Full customization freedom', 'ai-website-chatbot'); ?></li>
             </ul>
         </div>
         
