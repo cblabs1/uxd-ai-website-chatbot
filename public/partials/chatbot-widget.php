@@ -97,9 +97,12 @@ $theme = 'dark';
             <form class="ai-chatbot-input-form" id="ai-chatbot-input-form">
                 <div class="ai-chatbot-input-container">
                     <?php 
-                    // Check if voice input is enabled
-                    $enable_voice = !empty($settings['audio_features']['voice_input_enabled']);
-                    if ($enable_voice): 
+                        $has_audio_features = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('audio_features');
+                        $voice_input_enabled = get_option('ai_chatbot_voice_input_enabled', false);
+                        $audio_mode_enabled = get_option('ai_chatbot_audio_mode_enabled', false);
+                        
+                        // Show voice button if Pro and enabled
+                        if ($has_audio_features && $voice_input_enabled): 
                     ?>
                     <!-- Voice Input Button -->
                     <button type="button" class="ai-chatbot-voice-btn voice-btn"
@@ -131,10 +134,26 @@ $theme = 'dark';
                     </button>
                 </div>
             </form>
-            <div class="ai-chatbot-footer">
-                <span class="ai-chatbot-powered-by">
-                    <?php _e('Powered by', 'ai-website-chatbot'); ?> <strong><?php echo esc_html(get_bloginfo('name')); ?></strong>
-                </span>
+            <?php
+            // Check if user has white label feature (Pro only)
+            $has_white_label = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('white_label');
+            $custom_branding = isset($settings['custom_branding_text']) ? $settings['custom_branding_text'] : '';
+
+            // Determine branding display
+            $show_branding = get_option('ai_chatbot_show_powered_by', true);
+            $show_branding = $show_branding && !($has_white_label && empty($custom_branding));
+            $branding_text = ($has_white_label && !empty($custom_branding)) ? $custom_branding : __('Powered by AI Website Chatbot', 'ai-website-chatbot');
+            ?>
+
+                    <!-- Footer -->
+                    <?php if ($show_branding): ?>
+                    <div class="ai-chatbot-footer">
+                        <div class="ai-chatbot-powered-by">
+                            <small><?php echo esc_html($branding_text); ?></small>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>

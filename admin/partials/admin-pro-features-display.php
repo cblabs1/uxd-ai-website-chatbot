@@ -54,35 +54,36 @@ if (!defined('ABSPATH')) {
                 <li><?php _e('Text-to-speech responses', 'ai-website-chatbot'); ?></li>
                 <li><?php _e('Full audio conversation mode', 'ai-website-chatbot'); ?></li>
                 <li><?php _e('Voice commands support', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('Select Voices from various male/female voices', 'ai-website-chatbot'); ?></li>
             </ul>
         </div>
         
-        <!-- Custom Training -->
+        <div class="pro-feature-card">
+            <div class="feature-icon">
+                <span class="dashicons dashicons-megaphone"></span>
+            </div>
+            <h3><?php _e('Advance Analytics', 'ai-website-chatbot'); ?></h3>
+            <p><?php _e('Enhanced training capabilities with csv file uploads and bulk imports.', 'ai-website-chatbot'); ?></p>
+            <ul class="feature-benefits">
+                <li><?php _e('Advanced data visualization', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('Custom date range filtering', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('Peak usage hours analysis', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('Conversation trends & patterns', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('Real-time conversation analytics', 'ai-website-chatbot'); ?></li>
+                
+            </ul>
+        </div>
+
         <div class="pro-feature-card">
             <div class="feature-icon">
                 <span class="dashicons dashicons-welcome-learn-more"></span>
             </div>
-            <h3><?php _e('Advanced Training', 'ai-website-chatbot'); ?></h3>
-            <p><?php _e('Enhanced training capabilities with file uploads and bulk imports.', 'ai-website-chatbot'); ?></p>
+            <h3><?php _e('Additional Advancements', 'ai-website-chatbot'); ?></h3>
+            <p><?php _e('Enhanced training capabilities with csv file uploads and bulk imports.', 'ai-website-chatbot'); ?></p>
             <ul class="feature-benefits">
-                <li><?php _e('Upload PDF/DOC training files', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Bulk CSV imports', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Advanced Q&A management', 'ai-website-chatbot'); ?></li>
+                <li><?php _e('CSV imports Q&A', 'ai-website-chatbot'); ?></li>
                 <li><?php _e('Training data analytics', 'ai-website-chatbot'); ?></li>
-            </ul>
-        </div>
-
-        <!-- White Label -->
-        <div class="pro-feature-card">
-            <div class="feature-icon">
-                <span class="dashicons dashicons-admin-appearance"></span>
-            </div>
-            <h3><?php _e('White Label Options', 'ai-website-chatbot'); ?></h3>
-            <p><?php _e('Remove branding and customize the chatbot completely for your agency or brand.', 'ai-website-chatbot'); ?></p>
-            <ul class="feature-benefits">
                 <li><?php _e('Remove "Powered by" branding', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Custom logo & branding', 'ai-website-chatbot'); ?></li>
-                <li><?php _e('Agency/reseller licenses', 'ai-website-chatbot'); ?></li>
                 <li><?php _e('Full customization freedom', 'ai-website-chatbot'); ?></li>
             </ul>
         </div>
@@ -176,7 +177,7 @@ if (!defined('ABSPATH')) {
 }
 
 .feature-icon .dashicons {
-    font-size: 30px;
+    font-size: 20px;
     color: white;
 }
 
@@ -203,6 +204,8 @@ if (!defined('ABSPATH')) {
     padding-left: 25px;
     position: relative;
     color: #50575e;
+    font-size: 15px;
+    line-height: 1;
 }
 
 .feature-benefits li:before {

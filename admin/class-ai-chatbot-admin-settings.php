@@ -480,6 +480,7 @@ class AI_Chatbot_Admin_Settings {
                 return max(0, min(1.0, floatval($value)));
             
             case 'tts_voice':
+            case 'custom_branding_text':
                 return sanitize_text_field($value);
 
             // Decimals

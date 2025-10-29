@@ -153,15 +153,7 @@ class AI_Chatbot_Admin {
             array($this->training, 'render_training_page')
         );
         
-        // Analytics
-        add_submenu_page(
-            'ai-chatbot',
-            __('Analytics', 'ai-website-chatbot'),
-            __('Analytics', 'ai-website-chatbot'),
-            'manage_options',
-            'ai-chatbot-analytics',
-            array($this->analytics, 'render_analytics_page')
-        );
+       
         
         // Conversations
         add_submenu_page(
@@ -175,6 +167,16 @@ class AI_Chatbot_Admin {
         
         // PRO MENU ITEMS - Only show if Pro is available
         if (function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('intelligence_engine')) {
+
+             // Analytics
+            add_submenu_page(
+                'ai-chatbot',
+                __('Analytics', 'ai-website-chatbot'),
+                __('Analytics', 'ai-website-chatbot'),
+                'manage_options',
+                'ai-chatbot-analytics',
+                array($this->analytics, 'render_analytics_page')
+            );
             
             // Semantic Intelligence (Pro)
             add_submenu_page(

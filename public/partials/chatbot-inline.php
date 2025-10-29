@@ -34,7 +34,9 @@ $enable_conversation_save = isset($config['enable_conversation_save']) ? $config
     <?php if ($show_header): ?>
     <!-- Header -->
     <div class="ai-chatbot-header-actions">
-        <?php if (filter_var($config['enableAudioMode'] ?? false, FILTER_VALIDATE_BOOLEAN)): ?>
+        <?php $has_audio_features = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('audio_features');
+            if (filter_var($config['enableAudioMode'] ?? false, FILTER_VALIDATE_BOOLEAN) && $has_audio_features): 
+        ?>
         <button type="button" class="ai-chatbot-audio-mode-btn" title="<?php _e('Start Audio Conversation', 'ai-website-chatbot'); ?>">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -192,7 +194,10 @@ $enable_conversation_save = isset($config['enable_conversation_save']) ? $config
                             <span class="dashicons dashicons-paperclip"></span>
                         </button>
                         <?php endif; ?>
-                        <?php if ($enable_voice_input): ?>
+                        <?php 
+                        $has_audio_features = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('audio_features');
+                        if ($enable_voice_input && $has_audio_features): 
+                        ?>
                         <button type="button" class="pre-action-btn voice-btn" aria-label="<?php esc_attr_e('Voice input', 'ai-website-chatbot'); ?>">
                             <span class="dashicons dashicons-microphone"></span>
                         </button>
@@ -229,7 +234,7 @@ $enable_conversation_save = isset($config['enable_conversation_save']) ? $config
                     </div>
                     <div class="input-hints">
                         <span class="hint"><?php esc_html_e('Press Shift+Enter for new line', 'ai-website-chatbot'); ?></span>
-                        <?php if ($enable_voice_input): ?>
+                        <?php if ($enable_voice_input && $has_audio_features): ?>
                         <span class="hint-separator">•</span>
                         <span class="hint voice-hint"><?php esc_html_e('Click mic for voice input', 'ai-website-chatbot'); ?></span>
                         <?php endif; ?>
@@ -250,12 +255,24 @@ $enable_conversation_save = isset($config['enable_conversation_save']) ? $config
     </div>
 
     <!-- Footer -->
-    <?php if ($show_powered_by): ?>
+    <?php // Check if user has white label feature (Pro only)
+    $has_white_label = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('white_label');
+    $settings = get_option('ai_chatbot_settings', array());
+    $custom_branding = isset($settings['custom_branding_text']) ? $settings['custom_branding_text'] : '';
+
+    // Determine what to show
+    $show_branding = $show_powered_by && !($has_white_label && empty($custom_branding));
+    $branding_text = ($has_white_label && !empty($custom_branding)) ? $custom_branding : __('Powered by UXD AI Chatbot', 'ai-website-chatbot');
+    ?>
+
     <div class="inline-chatbot-footer">
         <div class="footer-content">
+            <?php if ($show_branding): ?>
             <div class="powered-by">
-                <small><?php esc_html_e('Powered by UXD AI Website Chatbot', 'ai-website-chatbot'); ?></small>
+                <small><?php echo esc_html($branding_text); ?></small>
             </div>
+            <?php endif; ?>
+            
             <div class="footer-stats">
                 <span class="message-count" id="inline-message-count">0 <?php esc_html_e('messages', 'ai-website-chatbot'); ?></span>
                 <span class="response-time" id="inline-avg-response-time" style="display: none;">
@@ -264,7 +281,6 @@ $enable_conversation_save = isset($config['enable_conversation_save']) ? $config
             </div>
         </div>
     </div>
-    <?php endif; ?>
 
     <!-- Voice Input Modal -->
     <?php if ($enable_voice_input): ?>

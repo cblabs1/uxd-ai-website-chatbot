@@ -124,9 +124,20 @@ class AI_Chatbot_Widget extends WP_Widget {
                 </form>
             </div>
 
-            <?php if ($show_powered_by): ?>
+            <?php 
+            // Check if user has white label feature (Pro only)
+            $has_white_label = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('white_label');
+            $settings = get_option('ai_chatbot_settings', array());
+            $custom_branding = isset($settings['custom_branding_text']) ? $settings['custom_branding_text'] : '';
+
+            // Determine what to show
+            $show_branding = $show_powered_by && !($has_white_label && empty($custom_branding));
+            $branding_text = ($has_white_label && !empty($custom_branding)) ? $custom_branding : __('Powered by AI Website Chatbot', 'ai-website-chatbot');
+
+            if ($show_branding): 
+            ?>
             <div class="ai-chatbot-powered-by">
-                <small><?php esc_html_e('Powered by UXD AI Website Chatbot', 'ai-website-chatbot'); ?></small>
+                <small><?php echo esc_html($branding_text); ?></small>
             </div>
             <?php endif; ?>
         </div>

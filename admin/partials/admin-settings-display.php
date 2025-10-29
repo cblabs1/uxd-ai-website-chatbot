@@ -54,7 +54,15 @@ $settings = wp_parse_args($all_settings, $default_settings);
         <a href="#general-settings" class="nav-tab nav-tab-active"><?php _e('General', 'ai-website-chatbot'); ?></a>
         <a href="#ai-provider-settings" class="nav-tab"><?php _e('AI Provider', 'ai-website-chatbot'); ?></a>
         <a href="#display-settings" class="nav-tab"><?php _e('Display', 'ai-website-chatbot'); ?></a>
+        <?php if (ai_chatbot_is_pro() && ai_chatbot_has_feature('audio_features')): ?>
+        <!-- Show audio tab for Pro users -->
         <a href="#audio-settings" class="nav-tab"><?php _e('Audio Features', 'ai-website-chatbot'); ?></a>
+        <?php else: ?>
+            <!-- Show locked audio tab for free users -->
+            <a href="#audio-settings" class="nav-tab nav-tab-locked" title="<?php _e('Pro Feature - Upgrade to unlock', 'ai-website-chatbot'); ?>">
+                <?php _e('Audio Features', 'ai-website-chatbot'); ?> 🔒
+            </a>
+        <?php endif; ?>
         <a href="#advanced-settings" class="nav-tab"><?php _e('Advanced', 'ai-website-chatbot'); ?></a>
         <a href="#privacy-settings" class="nav-tab"><?php _e('Privacy', 'ai-website-chatbot'); ?></a>
     </div>
@@ -109,6 +117,52 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <td>
                         <textarea id="offline_message" name="ai_chatbot_settings[offline_message]" rows="3" cols="50" class="large-text"><?php echo esc_textarea($settings['offline_message']); ?></textarea>
                         <p class="description"><?php _e('Message to show when the chatbot is unavailable.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="custom_branding_text">
+                            <?php _e('Custom Branding Text', 'ai-website-chatbot'); ?>
+                            <span class="pro-badge">PRO</span>
+                        </label>
+                    </th>
+                    <td>
+                        <?php 
+                        $has_white_label = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('white_label');
+                        $custom_branding = isset($settings['custom_branding_text']) ? $settings['custom_branding_text'] : '';
+                        ?>
+                        
+                        <div class="custom-branding-wrapper <?php echo !$has_white_label ? 'pro-feature-locked' : ''; ?>">
+                            <input 
+                                type="text" 
+                                id="custom_branding_text" 
+                                name="ai_chatbot_settings[custom_branding_text]" 
+                                value="<?php echo esc_attr($custom_branding); ?>"
+                                class="regular-text"
+                                placeholder="<?php esc_attr_e('e.g., Powered by Your Company', 'ai-website-chatbot'); ?>"
+                                <?php echo !$has_white_label ? 'disabled readonly' : ''; ?>
+                            />
+                            
+                            <?php if (!$has_white_label): ?>
+                                <div class="pro-feature-overlay">
+                                    <span class="dashicons dashicons-lock"></span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <p class="description">
+                            <?php if ($has_white_label): ?>
+                                <?php _e('Custom text to display instead of "Powered by AI Website Chatbot". Leave empty to hide branding completely.', 'ai-website-chatbot'); ?>
+                            <?php else: ?>
+                                <?php _e('Replace the default "Powered by" text with your own branding.', 'ai-website-chatbot'); ?>
+                                <br>
+                                <strong><?php _e('This is a Pro feature.', 'ai-website-chatbot'); ?></strong>
+                                <a href="<?php echo admin_url('admin.php?page=ai-chatbot-pro-features'); ?>" class="button button-small">
+                                    <?php _e('Upgrade to Pro', 'ai-website-chatbot'); ?>
+                                </a>
+                            <?php endif; ?>
+                        </p>
                     </td>
                 </tr>
             </table>
@@ -305,7 +359,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
             
             
             <!-- Widget Preview -->
-            <div class="widget-preview-section">
+            <!-- <div class="widget-preview-section">
                 <h3><?php _e('Widget Preview', 'ai-website-chatbot'); ?></h3>
                 <div class="widget-preview-container">
                     <div class="widget-preview pos-bottom-right size-medium">
@@ -329,382 +383,442 @@ $settings = wp_parse_args($all_settings, $default_settings);
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
         </div>
 
         <!-- Audio Features Settings Tab -->
         <div id="audio-settings" class="tab-content" style="display:none;">
-            <h2><?php _e('Audio Features', 'ai-website-chatbot'); ?></h2>
-            <p class="description">
-                <?php _e('Configure voice input and text-to-speech features for your chatbot.', 'ai-website-chatbot'); ?>
-            </p>
 
-            <table class="form-table">
-                <!-- Enable Audio Features -->
-                <tr>
-                    <th scope="row">
-                        <label for="audio_features_enabled">
-                            <?php _e('Enable Audio Features', 'ai-website-chatbot'); ?>
-                        </label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="audio_features_enabled" 
-                                name="ai_chatbot_settings[audio_features][enabled]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['enabled'] ?? false); ?>>
-                            <span class="slider"></span>
-                        </label>
-                        <p class="description">
-                            <?php _e('Enable voice input and text-to-speech features.', 'ai-website-chatbot'); ?>
-                        </p>
-                    </td>
-                </tr>
+            <?php if (!ai_chatbot_is_pro() || !ai_chatbot_has_feature('audio_features')): ?>
+            
+                <!-- Pro Feature Locked Message -->
+                <div class="ai-chatbot-pro-feature-locked">
+                    <div class="pro-feature-lock-icon">
+                        <span class="dashicons dashicons-lock" style="font-size: 80px; color: #ddd;"></span>
+                    </div>
+                    
+                    <h2><?php _e('🔒 Audio Features (Pro)', 'ai-website-chatbot'); ?></h2>
+                    
+                    <p class="lead-text">
+                        <?php _e('Unlock powerful voice and audio capabilities for your chatbot', 'ai-website-chatbot'); ?>
+                    </p>
+                    
+                    <div class="pro-features-grid">
+                        <div class="pro-feature-card">
+                            <span class="dashicons dashicons-microphone"></span>
+                            <h3><?php _e('Voice Input', 'ai-website-chatbot'); ?></h3>
+                            <p><?php _e('Let users speak instead of type with advanced speech-to-text', 'ai-website-chatbot'); ?></p>
+                        </div>
+                        
+                        <div class="pro-feature-card">
+                            <span class="dashicons dashicons-controls-volumeon"></span>
+                            <h3><?php _e('Text-to-Speech', 'ai-website-chatbot'); ?></h3>
+                            <p><?php _e('AI responses spoken aloud with natural-sounding voices', 'ai-website-chatbot'); ?></p>
+                        </div>
+                        
+                        <div class="pro-feature-card">
+                            <span class="dashicons dashicons-format-audio"></span>
+                            <h3><?php _e('Audio Mode', 'ai-website-chatbot'); ?></h3>
+                            <p><?php _e('Hands-free conversation mode for complete voice interaction', 'ai-website-chatbot'); ?></p>
+                        </div>
+                        <div class="pro-feature-card">
+                            <span class="dashicons dashicons-translation"></span>
+                            <h3><?php _e('Multiple Voices', 'ai-website-chatbot'); ?></h3>
+                            <p><?php _e('Choose from various male and   female voices to customize your chatbot\'s audio responses', 'ai-website-chatbot'); ?></p>
+                        </div>
+                    </div>
+                    
+                    <div class="pro-upgrade-actions">
+                        <a href="<?php echo esc_url(ai_chatbot_get_upgrade_url('audio_features')); ?>" 
+                        class="button button-primary button-hero">
+                            <?php _e('Upgrade to Pro', 'ai-website-chatbot'); ?>
+                        </a>
+                        
+                        <a href="https://uxdesignexperts.com/ai-chatbot" 
+                        class="button button-secondary button-hero" 
+                        target="_blank">
+                            <?php _e('Learn More', 'ai-website-chatbot'); ?>
+                        </a>
+                    </div>
+                    
+                    <p class="pro-feature-note">
+                        <?php _e('All Pro features include priority support and regular updates', 'ai-website-chatbot'); ?>
+                    </p>
+                </div>
+            
+            <?php else: ?>
+                <h2><?php _e('Audio Features', 'ai-website-chatbot'); ?></h2>
+                <p class="description">
+                    <?php _e('Configure voice input and text-to-speech features for your chatbot.', 'ai-website-chatbot'); ?>
+                </p>
 
-                <!-- Voice Input Settings -->
-                <tr>
-                    <th colspan="2">
-                        <h3><?php _e('Voice Input (Speech-to-Text)', 'ai-website-chatbot'); ?></h3>
-                    </th>
-                </tr>
-                
-                <tr>
-                    <th scope="row">
-                        <label for="voice_input_enabled"><?php _e('Enable Voice Input', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="voice_input_enabled" 
-                                name="ai_chatbot_settings[audio_features][voice_input_enabled]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['voice_input_enabled'] ?? false); ?>>
-                            <span class="slider"></span>
-                        </label>
-                    </td>
-                </tr>
+                <table class="form-table">
+                    <!-- Enable Audio Features -->
+                    <tr>
+                        <th scope="row">
+                            <label for="audio_features_enabled">
+                                <?php _e('Enable Audio Features', 'ai-website-chatbot'); ?>
+                            </label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="audio_features_enabled" 
+                                    name="ai_chatbot_settings[audio_features][enabled]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['enabled'] ?? false); ?>>
+                                <span class="slider"></span>
+                            </label>
+                            <p class="description">
+                                <?php _e('Enable voice input and text-to-speech features.', 'ai-website-chatbot'); ?>
+                            </p>
+                        </td>
+                    </tr>
 
-                <tr>
-                    <th scope="row">
-                        <label for="voice_language"><?php _e('Voice Language', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <select id="voice_language" name="ai_chatbot_settings[audio_features][voice_language]">
-                            <?php
-                            $voice_languages = array(
-                                'en-US' => __('English (US)', 'ai-website-chatbot'),
-                                'en-GB' => __('English (UK)', 'ai-website-chatbot'),
-                                'es-ES' => __('Spanish (Spain)', 'ai-website-chatbot'),
-                                'fr-FR' => __('French', 'ai-website-chatbot'),
-                                'de-DE' => __('German', 'ai-website-chatbot'),
-                                'it-IT' => __('Italian', 'ai-website-chatbot'),
-                                'pt-BR' => __('Portuguese (Brazil)', 'ai-website-chatbot'),
-                                'ja-JP' => __('Japanese', 'ai-website-chatbot'),
-                                'zh-CN' => __('Chinese (Simplified)', 'ai-website-chatbot'),
-                            );
-                            $current_language = $settings['audio_features']['voice_language'] ?? 'en-US';
-                            foreach ($voice_languages as $code => $name) {
-                                printf(
-                                    '<option value="%s" %s>%s</option>',
-                                    esc_attr($code),
-                                    selected($current_language, $code, false),
-                                    esc_html($name)
+                    <!-- Voice Input Settings -->
+                    <tr>
+                        <th colspan="2">
+                            <h3><?php _e('Voice Input (Speech-to-Text)', 'ai-website-chatbot'); ?></h3>
+                        </th>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_input_enabled"><?php _e('Enable Voice Input', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="voice_input_enabled" 
+                                    name="ai_chatbot_settings[audio_features][voice_input_enabled]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['voice_input_enabled'] ?? false); ?>>
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_language"><?php _e('Voice Language', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <select id="voice_language" name="ai_chatbot_settings[audio_features][voice_language]">
+                                <?php
+                                $voice_languages = array(
+                                    'en-US' => __('English (US)', 'ai-website-chatbot'),
+                                    'en-GB' => __('English (UK)', 'ai-website-chatbot'),
+                                    'es-ES' => __('Spanish (Spain)', 'ai-website-chatbot'),
+                                    'fr-FR' => __('French', 'ai-website-chatbot'),
+                                    'de-DE' => __('German', 'ai-website-chatbot'),
+                                    'it-IT' => __('Italian', 'ai-website-chatbot'),
+                                    'pt-BR' => __('Portuguese (Brazil)', 'ai-website-chatbot'),
+                                    'ja-JP' => __('Japanese', 'ai-website-chatbot'),
+                                    'zh-CN' => __('Chinese (Simplified)', 'ai-website-chatbot'),
                                 );
-                            }
-                            ?>
-                        </select>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="voice_continuous"><?php _e('Continuous Listening', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="voice_continuous" 
-                                name="ai_chatbot_settings[audio_features][voice_continuous]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['voice_continuous'] ?? false); ?>>
-                            <span class="slider"></span>
-                        </label>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="voice_interim_results"><?php _e('Show Interim Results', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="voice_interim_results" 
-                                name="ai_chatbot_settings[audio_features][voice_interim_results]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['voice_interim_results'] ?? true); ?>>
-                            <span class="slider"></span>
-                        </label>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="voice_auto_send"><?php _e('Auto-Send Message', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="voice_auto_send" 
-                                name="ai_chatbot_settings[audio_features][voice_auto_send]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['voice_auto_send'] ?? false); ?>>
-                            <span class="slider"></span>
-                        </label>
-                    </td>
-                </tr>
-
-                <!-- Text-to-Speech Settings -->
-                <tr>
-                    <th colspan="2">
-                        <h3 style="margin-top: 30px;"><?php _e('Text-to-Speech (TTS)', 'ai-website-chatbot'); ?></h3>
-                    </th>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="tts_enabled"><?php _e('Enable Text-to-Speech', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="tts_enabled" 
-                                name="ai_chatbot_settings[audio_features][tts_enabled]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['tts_enabled'] ?? false); ?>>
-                            <span class="slider"></span>
-                        </label>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="tts_auto_play"><?php _e('Auto-Play Responses', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="tts_auto_play" 
-                                name="ai_chatbot_settings[audio_features][tts_auto_play]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['tts_auto_play'] ?? false); ?>>
-                            <span class="slider"></span>
-                        </label>
-                        <p class="description">
-                            <?php _e('Only plays in audio conversation mode.', 'ai-website-chatbot'); ?>
-                        </p>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="tts_rate"><?php _e('Speech Rate', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <input type="range" id="tts_rate" 
-                            name="ai_chatbot_settings[audio_features][tts_rate]" 
-                            min="0.5" max="2" step="0.1" 
-                            value="<?php echo esc_attr($settings['audio_features']['tts_rate'] ?? 1.0); ?>">
-                        <span class="range-value"><?php echo esc_html($settings['audio_features']['tts_rate'] ?? 1.0); ?>x</span>
-                        <script>
-                            document.getElementById('tts_rate').addEventListener('input', function(e) {
-                                e.target.nextElementSibling.textContent = e.target.value + 'x';
-                            });
-                        </script>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="tts_pitch"><?php _e('Speech Pitch', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <input type="range" id="tts_pitch" 
-                            name="ai_chatbot_settings[audio_features][tts_pitch]" 
-                            min="0.5" max="2" step="0.1" 
-                            value="<?php echo esc_attr($settings['audio_features']['tts_pitch'] ?? 1.0); ?>">
-                        <span class="range-value"><?php echo esc_html($settings['audio_features']['tts_pitch'] ?? 1.0); ?></span>
-                        <script>
-                            document.getElementById('tts_pitch').addEventListener('input', function(e) {
-                                e.target.nextElementSibling.textContent = e.target.value;
-                            });
-                        </script>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="tts_volume"><?php _e('Speech Volume', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <input type="range" id="tts_volume" 
-                            name="ai_chatbot_settings[audio_features][tts_volume]" 
-                            min="0" max="1" step="0.1" 
-                            value="<?php echo esc_attr($settings['audio_features']['tts_volume'] ?? 0.8); ?>">
-                        <span class="range-value"><?php echo esc_html(round(($settings['audio_features']['tts_volume'] ?? 0.8) * 100)); ?>%</span>
-                        <script>
-                            document.getElementById('tts_volume').addEventListener('input', function(e) {
-                                e.target.nextElementSibling.textContent = Math.round(e.target.value * 100) + '%';
-                            });
-                        </script>
-                    </td>
-                </tr>
-
-                <!-- ADD VOICE SELECTION SETTINGS HERE -->
-                <tr>
-                    <th scope="row">
-                        <label for="voice_selection_enabled"><?php _e('Enable Voice Selection', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="voice_selection_enabled" 
-                                name="ai_chatbot_settings[audio_features][voice_selection_enabled]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['voice_selection_enabled'] ?? false); ?>>
-                            <span class="slider"></span>
-                        </label>
-                        <p class="description"><?php _e('Allow users to choose voice options.', 'ai-website-chatbot'); ?></p>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="voice_gender"><?php _e('Default Voice Gender', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <select id="voice_gender" name="ai_chatbot_settings[audio_features][voice_gender]">
-                            <option value="female" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'female'); ?>><?php _e('Female Voice', 'ai-website-chatbot'); ?></option>
-                            <option value="male" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'male'); ?>><?php _e('Male Voice', 'ai-website-chatbot'); ?></option>
-                            <option value="neutral" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'neutral'); ?>><?php _e('Neutral Voice', 'ai-website-chatbot'); ?></option>
-                        </select>
-                        <p class="description"><?php _e('Choose the default voice gender for text-to-speech.', 'ai-website-chatbot'); ?></p>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="voice_language"><?php _e('Voice Language', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <select id="voice_language" name="ai_chatbot_settings[audio_features][voice_language]">
-                            <option value="en-US" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-US'); ?>><?php _e('English (US)', 'ai-website-chatbot'); ?></option>
-                            <option value="en-GB" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-GB'); ?>><?php _e('English (UK)', 'ai-website-chatbot'); ?></option>
-                            <option value="en-IN" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-IN'); ?>><?php _e('English (India)', 'ai-website-chatbot'); ?></option>
-                        </select>
-                        <p class="description"><?php _e('Select the language for voice synthesis.', 'ai-website-chatbot'); ?></p>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="specific_voice"><?php _e('Specific Voice', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <select id="specific_voice" name="ai_chatbot_settings[audio_features][specific_voice]" data-saved-value="<?php echo esc_attr($settings['audio_features']['specific_voice'] ?? ''); ?>">
-                            <option value=""><?php _e('Auto-select best voice', 'ai-website-chatbot'); ?></option>
-                        </select>
-                        <button type="button" id="test-voice-btn" class="button" style="margin-left: 10px;">
-                            <?php _e('Test Voice', 'ai-website-chatbot'); ?>
-                        </button>
-                        <p class="description"><?php _e('Choose a specific voice or let the system auto-select based on gender and language.', 'ai-website-chatbot'); ?></p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">
-                        <label for="voice_personality"><?php _e('Voice Personality', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <select id="voice_personality" name="ai_chatbot_settings[audio_features][voice_personality]">
-                            <option value="friendly" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'friendly'); ?>><?php _e('Friendly', 'ai-website-chatbot'); ?></option>
-                            <option value="professional" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'professional'); ?>><?php _e('Professional', 'ai-website-chatbot'); ?></option>
-                            <option value="warm" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'warm'); ?>><?php _e('Warm', 'ai-website-chatbot'); ?></option>
-                            <option value="authoritative" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'authoritative'); ?>><?php _e('Authoritative', 'ai-website-chatbot'); ?></option>
-                            <option value="cheerful" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'cheerful'); ?>><?php _e('Cheerful', 'ai-website-chatbot'); ?></option>
-                        </select>
-                        <p class="description"><?php _e('Choose the voice personality style.', 'ai-website-chatbot'); ?></p>
-                    </td>
-                </tr>
-
-                <!-- Audio Mode Settings -->
-                <tr>
-                    <th colspan="2">
-                        <h3 style="margin-top: 30px;"><?php _e('Audio Conversation Mode', 'ai-website-chatbot'); ?></h3>
-                    </th>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="audio_mode_enabled"><?php _e('Enable Audio Mode', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <label class="switch">
-                            <input type="checkbox" id="audio_mode_enabled" 
-                                name="ai_chatbot_settings[audio_features][audio_mode_enabled]" 
-                                value="1" 
-                                <?php checked($settings['audio_features']['audio_mode_enabled'] ?? false); ?>>
-                            <span class="slider"></span>
-                        </label>
-                        <p class="description">
-                            <?php _e('Enable modal-based audio conversation mode.', 'ai-website-chatbot'); ?>
-                        </p>
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="audio_mode_silence_timeout"><?php _e('Silence Timeout (seconds)', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <input type="number" id="audio_mode_silence_timeout" 
-                            name="ai_chatbot_settings[audio_features][audio_mode_silence_timeout]" 
-                            value="<?php echo esc_attr($settings['audio_features']['audio_mode_silence_timeout'] ?? 30); ?>" 
-                            min="10" max="120" class="small-text">
-                    </td>
-                </tr>
-
-                <tr>
-                    <th scope="row">
-                        <label for="audio_mode_max_time"><?php _e('Max Conversation Time (seconds)', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <input type="number" id="audio_mode_max_time" 
-                            name="ai_chatbot_settings[audio_features][audio_mode_max_time]" 
-                            value="<?php echo esc_attr($settings['audio_features']['audio_mode_max_time'] ?? 300); ?>" 
-                            min="60" max="1800" class="small-text">
-                    </td>
-                </tr>
-
-                <!-- Test Voice -->
-                <tr>
-                    <th scope="row">
-                        <label><?php _e('Test Voice Settings', 'ai-website-chatbot'); ?></label>
-                    </th>
-                    <td>
-                        <button type="button" class="button" id="test-tts-button">
-                            <?php _e('Test Voice', 'ai-website-chatbot'); ?>
-                        </button>
-                        <script>
-                            document.getElementById('test-tts-button').addEventListener('click', function() {
-                                if ('speechSynthesis' in window) {
-                                    const text = 'Hello! This is a test of the text-to-speech feature.';
-                                    const utterance = new SpeechSynthesisUtterance(text);
-                                    utterance.rate = parseFloat(document.getElementById('tts_rate').value);
-                                    utterance.pitch = parseFloat(document.getElementById('tts_pitch').value);
-                                    utterance.volume = parseFloat(document.getElementById('tts_volume').value);
-                                    utterance.lang = document.getElementById('voice_language').value;
-                                    window.speechSynthesis.speak(utterance);
-                                } else {
-                                    alert('Text-to-speech is not supported in your browser.');
+                                $current_language = $settings['audio_features']['voice_language'] ?? 'en-US';
+                                foreach ($voice_languages as $code => $name) {
+                                    printf(
+                                        '<option value="%s" %s>%s</option>',
+                                        esc_attr($code),
+                                        selected($current_language, $code, false),
+                                        esc_html($name)
+                                    );
                                 }
-                            });
-                        </script>
-                    </td>
-                </tr>
-            </table>
+                                ?>
+                            </select>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_continuous"><?php _e('Continuous Listening', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="voice_continuous" 
+                                    name="ai_chatbot_settings[audio_features][voice_continuous]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['voice_continuous'] ?? false); ?>>
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_interim_results"><?php _e('Show Interim Results', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="voice_interim_results" 
+                                    name="ai_chatbot_settings[audio_features][voice_interim_results]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['voice_interim_results'] ?? true); ?>>
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_auto_send"><?php _e('Auto-Send Message', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="voice_auto_send" 
+                                    name="ai_chatbot_settings[audio_features][voice_auto_send]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['voice_auto_send'] ?? false); ?>>
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                    </tr>
+
+                    <!-- Text-to-Speech Settings -->
+                    <tr>
+                        <th colspan="2">
+                            <h3 style="margin-top: 30px;"><?php _e('Text-to-Speech (TTS)', 'ai-website-chatbot'); ?></h3>
+                        </th>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="tts_enabled"><?php _e('Enable Text-to-Speech', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="tts_enabled" 
+                                    name="ai_chatbot_settings[audio_features][tts_enabled]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['tts_enabled'] ?? false); ?>>
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="tts_auto_play"><?php _e('Auto-Play Responses', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="tts_auto_play" 
+                                    name="ai_chatbot_settings[audio_features][tts_auto_play]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['tts_auto_play'] ?? false); ?>>
+                                <span class="slider"></span>
+                            </label>
+                            <p class="description">
+                                <?php _e('Only plays in audio conversation mode.', 'ai-website-chatbot'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="tts_rate"><?php _e('Speech Rate', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <input type="range" id="tts_rate" 
+                                name="ai_chatbot_settings[audio_features][tts_rate]" 
+                                min="0.5" max="2" step="0.1" 
+                                value="<?php echo esc_attr($settings['audio_features']['tts_rate'] ?? 1.0); ?>">
+                            <span class="range-value"><?php echo esc_html($settings['audio_features']['tts_rate'] ?? 1.0); ?>x</span>
+                            <script>
+                                document.getElementById('tts_rate').addEventListener('input', function(e) {
+                                    e.target.nextElementSibling.textContent = e.target.value + 'x';
+                                });
+                            </script>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="tts_pitch"><?php _e('Speech Pitch', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <input type="range" id="tts_pitch" 
+                                name="ai_chatbot_settings[audio_features][tts_pitch]" 
+                                min="0.5" max="2" step="0.1" 
+                                value="<?php echo esc_attr($settings['audio_features']['tts_pitch'] ?? 1.0); ?>">
+                            <span class="range-value"><?php echo esc_html($settings['audio_features']['tts_pitch'] ?? 1.0); ?></span>
+                            <script>
+                                document.getElementById('tts_pitch').addEventListener('input', function(e) {
+                                    e.target.nextElementSibling.textContent = e.target.value;
+                                });
+                            </script>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="tts_volume"><?php _e('Speech Volume', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <input type="range" id="tts_volume" 
+                                name="ai_chatbot_settings[audio_features][tts_volume]" 
+                                min="0" max="1" step="0.1" 
+                                value="<?php echo esc_attr($settings['audio_features']['tts_volume'] ?? 0.8); ?>">
+                            <span class="range-value"><?php echo esc_html(round(($settings['audio_features']['tts_volume'] ?? 0.8) * 100)); ?>%</span>
+                            <script>
+                                document.getElementById('tts_volume').addEventListener('input', function(e) {
+                                    e.target.nextElementSibling.textContent = Math.round(e.target.value * 100) + '%';
+                                });
+                            </script>
+                        </td>
+                    </tr>
+
+                    <!-- ADD VOICE SELECTION SETTINGS HERE -->
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_selection_enabled"><?php _e('Enable Voice Selection', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="voice_selection_enabled" 
+                                    name="ai_chatbot_settings[audio_features][voice_selection_enabled]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['voice_selection_enabled'] ?? false); ?>>
+                                <span class="slider"></span>
+                            </label>
+                            <p class="description"><?php _e('Allow users to choose voice options.', 'ai-website-chatbot'); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_gender"><?php _e('Default Voice Gender', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <select id="voice_gender" name="ai_chatbot_settings[audio_features][voice_gender]">
+                                <option value="female" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'female'); ?>><?php _e('Female Voice', 'ai-website-chatbot'); ?></option>
+                                <option value="male" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'male'); ?>><?php _e('Male Voice', 'ai-website-chatbot'); ?></option>
+                                <option value="neutral" <?php selected($settings['audio_features']['voice_gender'] ?? 'female', 'neutral'); ?>><?php _e('Neutral Voice', 'ai-website-chatbot'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Choose the default voice gender for text-to-speech.', 'ai-website-chatbot'); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_language"><?php _e('Voice Language', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <select id="voice_language" name="ai_chatbot_settings[audio_features][voice_language]">
+                                <option value="en-US" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-US'); ?>><?php _e('English (US)', 'ai-website-chatbot'); ?></option>
+                                <option value="en-GB" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-GB'); ?>><?php _e('English (UK)', 'ai-website-chatbot'); ?></option>
+                                <option value="en-IN" <?php selected($settings['audio_features']['voice_language'] ?? 'en-US', 'en-IN'); ?>><?php _e('English (India)', 'ai-website-chatbot'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Select the language for voice synthesis.', 'ai-website-chatbot'); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="specific_voice"><?php _e('Specific Voice', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <select id="specific_voice" name="ai_chatbot_settings[audio_features][specific_voice]" data-saved-value="<?php echo esc_attr($settings['audio_features']['specific_voice'] ?? ''); ?>">
+                                <option value=""><?php _e('Auto-select best voice', 'ai-website-chatbot'); ?></option>
+                            </select>
+                            <button type="button" id="test-voice-btn" class="button" style="margin-left: 10px;">
+                                <?php _e('Test Voice', 'ai-website-chatbot'); ?>
+                            </button>
+                            <p class="description"><?php _e('Choose a specific voice or let the system auto-select based on gender and language.', 'ai-website-chatbot'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="voice_personality"><?php _e('Voice Personality', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <select id="voice_personality" name="ai_chatbot_settings[audio_features][voice_personality]">
+                                <option value="friendly" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'friendly'); ?>><?php _e('Friendly', 'ai-website-chatbot'); ?></option>
+                                <option value="professional" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'professional'); ?>><?php _e('Professional', 'ai-website-chatbot'); ?></option>
+                                <option value="warm" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'warm'); ?>><?php _e('Warm', 'ai-website-chatbot'); ?></option>
+                                <option value="authoritative" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'authoritative'); ?>><?php _e('Authoritative', 'ai-website-chatbot'); ?></option>
+                                <option value="cheerful" <?php selected($settings['audio_features']['voice_personality'] ?? 'friendly', 'cheerful'); ?>><?php _e('Cheerful', 'ai-website-chatbot'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Choose the voice personality style.', 'ai-website-chatbot'); ?></p>
+                        </td>
+                    </tr>
+
+                    <!-- Audio Mode Settings -->
+                    <tr>
+                        <th colspan="2">
+                            <h3 style="margin-top: 30px;"><?php _e('Audio Conversation Mode', 'ai-website-chatbot'); ?></h3>
+                        </th>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="audio_mode_enabled"><?php _e('Enable Audio Mode', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" id="audio_mode_enabled" 
+                                    name="ai_chatbot_settings[audio_features][audio_mode_enabled]" 
+                                    value="1" 
+                                    <?php checked($settings['audio_features']['audio_mode_enabled'] ?? false); ?>>
+                                <span class="slider"></span>
+                            </label>
+                            <p class="description">
+                                <?php _e('Enable modal-based audio conversation mode.', 'ai-website-chatbot'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="audio_mode_silence_timeout"><?php _e('Silence Timeout (seconds)', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <input type="number" id="audio_mode_silence_timeout" 
+                                name="ai_chatbot_settings[audio_features][audio_mode_silence_timeout]" 
+                                value="<?php echo esc_attr($settings['audio_features']['audio_mode_silence_timeout'] ?? 30); ?>" 
+                                min="10" max="120" class="small-text">
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="audio_mode_max_time"><?php _e('Max Conversation Time (seconds)', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <input type="number" id="audio_mode_max_time" 
+                                name="ai_chatbot_settings[audio_features][audio_mode_max_time]" 
+                                value="<?php echo esc_attr($settings['audio_features']['audio_mode_max_time'] ?? 300); ?>" 
+                                min="60" max="1800" class="small-text">
+                        </td>
+                    </tr>
+
+                    <!-- Test Voice -->
+                    <tr>
+                        <th scope="row">
+                            <label><?php _e('Test Voice Settings', 'ai-website-chatbot'); ?></label>
+                        </th>
+                        <td>
+                            <button type="button" class="button" id="test-tts-button">
+                                <?php _e('Test Voice', 'ai-website-chatbot'); ?>
+                            </button>
+                            <script>
+                                document.getElementById('test-tts-button').addEventListener('click', function() {
+                                    if ('speechSynthesis' in window) {
+                                        const text = 'Hello! This is a test of the text-to-speech feature.';
+                                        const utterance = new SpeechSynthesisUtterance(text);
+                                        utterance.rate = parseFloat(document.getElementById('tts_rate').value);
+                                        utterance.pitch = parseFloat(document.getElementById('tts_pitch').value);
+                                        utterance.volume = parseFloat(document.getElementById('tts_volume').value);
+                                        utterance.lang = document.getElementById('voice_language').value;
+                                        window.speechSynthesis.speak(utterance);
+                                    } else {
+                                        alert('Text-to-speech is not supported in your browser.');
+                                    }
+                                });
+                            </script>
+                        </td>
+                    </tr>
+                </table>
+            <?php endif; ?>
         </div>
         
         <!-- Advanced Settings Tab -->
@@ -1178,6 +1292,151 @@ jQuery(document).ready(function($) {
 </script>
 
 <style>
+
+/* Locked Tab Styling */
+.nav-tab-locked {
+    opacity: 0.6;
+    cursor: not-allowed !important;
+    position: relative;
+}
+
+.nav-tab-locked:hover {
+    background-color: #f0f0f1 !important;
+    border-bottom-color: transparent !important;
+}
+
+/* Pro Feature Locked Page */
+.ai-chatbot-pro-feature-locked {
+    text-align: center;
+    padding: 60px 40px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.pro-feature-lock-icon {
+    margin-bottom: 30px;
+}
+
+.ai-chatbot-pro-feature-locked h2 {
+    font-size: 36px;
+    margin-bottom: 15px;
+    color: #1e293b;
+}
+
+.ai-chatbot-pro-feature-locked .lead-text {
+    font-size: 18px;
+    color: #64748b;
+    margin-bottom: 50px;
+}
+
+.pro-features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 25px;
+    margin: 40px 0;
+}
+
+.pro-feature-card {
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 30px 20px;
+    transition: all 0.3s ease;
+}
+
+.pro-feature-card:hover {
+    border-color: #667eea;
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.1);
+}
+
+.pro-feature-card .dashicons {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #667eea;
+    margin-bottom: 15px;
+}
+
+.pro-feature-card h3 {
+    font-size: 18px;
+    margin: 0 0 10px 0;
+    color: #1e293b;
+}
+
+.pro-feature-card p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.6;
+}
+
+.pro-upgrade-actions {
+    margin: 40px 0 20px 0;
+}
+
+.pro-upgrade-actions .button {
+    margin: 0 10px;
+}
+
+.pro-feature-note {
+    font-size: 14px;
+    color: #64748b;
+    margin-top: 30px;
+    font-style: italic;
+}
+
+.pro-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 8px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.custom-branding-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 400px;
+}
+
+.custom-branding-wrapper.pro-feature-locked {
+    opacity: 0.6;
+}
+
+.custom-branding-wrapper.pro-feature-locked input {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+    color: #999;
+}
+
+.pro-feature-overlay {
+    position: absolute;
+    top: 0;
+    right: 10px;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.pro-feature-overlay .dashicons {
+    font-size: 20px;
+    color: #999;
+}
+
+.custom-branding-wrapper .button-small {
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
 .ai-chatbot-settings-wrap {
     max-width: 1200px;
 }

@@ -514,7 +514,12 @@ class AI_Chatbot {
                     'audio_conversation_mode' => __('Hands-free Audio Mode', 'ai-website-chatbot'),
                     'voice_commands' => __('Voice Commands', 'ai-website-chatbot')
                 )
-            )
+            ),
+            'white_label' => array(
+                'name' => __('White Label', 'ai-website-chatbot'),
+                'available' => $this->has_pro_feature('white_label'),
+                'description' => __('Remove "Powered by" branding for a fully branded experience', 'ai-website-chatbot'),
+            ),
         );
         
         return array_merge($free_features, $pro_features);

@@ -238,6 +238,12 @@ class AI_Chatbot_Shortcodes {
                 <div class="ai-chatbot-input-area">
                     <form class="ai-chatbot-input-form" id="ai-chatbot-input-form">
                         <div class="ai-chatbot-input-container">
+                            <?php 
+                                $has_audio_features = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('audio_features');
+                                $audio_mode_enabled = filter_var($atts['enable_audio_mode'], FILTER_VALIDATE_BOOLEAN);
+
+                                if ($has_audio_features && $audio_mode_enabled): 
+                            ?>
                             <button type="button" class="ai-chatbot-voice-btn inline-widget voice-btn" title="<?php _e('Start Audio Conversation', 'ai-website-chatbot'); ?>">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -246,6 +252,7 @@ class AI_Chatbot_Shortcodes {
                                     <line x1="8" y1="23" x2="16" y2="23"></line>
                                 </svg>
                             </button>
+                            <?php endif; ?>
                             <textarea class="ai-chatbot-input ai-chatbot-input-empty" id="ai-chatbot-input" placeholder="Type your message..." rows="1" maxlength="1000" ></textarea>
                             <button type="submit" class="ai-chatbot-send-button" id="ai-chatbot-send-button" disabled="">
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -254,10 +261,20 @@ class AI_Chatbot_Shortcodes {
                             </button>
                         </div>
                     </form>
-                    <?php if (filter_var($atts['show_powered_by'], FILTER_VALIDATE_BOOLEAN)): ?>
+                    <?php 
+                    $has_white_label = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('white_label');
+                    $settings = get_option('ai_chatbot_settings', array());
+                    $custom_branding = isset($settings['custom_branding_text']) ? $settings['custom_branding_text'] : '';
+
+                    // Determine what to show
+                    $show_branding = filter_var($atts['show_powered_by'], FILTER_VALIDATE_BOOLEAN) && !($has_white_label && empty($custom_branding));
+                    $branding_text = ($has_white_label && !empty($custom_branding)) ? $custom_branding : sprintf(__('Powered by UXD AI Chatbot', 'ai-website-chatbot'));
+
+                    if ($show_branding): 
+                    ?>
                     <div class="ai-chatbot-footer">
                         <span class="ai-chatbot-powered-by">
-                            <?php _e('Powered by', 'ai-website-chatbot'); ?> <strong><?php echo esc_html(get_bloginfo('name')); ?></strong>
+                            <?php echo esc_html($branding_text); ?>
                         </span>
                     </div>
                     <?php endif; ?>
@@ -334,6 +351,8 @@ class AI_Chatbot_Shortcodes {
             
             <?php
             // Prepare config for the popup partial template
+            $has_audio_features = function_exists('ai_chatbot_has_feature') && ai_chatbot_has_feature('audio_features');
+
             $config = array(
                 'popup_id' => $popup_id,
                 'title' => $atts['title'],
@@ -345,8 +364,9 @@ class AI_Chatbot_Shortcodes {
                 'starter_button_2' => $atts['starter_button_2'],
                 'starter_button_3' => $atts['starter_button_3'],
                 'enable_file_upload' => filter_var($atts['enable_file_upload'], FILTER_VALIDATE_BOOLEAN),
-                'enable_voice_input' => filter_var($atts['enable_voice_input'], FILTER_VALIDATE_BOOLEAN),
+                'enable_voice_input' => filter_var($atts['enable_voice_input'], FILTER_VALIDATE_BOOLEAN) && $has_audio_features,
                 'enable_conversation_save' => filter_var($atts['enable_conversation_save'], FILTER_VALIDATE_BOOLEAN),
+                'enableAudioMode' => filter_var($atts['enable_audio_mode'], FILTER_VALIDATE_BOOLEAN) && $has_audio_features,
             );
 
             // Include the popup chatbot partial template  
