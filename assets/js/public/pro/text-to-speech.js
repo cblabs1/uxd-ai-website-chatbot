@@ -507,34 +507,100 @@
          * Apply voice selection settings from admin configuration - UPDATED METHOD
          */
         applyVoiceSelectionSettings: function(utterance, settings) {
-            const adminVoiceSettings = this.config.voice_selection || {};
+            const voiceConfig = this.config.voice_selection;
             
-            if (!adminVoiceSettings.enabled || !adminVoiceSettings.admin_defaults) {
+            if (!voiceConfig || !voiceConfig.enabled) {
+                console.log('Voice selection not enabled');
                 return utterance;
             }
             
-            const defaults = adminVoiceSettings.admin_defaults;
+            const adminDefaults = voiceConfig.admin_defaults || {};
+            
+            console.log('🎯 Applying admin voice selection settings:', adminDefaults);
             
             // Apply rate, pitch, volume from admin defaults
-            if (defaults.rate) utterance.rate = defaults.rate;
-            if (defaults.pitch) utterance.pitch = defaults.pitch;
-            if (defaults.volume) utterance.volume = defaults.volume;
+            if (adminDefaults.rate) {
+                utterance.rate = adminDefaults.rate;
+            }
+            if (adminDefaults.volume) {
+                utterance.volume = adminDefaults.volume;
+            }
+            // Always use neutral pitch
+            utterance.pitch = 1.0;
             
             // Find and apply best voice based on admin settings
             const voices = this.synthesis.getVoices();
             if (voices.length === 0) {
+                console.warn('⚠ No voices available yet');
                 return utterance;
             }
             
             const bestVoice = this.findBestVoice(voices, {
-                gender: defaults.gender,
-                language: defaults.language,
-                specificVoice: defaults.specific_voice
+                gender: adminDefaults.gender || 'female',
+                language: adminDefaults.language || 'en-US',
+                specificVoice: adminDefaults.specificVoice || adminDefaults.specific_voice || ''
             });
             
             if (bestVoice) {
                 utterance.voice = bestVoice;
-                console.log('Applied admin default voice:', bestVoice.name);
+                console.log('✓ Applied admin default voice:', bestVoice.name);
+            } else {
+                console.warn('⚠ Could not find suitable voice');
+            }
+            
+            return utterance;
+        },
+
+        /**
+         * Apply admin defaults to utterance - NEW HELPER METHOD
+         * This ensures admin settings are properly applied when voice selection is enabled
+         */
+        applyAdminDefaults: function(utterance) {
+            const voiceConfig = this.config.voice_selection;
+            
+            if (!voiceConfig || !voiceConfig.enabled) {
+                return utterance;
+            }
+            
+            const defaults = voiceConfig.admin_defaults || {};
+            
+            // Wait for voices to load if needed
+            const voices = this.synthesis.getVoices();
+            if (voices.length === 0) {
+                // Voices not loaded yet, set up a one-time listener
+                const self = this;
+                this.synthesis.addEventListener('voiceschanged', function handleVoices() {
+                    const loadedVoices = self.synthesis.getVoices();
+                    if (loadedVoices.length > 0) {
+                        const voice = self.findBestVoice(loadedVoices, {
+                            gender: defaults.gender,
+                            language: defaults.language,
+                            specificVoice: defaults.specificVoice || defaults.specific_voice
+                        });
+                        if (voice) {
+                            utterance.voice = voice;
+                        }
+                        self.synthesis.removeEventListener('voiceschanged', handleVoices);
+                    }
+                });
+                return utterance;
+            }
+            
+            // Apply settings
+            if (defaults.rate) utterance.rate = defaults.rate;
+            if (defaults.volume) utterance.volume = defaults.volume;
+            utterance.pitch = 1.0;
+            
+            // Find and apply best voice
+            const bestVoice = this.findBestVoice(voices, {
+                gender: defaults.gender || 'female',
+                language: defaults.language || 'en-US',
+                specificVoice: defaults.specificVoice || defaults.specific_voice || ''
+            });
+            
+            if (bestVoice) {
+                utterance.voice = bestVoice;
+                console.log('✓ Applied admin voice defaults:', bestVoice.name);
             }
             
             return utterance;
@@ -578,75 +644,84 @@
         },
 
         /**
-         * Find best voice based on criteria - NEW METHOD
+         * Find best voice based on criteria
          */
         findBestVoice: function(voices, criteria) {
-            // If specific voice is requested, find it
-            if (criteria.specificVoice) {
+            console.log('🔍 Finding best voice with criteria:', criteria);
+            
+            // Priority 1: If specific voice is requested, find it EXACTLY
+            if (criteria.specificVoice && criteria.specificVoice.trim() !== '') {
                 const specificVoice = voices.find(voice => voice.name === criteria.specificVoice);
                 if (specificVoice) {
-                    console.log('Found specific voice:', specificVoice.name);
+                    console.log('✓ Found SPECIFIC voice:', specificVoice.name);
                     return specificVoice;
+                } else {
+                    console.warn('⚠ Specific voice not found:', criteria.specificVoice);
                 }
             }
             
-            // Filter by language and gender
+            // Priority 2: Filter by language and gender
             const language = criteria.language || 'en-US';
             const gender = criteria.gender || 'female';
-            const langPrefix = language.split('-')[0];
+            const langPrefix = language.split('-')[0].toLowerCase();
+            
+            console.log('Filtering by - Language:', language, 'Gender:', gender);
             
             const filteredVoices = voices.filter(voice => {
                 // Check language match
-                const matchesLanguage = voice.lang.toLowerCase().startsWith(langPrefix.toLowerCase()) ||
-                                        voice.lang.toLowerCase().includes(langPrefix.toLowerCase());
+                const voiceLang = voice.lang.toLowerCase();
+                const matchesLanguage = voiceLang.startsWith(langPrefix) || 
+                                        voiceLang.includes(langPrefix) ||
+                                        voiceLang === language.toLowerCase();
                 
                 const voiceName = voice.name.toLowerCase();
                 
-                // Check gender match
+                // Check gender match with comprehensive detection
                 let matchesGender = true;
                 if (gender === 'male') {
                     matchesGender = voiceName.includes('male') || 
-                                    voiceName.includes('david') || 
-                                    voiceName.includes('mark') ||
-                                    voiceName.includes('daniel') || 
-                                    voiceName.includes('george') ||
-                                    voiceName.includes('james') ||
-                                    (!voiceName.includes('female') && 
-                                    !voiceName.includes('zira') && 
-                                    !voiceName.includes('susan'));
+                                    voiceName.includes('david') || voiceName.includes('mark') ||
+                                    voiceName.includes('daniel') || voiceName.includes('george') ||
+                                    voiceName.includes('james') || voiceName.includes('oliver') ||
+                                    voiceName.includes('thomas') || voiceName.includes('william') ||
+                                    voiceName.includes('rishi') || voiceName.includes('amit') ||
+                                    (!voiceName.includes('female') && !voiceName.includes('zira') && 
+                                    !voiceName.includes('susan') && !voiceName.includes('helen'));
                 } else if (gender === 'female') {
                     matchesGender = voiceName.includes('female') || 
-                                    voiceName.includes('zira') || 
-                                    voiceName.includes('susan') || 
-                                    voiceName.includes('helen') ||
-                                    voiceName.includes('samantha') || 
-                                    voiceName.includes('karen') ||
-                                    voiceName.includes('moira') ||
-                                    voiceName.includes('tessa') ||
-                                    voiceName.includes('fiona');
+                                    voiceName.includes('zira') || voiceName.includes('susan') ||
+                                    voiceName.includes('helen') || voiceName.includes('hazel') ||
+                                    voiceName.includes('samantha') || voiceName.includes('karen') ||
+                                    voiceName.includes('moira') || voiceName.includes('tessa') ||
+                                    voiceName.includes('fiona') || voiceName.includes('priya') ||
+                                    voiceName.includes('swara') ||
+                                    (!voiceName.includes('male') && !voiceName.includes('david') && 
+                                    !voiceName.includes('mark') && !voiceName.includes('george'));
+                } else if (gender === 'neutral') {
+                    // For neutral, prefer voices that don't explicitly indicate gender
+                    matchesGender = !voiceName.includes('male') && !voiceName.includes('female');
                 }
                 
                 return matchesLanguage && matchesGender;
             });
             
-            // Return first filtered voice or first available voice
+            console.log('Found', filteredVoices.length, 'matching voices');
+            
+            // Return first filtered voice or fallback
             if (filteredVoices.length > 0) {
-                console.log('Found matching voice:', filteredVoices[0].name, 'from', filteredVoices.length, 'options');
+                console.log('✓ Selected voice:', filteredVoices[0].name, '(' + filteredVoices[0].lang + ')');
                 return filteredVoices[0];
             }
             
-            // Fallback to first voice matching language only
-            const langMatches = voices.filter(voice => 
-                voice.lang.toLowerCase().startsWith(langPrefix.toLowerCase())
-            );
-            
-            if (langMatches.length > 0) {
-                console.log('Using language-only match:', langMatches[0].name);
-                return langMatches[0];
+            // Fallback: try to find any voice matching the language
+            const langFallback = voices.find(v => v.lang.toLowerCase().startsWith(langPrefix));
+            if (langFallback) {
+                console.log('⚠ Using language fallback:', langFallback.name);
+                return langFallback;
             }
             
-            // Ultimate fallback
-            console.log('Using fallback voice:', voices[0]?.name);
+            // Last resort: return first voice
+            console.warn('⚠ Using first available voice as last resort');
             return voices[0];
         },
         /**

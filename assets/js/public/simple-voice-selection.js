@@ -251,44 +251,98 @@
         getBestVoice() {
             const gender = document.querySelector('#voice-gender')?.value || 'female';
             const language = document.querySelector('#voice-language')?.value || 'en-US';
-
-            return this.voices.find(voice => {
-                const matchesLanguage = voice.lang.toLowerCase().includes(language.toLowerCase()) || 
-                                    voice.lang.toLowerCase().startsWith(language.split('-')[0]);
+            const specificVoice = document.querySelector('#specific-voice')?.value;
+            
+            // If specific voice is selected, use it
+            if (specificVoice && specificVoice !== '') {
+                const voice = this.voices.find(v => v.name === specificVoice);
+                if (voice) {
+                    console.log('Using specific voice:', voice.name);
+                    return voice;
+                }
+            }
+            
+            // Otherwise find best match based on gender and language
+            const langPrefix = language.split('-')[0].toLowerCase();
+            
+            const matchedVoice = this.voices.find(voice => {
+                const voiceLang = voice.lang.toLowerCase();
+                const matchesLanguage = voiceLang.includes(language.toLowerCase()) || 
+                                        voiceLang.startsWith(langPrefix);
                 const voiceName = voice.name.toLowerCase();
                 
                 let matchesGender = true;
                 if (gender === 'male') {
                     matchesGender = voiceName.includes('male') || 
-                                // Comprehensive male voice detection
-                                voiceName.includes('david') || voiceName.includes('mark') || 
-                                voiceName.includes('daniel') || voiceName.includes('george') ||
-                                voiceName.includes('oliver') || voiceName.includes('thomas') ||
-                                voiceName.includes('james') || voiceName.includes('william') ||
-                                voiceName.includes('arthur') || voiceName.includes('ryan') ||
-                                voiceName.includes('christopher') || voiceName.includes('andrew') ||
-                                voiceName.includes('arun') || voiceName.includes('amit') ||
-                                voiceName.includes('rajan') || voiceName.includes('vivek') ||
-                                (!voiceName.includes('female') && !voiceName.includes('zira') && 
-                                !voiceName.includes('susan') && !voiceName.includes('helen'));
+                                    voiceName.includes('david') || voiceName.includes('mark') || 
+                                    voiceName.includes('daniel') || voiceName.includes('george') ||
+                                    voiceName.includes('oliver') || voiceName.includes('thomas') ||
+                                    voiceName.includes('james') || voiceName.includes('william') ||
+                                    voiceName.includes('arthur') || voiceName.includes('ryan') ||
+                                    voiceName.includes('christopher') || voiceName.includes('andrew') ||
+                                    voiceName.includes('arun') || voiceName.includes('amit') ||
+                                    voiceName.includes('rajan') || voiceName.includes('vivek') ||
+                                    (!voiceName.includes('female') && !voiceName.includes('zira') && 
+                                    !voiceName.includes('susan') && !voiceName.includes('helen'));
                 } else if (gender === 'female') {
                     matchesGender = voiceName.includes('female') || 
-                                // Comprehensive female voice detection
-                                voiceName.includes('zira') || voiceName.includes('susan') ||
-                                voiceName.includes('helen') || voiceName.includes('hazel') ||
-                                voiceName.includes('samantha') || voiceName.includes('allison') ||
-                                voiceName.includes('ava') || voiceName.includes('emma') ||
-                                voiceName.includes('aria') || voiceName.includes('jenny') ||
-                                voiceName.includes('michelle') || voiceName.includes('natasha') ||
-                                voiceName.includes('emily') || voiceName.includes('chloe') ||
-                                voiceName.includes('priya') || voiceName.includes('swara') ||
-                                voiceName.includes('shruti') || voiceName.includes('kavya') ||
-                                (!voiceName.includes('male') && !voiceName.includes('david') && 
-                                !voiceName.includes('mark') && !voiceName.includes('george'));
+                                    voiceName.includes('zira') || voiceName.includes('susan') ||
+                                    voiceName.includes('helen') || voiceName.includes('hazel') ||
+                                    voiceName.includes('samantha') || voiceName.includes('allison') ||
+                                    voiceName.includes('ava') || voiceName.includes('emma') ||
+                                    voiceName.includes('aria') || voiceName.includes('jenny') ||
+                                    voiceName.includes('michelle') || voiceName.includes('natasha') ||
+                                    voiceName.includes('emily') || voiceName.includes('chloe') ||
+                                    voiceName.includes('priya') || voiceName.includes('swara') ||
+                                    voiceName.includes('shruti') || voiceName.includes('kavya') ||
+                                    (!voiceName.includes('male') && !voiceName.includes('david') && 
+                                    !voiceName.includes('mark') && !voiceName.includes('george'));
+                } else if (gender === 'neutral') {
+                    // For neutral, prefer voices that don't explicitly indicate gender
+                    matchesGender = !voiceName.includes('male') && !voiceName.includes('female');
                 }
                 
                 return matchesLanguage && matchesGender;
-            }) || this.voices.find(voice => voice.lang.toLowerCase().startsWith('en')) || this.voices[0];
+            });
+            
+            // Return matched voice, or fallback to language match, or first English voice, or first voice
+            return matchedVoice || 
+                this.voices.find(voice => voice.lang.toLowerCase().startsWith(langPrefix)) || 
+                this.voices.find(voice => voice.lang.toLowerCase().startsWith('en')) || 
+                this.voices[0];
+        }
+
+
+        /**
+         * Check if user has custom preferences (different from admin defaults)
+         * This helps determine priority in audio-mode.js
+         */
+        hasCustomPreferences() {
+            const saved = this.loadUserPreferences();
+            
+            // If no saved preferences, no custom preferences
+            if (!saved || Object.keys(saved).length === 0) {
+                return false;
+            }
+            
+            // If we have admin defaults from window.aiChatbotVoiceSelection
+            if (window.aiChatbotVoiceSelection && window.aiChatbotVoiceSelection.adminDefaults) {
+                const adminDefaults = window.aiChatbotVoiceSelection.adminDefaults;
+                
+                // Check if any saved preference is different from admin default
+                if (saved.gender && saved.gender !== adminDefaults.gender) return true;
+                if (saved.language && saved.language !== adminDefaults.language) return true;
+                if (saved.specificVoice && saved.specificVoice !== adminDefaults.specificVoice) return true;
+                if (saved.speed && saved.speed !== adminDefaults.rate) return true;
+                if (saved.volume && saved.volume !== adminDefaults.volume) return true;
+            }
+            
+            // If we have any saved preferences and no admin defaults, consider them custom
+            if (saved.gender || saved.language || saved.specificVoice) {
+                return true;
+            }
+            
+            return false;
         }
 
         saveVoiceSettings() {

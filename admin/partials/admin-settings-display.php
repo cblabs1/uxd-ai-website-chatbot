@@ -604,16 +604,15 @@ $settings = wp_parse_args($all_settings, $default_settings);
                         <label for="specific_voice"><?php _e('Specific Voice', 'ai-website-chatbot'); ?></label>
                     </th>
                     <td>
-                        <select id="specific_voice" name="ai_chatbot_settings[audio_features][specific_voice]">
+                        <select id="specific_voice" name="ai_chatbot_settings[audio_features][specific_voice]" data-saved-value="<?php echo esc_attr($settings['audio_features']['specific_voice'] ?? ''); ?>">
                             <option value=""><?php _e('Auto-select best voice', 'ai-website-chatbot'); ?></option>
                         </select>
                         <button type="button" id="test-voice-btn" class="button" style="margin-left: 10px;">
                             <?php _e('Test Voice', 'ai-website-chatbot'); ?>
                         </button>
-                        <p class="description"><?php _e('Choose a specific voice or let the system auto-select.', 'ai-website-chatbot'); ?></p>
+                        <p class="description"><?php _e('Choose a specific voice or let the system auto-select based on gender and language.', 'ai-website-chatbot'); ?></p>
                     </td>
                 </tr>
-
                 <tr>
                     <th scope="row">
                         <label for="voice_personality"><?php _e('Voice Personality', 'ai-website-chatbot'); ?></label>
@@ -942,75 +941,204 @@ $settings = wp_parse_args($all_settings, $default_settings);
 
 <script type="text/javascript">
 jQuery(document).ready(function($) {
-    // Voice selection functionality
+    // IMPROVED: More flexible gender detection
+    function detectVoiceGender(voiceName) {
+        const name = voiceName.toLowerCase();
+        
+        // Explicit gender in name
+        if (name.includes('female') && !name.includes('male female')) return 'female';
+        if (name.includes('male') && !name.includes('female')) return 'male';
+        
+        // Known male names
+        const maleNames = ['david', 'mark', 'daniel', 'george', 'james', 'oliver', 
+                          'thomas', 'william', 'ryan', 'christopher', 'andrew',
+                          'rishi', 'amit', 'arun', 'rajan', 'vivek'];
+        if (maleNames.some(n => name.includes(n))) return 'male';
+        
+        // Known female names
+        const femaleNames = ['zira', 'susan', 'helen', 'samantha', 'karen', 'victoria', 
+                            'kate', 'hazel', 'fiona', 'moira', 'tessa', 'sarah',
+                            'priya', 'swara', 'shruti', 'kavya', 'natasha', 'allison',
+                            'ava', 'emma', 'aria', 'jenny', 'michelle', 'emily', 'chloe'];
+        if (femaleNames.some(n => name.includes(n))) return 'female';
+        
+        // Heuristic: If no clear indicator, return null (unknown)
+        return null;
+    }
+    
     function loadAvailableVoices() {
         if ('speechSynthesis' in window) {
+            let voicesLoadedOnce = false;
+            
             function updateVoices() {
                 const voices = speechSynthesis.getVoices();
+                
+                if (voices.length === 0 || voicesLoadedOnce) {
+                    return;
+                }
+                
+                voicesLoadedOnce = true;
+                
                 const $voiceSelect = $('#specific_voice');
-                const currentVoice = $voiceSelect.val();
+                const savedVoice = $voiceSelect.attr('data-saved-value');
                 const selectedGender = $('#voice_gender').val();
                 const selectedLanguage = $('#voice_language').val();
                 
-                // Clear existing options except first
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('🎙️ Admin Voice Filtering');
+                console.log('Total voices:', voices.length);
+                console.log('Selected gender:', selectedGender);
+                console.log('Selected language:', selectedLanguage);
+                
+                // Clear options
                 $voiceSelect.find('option:not(:first)').remove();
                 
-                // Filter voices by gender and language
-                const filteredVoices = voices.filter(voice => {
-                    const matchesLanguage = voice.lang.startsWith(selectedLanguage.split('-')[0]) || voice.lang.includes(selectedLanguage);
-                    const voiceName = voice.name.toLowerCase();
-                    
-                    let matchesGender = true;
-                    if (selectedGender === 'male') {
-                        matchesGender = voiceName.includes('male') || 
-                                      voiceName.includes('david') || voiceName.includes('mark') || 
-                                      voiceName.includes('zeke') || voiceName.includes('guy') ||
-                                      voiceName.includes('daniel') || voiceName.includes('george') ||
-                                      voiceName.includes('oliver') || voiceName.includes('thomas') ||
-                                      voiceName.includes('arun') || voiceName.includes('amit') ||
-                                      (!voiceName.includes('female') && !voiceName.includes('zira') && 
-                                       !voiceName.includes('susan') && !voiceName.includes('helen'));
-                    } else if (selectedGender === 'female') {
-                        matchesGender = voiceName.includes('female') || 
-                                      voiceName.includes('zira') || voiceName.includes('susan') ||
-                                      voiceName.includes('helen') || voiceName.includes('hazel') ||
-                                      voiceName.includes('samantha') || voiceName.includes('aria') ||
-                                      voiceName.includes('priya') || voiceName.includes('swara') ||
-                                      (!voiceName.includes('male') && !voiceName.includes('david') && 
-                                       !voiceName.includes('mark') && !voiceName.includes('george'));
-                    }
-                    
-                    return matchesLanguage && matchesGender;
+                // First: Filter by language
+                const languageMatches = voices.filter(voice => {
+                    return voice.lang.startsWith(selectedLanguage.split('-')[0]) || 
+                           voice.lang.includes(selectedLanguage);
                 });
                 
-                // Add filtered voices to select
+                console.log('Language matches:', languageMatches.length);
+                
+                // Analyze available genders
+                const genderAnalysis = {
+                    male: [],
+                    female: [],
+                    unknown: []
+                };
+                
+                languageMatches.forEach(voice => {
+                    const gender = detectVoiceGender(voice.name);
+                    if (gender === 'male') {
+                        genderAnalysis.male.push(voice);
+                    } else if (gender === 'female') {
+                        genderAnalysis.female.push(voice);
+                    } else {
+                        genderAnalysis.unknown.push(voice);
+                    }
+                });
+                
+                console.log('Gender breakdown:');
+                console.log('  Male:', genderAnalysis.male.length);
+                console.log('  Female:', genderAnalysis.female.length);
+                console.log('  Unknown:', genderAnalysis.unknown.length);
+                
+                // Select voices based on gender preference
+                let filteredVoices = [];
+                
+                if (selectedGender === 'male') {
+                    filteredVoices = genderAnalysis.male;
+                    // If not enough male voices, include unknowns
+                    if (filteredVoices.length < 5) {
+                        console.log('⚠️ Only', filteredVoices.length, 'male voices found, including unknowns');
+                        filteredVoices = [...filteredVoices, ...genderAnalysis.unknown];
+                    }
+                } else if (selectedGender === 'female') {
+                    filteredVoices = genderAnalysis.female;
+                    // If not enough female voices, include unknowns
+                    if (filteredVoices.length < 5) {
+                        console.log('⚠️ Only', filteredVoices.length, 'female voices found, including unknowns');
+                        filteredVoices = [...filteredVoices, ...genderAnalysis.unknown];
+                    }
+                } else if (selectedGender === 'neutral') {
+                    // For neutral, prefer unknowns but show all
+                    filteredVoices = [...genderAnalysis.unknown, ...genderAnalysis.male, ...genderAnalysis.female];
+                }
+                
+                console.log('✅ Final filtered:', filteredVoices.length, 'voices');
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                
+                // Add voices to dropdown
                 filteredVoices.forEach(voice => {
+                    const gender = detectVoiceGender(voice.name);
+                    const genderIcon = gender === 'male' ? '♂️' : gender === 'female' ? '♀️' : '⚪';
+                    
                     const option = $('<option></option>')
                         .attr('value', voice.name)
-                        .text(voice.name + ' (' + voice.lang + ')');
+                        .text(genderIcon + ' ' + voice.name + ' (' + voice.lang + ')');
                     
-                    if (voice.name === currentVoice) {
+                    if (voice.name === savedVoice) {
                         option.attr('selected', 'selected');
+                        console.log('✓ Restored saved voice:', voice.name);
                     }
                     
                     $voiceSelect.append(option);
                 });
+                
+                if (filteredVoices.length === 0) {
+                    const warningOption = $('<option></option>')
+                        .attr('value', '')
+                        .attr('disabled', true)
+                        .text('⚠️ No voices available for ' + selectedLanguage);
+                    $voiceSelect.append(warningOption);
+                }
             }
             
             updateVoices();
-            speechSynthesis.onvoiceschanged = updateVoices;
+            
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = updateVoices;
+            }
+            
+            setTimeout(updateVoices, 100);
+            setTimeout(updateVoices, 500);
         }
     }
     
-    // Load voices on page load
     loadAvailableVoices();
     
-    // Reload voices when gender or language changes
+    // Reload on gender/language change
     $('#voice_gender, #voice_language').on('change', function() {
-        loadAvailableVoices();
+        console.log('🔄 Reloading voices...');
+        $('#specific_voice').attr('data-saved-value', '');
+        
+        const $voiceSelect = $('#specific_voice');
+        $voiceSelect.find('option:not(:first)').remove();
+        
+        const voices = speechSynthesis.getVoices();
+        const selectedGender = $('#voice_gender').val();
+        const selectedLanguage = $('#voice_language').val();
+        
+        // Filter by language first
+        const languageMatches = voices.filter(voice => {
+            return voice.lang.startsWith(selectedLanguage.split('-')[0]) || 
+                   voice.lang.includes(selectedLanguage);
+        });
+        
+        // Then by gender
+        let filteredVoices = [];
+        
+        if (selectedGender === 'male') {
+            const males = languageMatches.filter(v => {
+                const gender = detectVoiceGender(v.name);
+                return gender === 'male' || gender === null; // Include unknowns
+            });
+            filteredVoices = males;
+        } else if (selectedGender === 'female') {
+            const females = languageMatches.filter(v => {
+                const gender = detectVoiceGender(v.name);
+                return gender === 'female' || gender === null; // Include unknowns
+            });
+            filteredVoices = females;
+        } else {
+            filteredVoices = languageMatches;
+        }
+        
+        console.log('Found', filteredVoices.length, 'voices for', selectedGender);
+        
+        filteredVoices.forEach(voice => {
+            const gender = detectVoiceGender(voice.name);
+            const genderIcon = gender === 'male' ? '♂️' : gender === 'female' ? '♀️' : '⚪';
+            
+            const option = $('<option></option>')
+                .attr('value', voice.name)
+                .text(genderIcon + ' ' + voice.name + ' (' + voice.lang + ')');
+            $voiceSelect.append(option);
+        });
     });
     
-    // Test voice functionality
+    // Test voice
     $('#test-voice-btn').on('click', function() {
         const selectedVoice = $('#specific_voice').val();
         const testText = 'Hello! This is a test of the selected voice. How do I sound?';
@@ -1025,6 +1153,7 @@ jQuery(document).ready(function($) {
                 const voice = voices.find(v => v.name === selectedVoice);
                 if (voice) {
                     utterance.voice = voice;
+                    console.log('Testing voice:', voice.name);
                 }
             }
             
@@ -1036,13 +1165,13 @@ jQuery(document).ready(function($) {
             
             const $btn = $(this);
             const originalText = $btn.text();
-            $btn.text('Speaking...').prop('disabled', true);
+            $btn.text('<?php _e('Speaking...', 'ai-website-chatbot'); ?>').prop('disabled', true);
             
             utterance.onend = function() {
                 $btn.text(originalText).prop('disabled', false);
             };
         } else {
-            alert('Speech synthesis is not supported in this browser.');
+            alert('<?php _e('Speech synthesis is not supported in this browser.', 'ai-website-chatbot'); ?>');
         }
     });
 });
