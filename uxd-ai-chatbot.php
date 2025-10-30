@@ -5,7 +5,7 @@
  * Plugin URI: https://wordpress.org/plugins/ai-website-chatbot
  * GitHub Plugin URI: https://github.com/cblabs1/uxd-ai-website-chatbot.git
  * Description: An intelligent chatbot that learns from your website content and integrates with multiple AI platforms. GDPR compliant with privacy controls.
- * Version: 11.6.4
+ * Version: 11.6.5
  * Update URI: https://api.freemius.com
  * Requires at least: 5.0
  * Requires PHP: 7.4
@@ -25,7 +25,7 @@ if ( !defined( 'ABSPATH' ) ) {
     exit;
 }
 // Define plugin constants
-define( 'AI_CHATBOT_VERSION', '11.6.3' );
+define( 'AI_CHATBOT_VERSION', '11.6.5' );
 define( 'AI_CHATBOT_PLUGIN_FILE', __FILE__ );
 define( 'AI_CHATBOT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AI_CHATBOT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -52,7 +52,9 @@ if ( !function_exists( 'uxd_ai_chatbot_fs' ) ) {
                 'wp_org_gatekeeper' => 'OA7#BoRiBNqdf52FvzEf!!074aRLPs8fspif$7K1#4u4Csys1fQlCecVcUTOs2mcpeVHi#C2j9d09fOTvbC0HloPT7fFee5WdS3G',
                 'menu'              => array(
                     'slug'    => 'ai-chatbot-license',
+					'account'    => true,
                     'support' => false,
+					'first-path' => 'admin.php?page=ai-chatbot-license-account',
                     'parent'  => array(
                         'slug' => 'ai-chatbot',
                     ),
@@ -181,11 +183,11 @@ if ( !function_exists( 'ai_chatbot_get_upgrade_url' ) ) {
      * @return string Upgrade URL
      */
     function ai_chatbot_get_upgrade_url(  $feature = 'general'  ) {
-        if ( function_exists( 'uc_fs' ) ) {
-            $fs = uc_fs();
+        if ( function_exists( 'uxd_ai_chatbot_fs' ) ) {
+            $fs = uxd_ai_chatbot_fs();
             return $fs->get_upgrade_url();
         }
-        return admin_url( 'admin.php?page=ai-chatbot-license' );
+        return admin_url( 'admin.php?page=ai-chatbot-license-pricing' );
     }
 
 }
@@ -243,13 +245,13 @@ if ( !function_exists( 'ai_chatbot_get_license_info' ) ) {
      * @return array License information
      */
     function ai_chatbot_get_license_info() {
-        if ( !function_exists( 'uc_fs' ) ) {
+        if ( !function_exists( 'uxd_ai_chatbot_fs' ) ) {
             return array(
                 'type'   => 'free',
                 'status' => 'inactive',
             );
         }
-        $fs = uc_fs();
+        $fs = uxd_ai_chatbot_fs();
         if ( !$fs->is_premium() ) {
             return array(
                 'type'   => 'free',

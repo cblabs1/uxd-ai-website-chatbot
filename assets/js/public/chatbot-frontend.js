@@ -341,7 +341,7 @@
                 <div class="ai-chatbot-prechat-form">
                     <div class="prechat-header">
                         <div class="prechat-avatar">👋</div>
-                        <h3>Hi, I am Teekeydee!</h3>
+                        <h3>Hi, Buddy!</h3>
                         <p>To get started, please share your details.</p>
                     </div>
                     <form id="ai-chatbot-prechat-inline-form" class="prechat-form">
