@@ -1055,6 +1055,155 @@ $settings = wp_parse_args($all_settings, $default_settings);
                         <p class="description"><?php _e('Automatically anonymize personal data in conversations.', 'ai-website-chatbot'); ?></p>
                     </td>
                 </tr>
+                <!-- GDPR Consent Messages Customization -->
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row" colspan="2">
+                        <h3><?php _e('Consent Banner Customization', 'ai-website-chatbot'); ?></h3>
+                        <p class="description"><?php _e('Customize the cookie consent banner messages.', 'ai-website-chatbot'); ?></p>
+                    </th>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row">
+                        <label for="consent_title"><?php _e('Consent Banner Title', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" 
+                            id="consent_title" 
+                            name="ai_chatbot_settings[gdpr][consent_title]" 
+                            value="<?php echo esc_attr($settings['gdpr']['consent_title'] ?? 'Cookie Consent'); ?>" 
+                            class="regular-text">
+                        <p class="description"><?php _e('Title shown in the consent banner.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row">
+                        <label for="consent_message"><?php _e('Consent Message', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <textarea id="consent_message" 
+                                name="ai_chatbot_settings[gdpr][consent_message]" 
+                                rows="3" 
+                                class="large-text"><?php echo esc_textarea($settings['gdpr']['consent_message'] ?? 'We use cookies and collect conversation data to improve our AI chatbot service. Your conversations may be processed by third-party AI providers.'); ?></textarea>
+                        <p class="description"><?php _e('Main message explaining data collection and cookie usage.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row">
+                        <label for="consent_accept_text"><?php _e('Accept Button Text', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" 
+                            id="consent_accept_text" 
+                            name="ai_chatbot_settings[gdpr][consent_accept_text]" 
+                            value="<?php echo esc_attr($settings['gdpr']['consent_accept_text'] ?? 'Accept'); ?>" 
+                            class="regular-text">
+                        <p class="description"><?php _e('Text for the accept button.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row">
+                        <label for="consent_decline_text"><?php _e('Decline Button Text', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" 
+                            id="consent_decline_text" 
+                            name="ai_chatbot_settings[gdpr][consent_decline_text]" 
+                            value="<?php echo esc_attr($settings['gdpr']['consent_decline_text'] ?? 'Decline'); ?>" 
+                            class="regular-text">
+                        <p class="description"><?php _e('Text for the decline button.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row">
+                        <label for="consent_accepted_message"><?php _e('Accepted Message', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" 
+                            id="consent_accepted_message" 
+                            name="ai_chatbot_settings[gdpr][consent_accepted_message]" 
+                            value="<?php echo esc_attr($settings['gdpr']['consent_accepted_message'] ?? 'Thank you! You can now use the chatbot.'); ?>" 
+                            class="regular-text">
+                        <p class="description"><?php _e('Message shown after user accepts consent.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row">
+                        <label for="consent_declined_message"><?php _e('Declined Message', 'ai-website-chatbot'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" 
+                            id="consent_declined_message" 
+                            name="ai_chatbot_settings[gdpr][consent_declined_message]" 
+                            value="<?php echo esc_attr($settings['gdpr']['consent_declined_message'] ?? 'You have declined. The chatbot will not be available.'); ?>" 
+                            class="regular-text">
+                        <p class="description"><?php _e('Message shown after user declines consent.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row" colspan="2">
+                        <h3><?php _e('Consent Statistics', 'ai-website-chatbot'); ?></h3>
+                    </th>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <td colspan="2">
+                        <?php
+                        // Get consent statistics
+                        if (class_exists('AI_Chatbot_GDPR_Consent')) {
+                            $stats = AI_Chatbot_GDPR_Consent::get_consent_stats(30);
+                            ?>
+                            <div class="consent-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div class="stat-box" style="background: #f0fdf4; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #15803d;"><?php echo esc_html($stats['accepted']); ?></div>
+                                    <div style="font-size: 14px; color: #4ade80;"><?php _e('Accepted', 'ai-website-chatbot'); ?></div>
+                                </div>
+                                
+                                <div class="stat-box" style="background: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #b91c1c;"><?php echo esc_html($stats['declined']); ?></div>
+                                    <div style="font-size: 14px; color: #f87171;"><?php _e('Declined', 'ai-website-chatbot'); ?></div>
+                                </div>
+                                
+                                <div class="stat-box" style="background: #fffbeb; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #d97706;"><?php echo esc_html($stats['revoked']); ?></div>
+                                    <div style="font-size: 14px; color: #fbbf24;"><?php _e('Revoked', 'ai-website-chatbot'); ?></div>
+                                </div>
+                                
+                                <div class="stat-box" style="background: #eff6ff; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #1e40af;"><?php echo esc_html($stats['acceptance_rate']); ?>%</div>
+                                    <div style="font-size: 14px; color: #60a5fa;"><?php _e('Acceptance Rate', 'ai-website-chatbot'); ?></div>
+                                </div>
+                            </div>
+                            <p class="description" style="margin-top: 15px;">
+                                <?php _e('Consent statistics for the last 30 days.', 'ai-website-chatbot'); ?>
+                            </p>
+                            <?php
+                        }
+                        ?>
+                    </td>
+                </tr>
+
+                <tr class="gdpr-settings" <?php if (empty($settings['gdpr']['enabled'] ?? false)) echo 'style="display: none;"'; ?>>
+                    <th scope="row" colspan="2">
+                        <h3><?php _e('Revoke Consent Shortcode', 'ai-website-chatbot'); ?></h3>
+                        <p class="description">
+                            <?php _e('Add this shortcode to your privacy policy page to allow users to revoke their consent:', 'ai-website-chatbot'); ?>
+                        </p>
+                        <code style="display: block; background: #f0f0f0; padding: 10px; margin-top: 10px; border-radius: 4px;">
+                            [ai_chatbot_revoke_consent]
+                        </code>
+                        <p class="description" style="margin-top: 10px;">
+                            <?php _e('You can customize the button text:', 'ai-website-chatbot'); ?>
+                            <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">[ai_chatbot_revoke_consent text="Manage Cookie Preferences"]</code>
+                        </p>
+                    </th>
+                </tr>
             </table>
         </div>
         

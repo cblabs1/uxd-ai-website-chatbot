@@ -98,6 +98,9 @@ class AI_Chatbot {
         // Load analytics tracking
         require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot-analytics.php';
 
+        // Load gdpr consent manager
+        require_once AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chatbot-gdpr-consent.php';
+
         // Load AI provider classes
         require_once AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-provider-interface.php';
         require_once AI_CHATBOT_PLUGIN_DIR . 'includes/ai-providers/class-ai-chatbot-provider-base.php';
