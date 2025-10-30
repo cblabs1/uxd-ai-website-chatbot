@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
             <p class="hero-description">
                 <?php _e('Take your chatbot to the next level with powerful Pro features designed for businesses that demand more.', 'ai-website-chatbot'); ?>
             </p>
-            <a href="#" class="button button-primary button-hero"><?php _e('Upgrade to Pro', 'ai-website-chatbot'); ?></a>
+            <a href="https://uxdesignexperts.com/ai-chatbot/" class="button button-primary button-hero" target="_blank"><?php _e('Upgrade to Pro', 'ai-website-chatbot'); ?></a>
         </div>
     </div>
     
@@ -108,7 +108,7 @@ if (!defined('ABSPATH')) {
     <div class="pro-cta-section">
         <h2><?php _e('Ready to Upgrade?', 'ai-website-chatbot'); ?></h2>
         <p><?php _e('Join hundreds of businesses using Pro features to deliver exceptional customer experiences.', 'ai-website-chatbot'); ?></p>
-        <a href="#" class="button button-primary button-hero"><?php _e('Get Pro Now', 'ai-website-chatbot'); ?></a>
+        <a href="https://uxdesignexperts.com/ai-chatbot/" class="button button-primary button-hero" target="_blank"><?php _e('Get Pro Now', 'ai-website-chatbot'); ?></a>
     </div>
 </div>
 

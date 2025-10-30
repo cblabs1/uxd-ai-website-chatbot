@@ -158,7 +158,7 @@ $settings = wp_parse_args($all_settings, $default_settings);
                                 <?php _e('Replace the default "Powered by" text with your own branding.', 'ai-website-chatbot'); ?>
                                 <br>
                                 <strong><?php _e('This is a Pro feature.', 'ai-website-chatbot'); ?></strong>
-                                <a href="<?php echo admin_url('admin.php?page=ai-chatbot-pro-features'); ?>" class="button button-small">
+                                <a href="<?php echo admin_url('admin.php?page=ai-chatbot-license'); ?>" class="button button-small">
                                     <?php _e('Upgrade to Pro', 'ai-website-chatbot'); ?>
                                 </a>
                             <?php endif; ?>
@@ -429,15 +429,10 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     </div>
                     
                     <div class="pro-upgrade-actions">
-                        <a href="<?php echo esc_url(ai_chatbot_get_upgrade_url('audio_features')); ?>" 
-                        class="button button-primary button-hero">
-                            <?php _e('Upgrade to Pro', 'ai-website-chatbot'); ?>
-                        </a>
-                        
-                        <a href="https://uxdesignexperts.com/ai-chatbot" 
-                        class="button button-secondary button-hero" 
+                        <a href="<?php echo esc_url('https://uxdesignexperts.com/ai-chatbot'); ?>"
+                        class="button button-primary button-hero" 
                         target="_blank">
-                            <?php _e('Learn More', 'ai-website-chatbot'); ?>
+                            <?php _e('Upgrade to Pro', 'ai-website-chatbot'); ?>
                         </a>
                     </div>
                     
@@ -972,6 +967,27 @@ $settings = wp_parse_args($all_settings, $default_settings);
                     <td>
                         <textarea id="custom_css" name="ai_chatbot_settings[custom_css]" rows="10" cols="50" class="large-text code"><?php echo esc_textarea($settings['custom_css']); ?></textarea>
                         <p class="description"><?php _e('Add custom CSS to style the chatbot widget.', 'ai-website-chatbot'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="keep_data_on_uninstall">
+                            <?php _e('Keep Data on Uninstall', 'ai-website-chatbot'); ?>
+                        </label>
+                    </th>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" 
+                                id="keep_data_on_uninstall" 
+                                name="ai_chatbot_settings[ai_chatbot_keep_data_on_uninstall]" 
+                                value="1" <?php checked($settings['ai_chatbot_keep_data_on_uninstall'] ?? false); ?>
+                               >
+                            <span class="slider"></span>
+                        </label>
+                        <p class="description">
+                            <?php _e('If enabled, all plugin data (conversations, settings, training data) will be preserved when you uninstall the plugin.', 'ai-website-chatbot'); ?>
+                        </p>
                     </td>
                 </tr>
             </table>

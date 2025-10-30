@@ -410,6 +410,7 @@ class AI_Chatbot_Admin_Settings {
             case 'show_timestamp':
             case 'rate_limit_enabled':
             case 'gdpr_anonymize_data':
+            case 'ai_chatbot_keep_data_on_uninstall':
                 return !empty($value) ? 1 : 0;
                 
             // Numeric fields

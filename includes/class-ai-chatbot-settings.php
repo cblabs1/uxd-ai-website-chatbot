@@ -345,6 +345,7 @@ class AI_Chatbot_Settings {
             case 'offline_message':
             case 'system_prompt':
             case 'blocked_message':
+			
                 return sanitize_textarea_field($value);
                 
             // Boolean/checkbox fields
@@ -358,6 +359,7 @@ class AI_Chatbot_Settings {
             case 'show_timestamp':
             case 'rate_limit_enabled':
             case 'gdpr_anonymize_data':
+			case 'ai_chatbot_keep_data_on_uninstall':
                 return !empty($value) ? 1 : 0;
                 
             // Numeric fields

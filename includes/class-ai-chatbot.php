@@ -426,7 +426,7 @@ class AI_Chatbot {
             return ai_chatbot_get_upgrade_url($feature);
         }
         
-        return admin_url('admin.php?page=ai-chatbot-pricing');
+        return admin_url('admin.php?page=ai-chatbot-license');
     }
 
     /**

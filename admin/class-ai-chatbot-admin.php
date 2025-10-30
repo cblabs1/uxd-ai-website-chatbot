@@ -198,6 +198,15 @@ class AI_Chatbot_Admin {
                 'ai-chatbot-pro',
                 array($this, 'display_pro_features_page')
             );
+
+            add_submenu_page(
+                'ai-chatbot',
+                __('Activate License', 'ai-website-chatbot'),
+                __('Activate License', 'ai-website-chatbot'),
+                'manage_options',
+                'ai-chatbot-license',
+                array($this, 'display_pro_features_page')
+            );
         }
         
         // Help & Support (always visible)
